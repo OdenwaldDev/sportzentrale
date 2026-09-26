@@ -2100,7 +2100,7 @@ function openSlotPicker(i,depth){
 }
 
 /* ===== App-Modus: installierbar, offline-fest, aktualisiert sich selbst ===== */
-const APP_BUILD='beta-0.14', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
+const APP_BUILD='beta-0.15', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
 let _appPrompt=null, _appNew=null, _obT=null;
 function appStandalone(){ try{ return !!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
 function appPlatform(){
@@ -11574,7 +11574,22 @@ function impQuellstatus(q){ const s=q.quellstatus; if(!s)return '';
     ${rest!=null?`<div>${rest===0?'<span class="imp-okt">Alles übernommen</span>, was die Quelle bisher hat.':`Noch <b>${impN(rest)}</b> Änderungen offen, die nächsten Abgleiche holen sie.`}</div>`:''}
     ${s.anbieter||s.dataset_epoch?`<div class="imp-mute">Datenbasis: ${impE(s.anbieter==='supabase'?'Supabase':s.anbieter||'unbekannt')}${s.dataset_epoch?' · Epoche '+impE(String(s.dataset_epoch).slice(0,8)):''}</div>`:''}
     ${s.helfer&&s.helfer.zugeordnet!=null?`<div>Automatisch zugeordnet: <b>${impN(s.helfer.zugeordnet)}</b> Spieler der App${s.helfer.eigene?`, davon ${impN(s.helfer.eigene_zugeordnet)} von ${impN(s.helfer.eigene)} eigenen`:''}. Ihre Werte stehen im Profil, im MScore und in der Bestenliste.</div>`:''}
+    ${s.helfer&&s.helfer.pruefen!=null?`<div class="imp-abg">${s.helfer.von_hand?`Davon ${impN(s.helfer.von_hand)} von Hand bestätigt. `:''}${s.helfer.pruefen?`<b>${impN(s.helfer.pruefen)}</b> Spieler warten auf eine Entscheidung.`:'Nichts offen im Abgleich.'} <button type="button" class="btn sm ghost" id="impAbg">Spieler-Abgleich öffnen</button></div>`:''}
+    ${impSaisonZeile(s.saison)}
+    ${impApiZeile(s.api)}
+    ${impNachladen(s.nachladen)}
     ${impAbdeckung(s.abdeckung)}</div>${impModell(s.modell)}`; }
+function impSaisonZeile(z){ if(!z||!z.saison)return '';
+  const g={spielplan:'aus dem Spielplan der Ersten',einsaetze:'aus den Einsätzen',kalender:'nach dem Kalender'}[z.grund]||'';
+  return `<div>Laufende Saison laut FuPa: <b>${impE(impSaison(z.saison))}</b> <span class="imp-mute">(${impE(g)}${z.erstes_spiel?', erstes Spiel '+impZeit(z.erstes_spiel,true).split(',')[0]:''}). Stellt nach der Sommerpause von selbst um, sobald das erste Spiel der neuen Saison höchstens 14 Tage entfernt ist.</span></div>`; }
+function impApiZeile(a){ if(!a)return '';
+  if(!a.ok)return `<div class="imp-warn">Gegenprobe über die KLA-API mit dem Leseschlüssel fehlgeschlagen: ${impE(a.meldung||'unbekannt')}</div>`;
+  const r=a.rueckstand, gleich=a.epoche_gleich!==false;
+  return `<div>${gleich?'<span class="imp-okt">✓ Gegenprobe über die KLA-API mit dem Leseschlüssel</span>':'<span class="imp-warn">KLA-API meldet eine andere Datenbasis</span>'} <span class="imp-mute">(${impZeit(a.geprueft,true)}${a.head_seq!=null?', Stand '+impN(a.head_seq):''}${r?', Abstand '+impN(Math.abs(r))+' Änderungen, das holt der nächste Lauf':''})</span></div>`; }
+function impNachladen(n){ if(!n)return ''; const rel=['stats','standing','matches','match'];
+  const off=Object.entries(n.offen||{}).filter(([k,v])=>rel.includes(k)&&v>0);
+  if(!n.laeuft&&!off.length)return '';
+  return `<div>${n.laeuft?'Die Quelle lädt gerade nach':'Bei der Quelle noch offen'}${off.length?': '+off.map(([k,v])=>impN(v)+' '+impE(IMP_QKIND[k]||k)).join(', '):''}. <span class="imp-mute">Neues kommt automatisch mit dem nächsten stündlichen Abgleich.</span></div>`; }
 const IMP_QKIND={profile:'Profile',roster:'Kader',stats:'Statistik',standing:'Tabellen',matches:'Spielpläne',match:'Spielberichte',history:'Ligachronik'};
 function impAbdeckung(a){ if(!a)return '';
   const off=Object.entries(a.offen||{}).filter(([,n])=>n>0), feh=Object.entries(a.fehler||{}).filter(([,n])=>n>0);
@@ -11651,6 +11666,8 @@ function impCard(P){
     try{ const r=await impAufruf({aktion:'testlauf'}); await impLaden(); impCard(P); const m=P.querySelector('#impMsg'); if(m)m.textContent=impErgebnisText(r,true); }
     catch(x){ b.disabled=false; b.innerHTML=SVI('refresh')+' Testlauf mit Beispieldaten'; msg('⚠ '+impE(x.message||x)); }
     IMP.busy=false; };
+  { const ab=el.querySelector('#impAbg'); if(ab)ab.onclick=()=>{ if(typeof svAbgleich==='function')svAbgleich(); }; }
+  el.querySelectorAll('.imp-waechter .info').forEach(d=>{ if(/Spieler-Abgleich/.test(d.textContent)){ d.classList.add('imp-klick'); d.onclick=()=>{ if(typeof svAbgleich==='function')svAbgleich(); }; } });
   el.querySelectorAll('.imp-sync').forEach(b=>b.onclick=async()=>{ if(IMP.busy)return; IMP.busy=true; b.disabled=true; b.textContent='Gleicht ab …'; msg('Der Abgleich läuft, das kann bis zu zwei Minuten dauern.');
     try{ const r=await impAufruf({aktion:'abgleich',quelle:b.dataset.q}); await impLaden(); impCard(P); const m=P.querySelector('#impMsg'); if(m)m.textContent=impErgebnisText(r,false); }
     catch(x){ try{ await impLaden(); impCard(P); }catch(_){} const m=P.querySelector('#impMsg'); if(m)m.textContent='⚠ '+(x.message||x); }
@@ -11768,8 +11785,10 @@ async function svImportCard(P){ if(!P||typeof isAdmin!=='function'||!isAdmin())r
      · Profil: Tabelle „Zahlen von FuPa“ mit Herkunft
    Eigene übernommene Spiele (Training → Spiele) haben weiterhin Vorrang vor FuPa.
    ===================================================================== */
-const KLAW={geladen:false,by:{},stand:null,n:0};
-const KLAW_SAISON={cur:'2026-27','2627':'2026-27','2526':'2025-26','2425':'2024-25'};
+const KLAW={geladen:false,by:{},stand:null,n:0,saison:null};
+// Saisonkürzel der App ('2526') ↔ FuPa-Saison ('2025-26'). 'cur' ist die laufende Saison der App-Daten (DATA.season), damit alles zusammenpasst.
+function klaSk(sk){ if(sk==='cur')sk=(typeof DATA!=='undefined'&&DATA&&DATA.season)||'2627'; sk=String(sk||''); return /^\d{4}$/.test(sk)?'20'+sk.slice(0,2)+'-'+sk.slice(2):sk; }
+function klaVor(s){ const m=/^(\d{4})-\d{2}$/.exec(s||''); if(!m)return null; const y=+m[1]-1; return y+'-'+String((y+1)%100).padStart(2,'0'); }
 function klaSaisonKurz(s){ return String(s||'').replace(/^20(\d\d)-(\d\d)$/,'$1/$2'); }
 // Mehrere Mannschaften in einer Saison (Wechsel): Werte addieren, Liga/Mannschaft/MVP von der mit den meisten Minuten
 function klaZusammen(rows){ const n=v=>v==null?null:Number(v);
@@ -11780,9 +11799,12 @@ function klaZusammen(rows){ const n=v=>v==null?null:Number(v);
     url:haupt.source_url,geprueft:haupt.checked_at,zeilen:rows}; }
 async function svKlaLaden(){
   if(typeof canScout!=='function'||!canScout())return;
+  try{ const r=await SVB.sb.rpc('kla_saison'); if(!r.error&&r.data)KLAW.saison=r.data; }catch(e){}
+  // die letzten Saisons bis zur neuesten (FuPa oder App, je nachdem, was weiter ist)
+  const neu=[klaSk('cur'),KLAW.saison&&KLAW.saison.saison].filter(Boolean).sort().pop(), ss=[neu]; while(ss.length<4)ss.push(klaVor(ss[ss.length-1]));
   let all=[], von=0;
   for(let i=0;i<20;i++){ const {data,error}=await SVB.sb.from('import_spielerwerte').select('app_id,season,league,team_season_id,mannschaft,einsaetze,minuten,startelf,tore,vorlagen,gelb,gelbrot,rot,elf_der_woche,mvp,mvp_stand,source_url,checked_at')
-      .in('season',['2024-25','2025-26','2026-27']).order('app_id').order('season').order('team_season_id').range(von,von+999);
+      .in('season',ss.filter(Boolean)).order('app_id').order('season').order('team_season_id').range(von,von+999);
     if(error)return; all=all.concat(data||[]); if(!data||data.length<1000)break; von+=1000; }
   const g={}; all.forEach(r=>{ (g[r.app_id]=g[r.app_id]||{}); (g[r.app_id][r.season]=g[r.app_id][r.season]||[]).push(r); });
   const by={}; Object.keys(g).forEach(id=>{ by[id]={}; Object.keys(g[id]).forEach(s=>{ by[id][s]=klaZusammen(g[id][s]); }); });
@@ -11795,14 +11817,14 @@ async function svKlaLaden(){
 function klaAnwenden(){
   if(typeof players==='undefined')return;
   players.forEach(p=>{ const K=KLAW.by[p.id]; if(!K||p.isJugend)return;
-    const b=K['2025-26'];
+    const b=K[klaSk('2526')];
     if(b){ p.klaB=b; if(p.einsaetze==null&&b.einsaetze!=null)p.einsaetze=b.einsaetze; if(p.min==null&&b.minuten!=null)p.min=b.minuten; if(p.assists==null&&b.vorlagen!=null)p.assists=b.vorlagen; }
-    const v=K['2024-25']; if(v&&p.prev){ p.klaP=v; if(p.prev.spiele==null&&v.einsaetze!=null)p.prev.spiele=v.einsaetze; }
-    const c=K['2026-27']; if(c)p.klaC=c; });
+    const v=K[klaSk('2425')]; if(v&&p.prev){ p.klaP=v; if(p.prev.spiele==null&&v.einsaetze!=null)p.prev.spiele=v.einsaetze; }
+    const c=K[klaSk('cur')]; if(c)p.klaC=c; });
 }
 // MScore: laufende Saison (ohne eigene übernommene Spiele) mit echten FuPa-Einsätzen, Minuten und Vorlagen
 { const _s=sv94Seasons; sv94Seasons=function(p,r){ const S=_s.apply(this,arguments); const K=KLAW.by[p&&p.id]; if(!K)return S;
-  S.forEach(s=>{ const k=K[KLAW_SAISON[s.k==='cur'?'cur':s.sk]]; if(!k||s.app)return;
+  S.forEach(s=>{ const k=K[klaSk(s.k==='cur'?'cur':s.sk)]; if(!k||s.app)return;
     const tsp=s.teamSp||null;
     if(k.einsaetze!=null)s.sp=k.einsaetze;
     if(k.minuten!=null&&tsp){ s.q=Math.min(1,k.minuten/(tsp*90)); s.qF=null; }
@@ -11813,11 +11835,11 @@ function klaAnwenden(){
   return S; }; }
 // MVP: manuell in der App eingetragen hat Vorrang, sonst der Wert von FuPa (0 zählt nicht, zu wenig Minuten auch nicht)
 { const _m=mvpOf; mvpOf=function(p){ const m=_m(p); if(m&&m.src==='app')return m; const K=p&&KLAW.by[p.id]; if(!K)return m;
-  const cur=p.cur&&p.cur.spiele>0, pick=[cur?K['2026-27']:null,K['2025-26']].find(k=>k&&k.mvp>0&&(k.minuten==null||k.minuten>=270));
+  const cur=p.cur&&p.cur.spiele>0, pick=[cur?K[klaSk('cur')]:null,K[klaVor(klaSk('cur'))]].find(k=>k&&k.mvp>0&&(k.minuten==null||k.minuten>=270));
   if(!pick)return m; return {v:pick.mvp,d:pick.mvpStand||pick.geprueft||null,src:'fupa',saison:pick.season}; }; }
 // Bestenliste: laufende Saison mit FuPa-Einsätzen, falls keine eigenen Spiele übernommen sind
 { const _b=bl93Row; bl93Row=function(p,cfg){ const r=_b.apply(this,arguments); if(!r)return r;
-  const k=KLAW.by[p.id]&&KLAW.by[p.id][BL93.saison==='cur'?'2026-27':'2025-26']; if(!k||r.quelle==='eure Spiele')return r;
+  const k=KLAW.by[p.id]&&KLAW.by[p.id][klaSk(BL93.saison==='cur'?'cur':BL93.saison)]; if(!k||r.quelle==='eure Spiele')return r;
   if(k.einsaetze!=null)r.sp=k.einsaetze; if(k.minuten!=null)r.min=k.minuten;
   if(r.teamSp){ if(k.minuten!=null)r.q=Math.min(1,k.minuten/(r.teamSp*90)); else if(k.einsaetze!=null)r.q=Math.min(1,k.einsaetze/r.teamSp)*0.92; }
   if(k.vorlagen!=null)r.vor=k.vorlagen; r.est=false; r.quelle='FuPa';
@@ -11873,6 +11895,226 @@ if(typeof rdRender==='function'){ const _rd=rdRender; rdRender=function(){ const
   return r; }; }
 
 /* =====================================================================
+   Sportzentrale Beta 0.15 · Liga jetzt statt Liga der Vorsaison
+   p.liga ist die Liga der Vorsaison 25/26 (dazu gehören Tore, Platz und Einsätze 25/26) und bleibt so für den MScore.
+   Angezeigt und für die Wechselchance gerechnet wird ab jetzt die Liga der laufenden Saison:
+     1) eigene Spieldaten der laufenden Saison (p.cur)
+     2) Tabelle seines Vereins in der laufenden Saison
+     3) FuPa, laufende Saison (nur zugeordnete Spieler)
+   Gibt es nichts davon, steht „Stand 25/26“ dran, bei Platz 1 oder 2 der Vorsaison „vermutlich aufgestiegen“.
+   ===================================================================== */
+const SVL_FUPA={'herren-gruppenliga-darmstadt':'GL','herren-kreisoberliga-bergstrasse':'KOL','kla-bergstrasse':'A','klb-bergstrasse':'B','klc-bergstrasse':'C','kreisliga-d-1-bergstrasse':'D','kld2-bergstrasse':'D'};
+function svLigaCode(l){ l=String(l||''); return /^D\d$/.test(l)?'D':l; }
+function svLigaJetzt(p){
+  if(!p)return null;
+  const cs=(typeof DATA!=='undefined'&&DATA&&DATA.season)||'2627', alt=svLigaCode(p.liga);
+  if(p.isJugend)return {liga:alt,jetzt:true,quelle:'app',club:p.club};
+  if(p.cur&&p.cur.liga)return {liga:svLigaCode(p.cur.liga),jetzt:true,quelle:'spiele',club:p.cur.club||p.club,rank:p.cur.rank,teamCount:p.cur.teamCount};
+  const cl=typeof clubFor==='function'?clubFor(p.club):null, s=cl&&cl['s'+cs];
+  if(s&&s.liga)return {liga:svLigaCode(s.liga),jetzt:true,quelle:'verein',club:p.club,rank:s.platz};
+  const K=typeof KLAW!=='undefined'&&KLAW.by&&KLAW.by[p.id], k=K&&typeof klaSk==='function'&&K[klaSk('cur')];
+  if(k&&SVL_FUPA[k.league])return {liga:SVL_FUPA[k.league],jetzt:true,quelle:'fupa',club:k.mannschaft||p.club};
+  const s0=cl&&cl.s2526;
+  return {liga:alt,jetzt:false,quelle:'alt',club:p.club,auf:!!(s0&&s0.platz!=null&&s0.platz<=2&&alt!=='D')}; }
+function svLigaHinweis(L){ return L&&!L.jetzt?'Stand 25/26'+(L.auf?', vermutlich aufgestiegen':''):''; }
+function svLigaText(p){ const L=svLigaJetzt(p); if(!L)return ''; const n=(typeof LIGA_NAME!=='undefined'&&LIGA_NAME[L.liga])||L.liga||''; const h=svLigaHinweis(L); return h?n+' ('+h+')':n; }
+function svLigaZeile(p){ const L=svLigaJetzt(p); return (L&&L.club||p.club||'')+' · '+svLigaText(p); }
+
+// Wechselchance: mit der Liga (und dem Tabellenplatz) der laufenden Saison rechnen, den MScore aber unverändert lassen
+{ const _w=wscore; wscore=function(p){
+  if(!p||p.own)return _w.apply(this,arguments);
+  const L=svLigaJetzt(p);
+  if(!L||!L.jetzt||L.liga===svLigaCode(p.liga)&&L.rank==null){ const r=_w.apply(this,arguments);
+    if(r&&L&&!L.jetzt)r.f.forEach(x=>{ if(/Gruppenliga|Kreisoberliga|\(KOL\)|Kreisliga [BCD]/.test(x[1]))x[1]+=' ('+svLigaHinweis(L)+')'; });
+    return r; }
+  const q=Object.create(p); q.liga=L.liga; if(L.rank!=null){ q.rank=L.rank; if(L.teamCount)q.teamCount=L.teamCount; }
+  const s=scores(p), _s=scores; scores=function(x){ return x===q?s:_s.apply(this,arguments); };
+  try{ return _w.call(this,q); } finally{ scores=_s; } }; }
+
+// Startseite: Verein und Liga der laufenden Saison
+{ const _rhL=renderHome; renderHome=function(){ const r=_rhL.apply(this,arguments);
+  try{ document.querySelectorAll('#homeCrm .rankrow[data-id], #homeWechsel .rankrow[data-id]').forEach(row=>{ const p=players.find(x=>x.id===row.dataset.id); if(!p)return;
+    const i=row.querySelector('.rn i'); const alt=p.club+' · '+((typeof LIGA_NAME!=='undefined'&&LIGA_NAME[p.liga])||p.liga);
+    if(i&&i.textContent.trim()===alt)i.textContent=svLigaZeile(p); }); }catch(e){}
+  return r; }; }
+
+// Profil: Kopfzeile mit Liga und Platz der laufenden Saison
+{ const _omL=openModal; openModal=function(id){ const r=_omL.apply(this,arguments);
+  try{ const p=players.find(x=>x.id===id); const m=document.querySelector('#modal .msub'); if(p&&m&&!p.isJugend){
+      const L=svLigaJetzt(p), n=(typeof LIGA_NAME!=='undefined'&&LIGA_NAME[L.liga])||L.liga||'', h=svLigaHinweis(L);
+      const platz=L.jetzt?(L.rank!=null?' · Platz '+L.rank+(L.teamCount?'/'+L.teamCount:''):''):(p.rank!=null?' · Platz '+p.rank+'/'+p.teamCount+' in 25/26':'');
+      if(m.textContent.startsWith(p.club+' · '))m.textContent=(L.club||p.club)+' · '+n+(h?' ('+h+')':'')+platz+(p.km!=null?' · '+p.km+' km':''); } }catch(e){}
+  return r; }; }
+
+/* =====================================================================
+   Sportzentrale Beta 0.15 · Spieler-Abgleich (kleine App in der App)
+   Wo die automatische Zuordnung App-Spieler ↔ FuPa-Spieler unsicher ist, entscheidet ein Mensch, einmal und dauerhaft:
+     nach links wischen oder „Bestätigen“  = das ist er (gilt immer, hat Vorrang vor der Automatik)
+     nach rechts wischen oder „Ignorieren“ = das ist er nicht (das Paar kommt nie wieder)
+     bei „kein Treffer“: selbst suchen und „Das ist er“ tippen, oder nach rechts = für FuPa nicht relevant
+   Richtung wie beim Wischen in den Scouting-Listen: rechts = weg. Rückgängig ist jederzeit möglich.
+   Nur für Personen der sportlichen Planung (can_scout). Die FuPa-Daten bleiben intern.
+   ===================================================================== */
+const ABG={L:null,modus:'offen',spaeter:[],geaendert:false,undoT:null,fokus:null,suche:{q:'',r:null,t:0},busy:false};
+const ABG_ART={unsicher:'Unsicher',kein_treffer:'Kein Treffer',kontrolle:'Zur Kontrolle'};
+function abgE(s){ return typeof svEsc==='function'?svEsc(s):String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function abgSz(s){ return String(s||'').replace(/^20(\d\d)-(\d\d)$/,'$1/$2'); }
+function abgLiga(l){ return (typeof impLiga==='function')?impLiga(l):String(l||''); }
+function abgKey(k){ return k.app_id+'|'+k.fupa_id; }
+async function abgLaden(){ const {data,error}=await SVB.sb.rpc('import_abgleich_liste'); if(error)throw error; ABG.L=data||{karten:[],entschieden:[]}; }
+function abgAlle(){ return ((ABG.L&&ABG.L.karten)||[]); }
+function abgKarten(){ const K=abgAlle().filter(k=>ABG.modus==='kontrolle'?k.art==='kontrolle':k.art!=='kontrolle');
+  // Karte aus dem Profil zuerst, „Später“ ans Ende
+  const f=ABG.fokus, sp=ABG.spaeter;
+  return K.slice().sort((a,b)=>((f&&b.app_id===f)-(f&&a.app_id===f))||(sp.indexOf(abgKey(a))-sp.indexOf(abgKey(b)))); }
+function abgZahl(art){ return abgAlle().filter(k=>art==='kontrolle'?k.art==='kontrolle':k.art!=='kontrolle').length; }
+
+async function svAbgleich(appId){
+  if(typeof canScout!=='function'||!canScout())return;
+  let el=document.getElementById('abgApp');
+  if(!el){ el=document.createElement('div'); el.id='abgApp'; el.className='abg'; el.setAttribute('role','dialog'); el.setAttribute('aria-label','Spieler-Abgleich'); document.body.appendChild(el); }
+  el.hidden=false; document.body.classList.add('abg-offen');
+  ABG.spaeter=[]; ABG.fokus=appId||null; ABG.modus='offen'; ABG.suche={q:'',r:null,t:0};
+  el.innerHTML=`<div class="abg-top"><button class="abg-x" id="abgZu" aria-label="Schließen">✕</button><div><b>Spieler-Abgleich</b><small>App-Spieler und FuPa: stimmt das?</small></div></div><div class="abg-body"><p class="note">Lädt …</p></div>`;
+  el.querySelector('#abgZu').onclick=abgZu;
+  try{ await abgLaden();
+    if(appId&&!abgAlle().some(k=>k.app_id===appId)){ const r=await SVB.sb.rpc('import_abgleich_karte',{p_app:appId}); if(!r.error&&r.data){ ABG.L.karten.unshift(r.data); } }
+    if(appId){ const k=abgAlle().find(x=>x.app_id===appId); if(k)ABG.modus=k.art==='kontrolle'?'kontrolle':'offen'; }
+    else if(!abgZahl('offen')&&abgZahl('kontrolle'))ABG.modus='kontrolle';
+    abgRender();
+  }catch(e){ el.querySelector('.abg-body').innerHTML=`<p class="note">Der Abgleich konnte nicht geladen werden. Bitte später noch einmal versuchen.</p>`; }
+}
+function abgZu(){ const el=document.getElementById('abgApp'); if(el){ el.hidden=true; el.innerHTML=''; } document.body.classList.remove('abg-offen');
+  if(ABG.geaendert){ ABG.geaendert=false; try{ if(typeof svKlaLaden==='function')svKlaLaden(); }catch(e){} try{ const P=document.querySelector('#svImport')?.parentElement; if(P&&typeof svImportCard==='function')svImportCard(P); }catch(e){} try{ abgRadarHinweis(); }catch(e){} } }
+document.addEventListener('keydown',e=>{ const el=document.getElementById('abgApp'); if(!el||el.hidden)return;
+  if(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))return;
+  if(e.key==='Escape')abgZu(); else if(e.key==='ArrowLeft')abgAktion('bestaetigt'); else if(e.key==='ArrowRight')abgAktion('ignoriert'); });
+
+function abgSaisonen(f){ return (f&&f.saisons||[]).map(s=>`<li><b>${abgE(abgSz(s.saison))}</b> ${abgE(s.verein||s.mannschaft||'')}${s.mannschaft&&s.verein&&s.mannschaft!==s.verein?` <i>${abgE(s.mannschaft)}</i>`:''}<span>${abgE(abgLiga(s.liga))}${s.einsaetze!=null?' · '+s.einsaetze+' Einsätze':''}${s.tore!=null?', '+s.tore+' Tore':''}</span></li>`).join(''); }
+function abgKarteHtml(k){ const a=k.app||{}, f=k.fupa;
+  const appTeil=`<section class="abg-s"><small>In der App</small><b>${abgE(a.name||k.app_id)}</b><span>${abgE(a.verein||'')}${a.liga?' · '+abgE(a.liga):''}</span>${a.verein_vorher&&a.verein_vorher!==a.verein?`<span class="abg-m">vorher ${abgE(a.verein_vorher)}</span>`:''}
+      <div class="abg-bd">${a.eigene?'<em class="eig">Eigener Spieler</em>':''}${a.beobachtet?'<em>Beobachtet</em>':''}</div></section>`;
+  const fupaTeil=k.art==='kein_treffer'?`<section class="abg-s abg-such"><small>Bei FuPa suchen</small>
+      <input type="search" id="abgQ" placeholder="Name eintippen" autocomplete="off" value="${abgE(ABG.suche.q||(a.name||'').split(' ').slice(-1)[0])}" aria-label="FuPa-Spieler suchen">
+      <div id="abgTreffer" class="abg-tr"></div></section>`
+    :`<section class="abg-s"><small>Bei FuPa</small><b>${abgE(f&&f.name||'unbekannt')}</b><ul class="abg-sa">${abgSaisonen(f)}</ul>${f&&f.url?`<a href="${abgE(f.url)}" target="_blank" rel="noopener noreferrer">Seite bei FuPa</a>`:''}</section>`;
+  return `<div class="abg-k" id="abgK" data-art="${abgE(k.art)}"><div class="abg-lab l">✓ Bestätigen</div><div class="abg-lab r">${k.art==='kein_treffer'?'Nicht relevant':'✕ Ignorieren'}</div>
+    <div class="abg-kh"><span class="abg-tag ${abgE(k.art)}">${abgE(ABG_ART[k.art]||k.art)}</span>${(k.belege||[]).length?`<span class="abg-bl">${k.belege.map(b=>`<i>${abgE(b)}</i>`).join('')}</span>`:''}</div>
+    ${k.grund?`<p class="abg-g">${abgE(k.grund)}</p>`:''}
+    <div class="abg-cmp">${appTeil}<div class="abg-vs" aria-hidden="true">↔</div>${fupaTeil}</div></div>`; }
+
+function abgRender(){ const el=document.getElementById('abgApp'); if(!el||el.hidden)return; const B=el.querySelector('.abg-body'); if(!B)return;
+  const K=abgKarten(), k=K[0], no=abgZahl('offen'), nk=abgZahl('kontrolle'), ne=((ABG.L&&ABG.L.entschieden)||[]).length;
+  const seg=`<div class="seg4 sm abg-seg"><button type="button" data-m="offen" class="${ABG.modus==='offen'?'on':''}">Offen <b>${no}</b></button><button type="button" data-m="kontrolle" class="${ABG.modus==='kontrolle'?'on':''}">Kontrolle <b>${nk}</b></button><button type="button" data-m="entschieden" class="${ABG.modus==='entschieden'?'on':''}">Entschieden <b>${ne}</b></button></div>`;
+  let h;
+  if(ABG.modus==='entschieden'){
+    const L=(ABG.L&&ABG.L.entschieden)||[];
+    h=L.length?`<ul class="abg-ent">${L.map((x,i)=>`<li><div><b>${abgE(x.app_name||x.app_id)}</b><span>${x.entscheid==='bestaetigt'?'✓ bestätigt: '+abgE(x.fupa_name||('FuPa '+x.fupa_id)):x.fupa_id>0?'✕ nicht '+abgE(x.fupa_name||('FuPa '+x.fupa_id)):'✕ für FuPa nicht relevant'}</span><small>${x.am?new Date(x.am).toLocaleDateString('de-DE'):''}${x.von?' · '+abgE(x.von):''}</small></div><button class="btn sm ghost" data-undo="${i}">Zurücknehmen</button></li>`).join('')}</ul>`
+      :'<p class="note abg-leer">Noch nichts entschieden.</p>';
+  }else if(!k){
+    h=`<div class="abg-fertig"><div class="abg-ok">✓</div><b>${ABG.modus==='kontrolle'?'Alles kontrolliert.':'Alles abgeglichen.'}</b><p class="note">${ABG.modus==='kontrolle'?'Jede automatische Zuordnung eurer Spieler ist bestätigt oder entschieden.':'Nach jedem stündlichen Abgleich kommen neue unsichere Fälle von selbst hierher.'}</p>${ABG.modus==='offen'&&nk?`<button class="btn sm" data-m="kontrolle">Automatische Zuordnungen kontrollieren (${nk})</button>`:''}</div>`;
+  }else{
+    const rest=K.length-1;
+    h=`<div class="abg-stapel">${rest>0?'<div class="abg-hinter"></div>':''}${abgKarteHtml(k)}</div>
+      <div class="abg-knoepfe"><button class="btn ghost abg-nein" id="abgNein">${k.art==='kein_treffer'?'Nicht relevant':'✕ Ignorieren'}</button><button class="btn ghost sm" id="abgSp">Später</button>${k.art==='kein_treffer'?'':'<button class="btn abg-ja" id="abgJa">✓ Bestätigen</button>'}</div>
+      <p class="abg-tipp">${k.art==='kein_treffer'?'Nach rechts wischen blendet ihn für FuPa aus.':'Nach links wischen: bestätigen · nach rechts: ignorieren'} · noch ${rest} danach</p>`;
+  }
+  B.innerHTML=seg+`<p class="abg-msg" id="abgMsg" role="status"></p>`+h;
+  B.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ ABG.modus=b.dataset.m; ABG.suche={q:'',r:null,t:0}; abgRender(); });
+  B.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>abgZuruecknehmen((ABG.L.entschieden||[])[+b.dataset.undo]));
+  const ja=B.querySelector('#abgJa'), nein=B.querySelector('#abgNein'), sp=B.querySelector('#abgSp');
+  if(ja)ja.onclick=()=>abgAktion('bestaetigt'); if(nein)nein.onclick=()=>abgAktion('ignoriert');
+  if(sp)sp.onclick=()=>{ const kk=abgKarten()[0]; if(!kk)return; ABG.spaeter=ABG.spaeter.filter(x=>x!==abgKey(kk)).concat(abgKey(kk)); if(ABG.fokus===kk.app_id)ABG.fokus=null; ABG.suche={q:'',r:null,t:0}; abgRender(); };
+  const kEl=B.querySelector('#abgK'); if(kEl)abgWischen(kEl,k);
+  const q=B.querySelector('#abgQ'); if(q){ q.oninput=()=>abgSuchen(q.value); abgSuchen(q.value,true); }
+}
+
+// Suche bei „kein Treffer“
+async function abgSuchen(v,sofort){ ABG.suche.q=v; const t=++ABG.suche.t;
+  if(!sofort)await new Promise(r=>setTimeout(r,280)); if(t!==ABG.suche.t)return;
+  const T=document.getElementById('abgTreffer'); if(!T)return;
+  if(String(v||'').trim().length<3){ T.innerHTML='<p class="abg-m">Mindestens 3 Buchstaben.</p>'; return; }
+  T.innerHTML='<p class="abg-m">Sucht …</p>';
+  let L=[]; try{ const r=await SVB.sb.rpc('import_fupa_suche',{p_q:v}); L=r.error?[]:(r.data||[]); }catch(e){}
+  if(t!==ABG.suche.t||!document.getElementById('abgTreffer'))return;
+  const byId=new Map((typeof players!=='undefined'?players:[]).map(p=>[p.id,p]));
+  T.innerHTML=L.length?L.map((f,i)=>`<div class="abg-ti"><div><b>${abgE(f.name)}</b><ul class="abg-sa">${abgSaisonen({saisons:(f.saisons||[]).slice(0,2)})}</ul>${f.app_id?`<span class="abg-m">schon verbunden mit ${abgE((byId.get(f.app_id)||{}).name||f.app_id)}</span>`:''}</div><button class="btn sm" data-f="${i}">Das ist er</button></div>`).join('')
+    :'<p class="abg-m">Kein FuPa-Spieler mit diesem Namen in den freigegebenen Ligen.</p>';
+  T.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>abgAktion('bestaetigt',L[+b.dataset.f]));
+}
+
+// Wischen: links = bestätigen, rechts = ignorieren
+function abgWischen(el,k){ let S=null;
+  const darfL=k.art!=='kein_treffer';
+  el.addEventListener('pointerdown',e=>{ if(e.button>0||e.target.closest('input,button,a,select,textarea'))return; S={x:e.clientX,y:e.clientY,dx:0,achse:null,t:performance.now(),id:e.pointerId}; });
+  el.addEventListener('pointermove',e=>{ if(!S||e.pointerId!==S.id)return; const dx=e.clientX-S.x, dy=e.clientY-S.y;
+    if(!S.achse){ if(Math.abs(dx)<8&&Math.abs(dy)<8)return; S.achse=Math.abs(dx)>Math.abs(dy)*1.2?'x':'y'; if(S.achse==='x'){ try{ el.setPointerCapture(e.pointerId); }catch(x){} el.classList.add('zieht'); } }
+    if(S.achse!=='x')return; e.preventDefault();
+    let d=dx; if(d<0&&!darfL)d*=0.2; S.dx=d;
+    el.style.transform=`translate3d(${d}px,0,0) rotate(${d/24}deg)`;
+    el.querySelector('.abg-lab.l').style.opacity=Math.min(1,Math.max(0,-d/110)); el.querySelector('.abg-lab.r').style.opacity=Math.min(1,Math.max(0,d/110)); });
+  const ende=e=>{ if(!S)return; const s=S; S=null; el.classList.remove('zieht'); if(s.achse!=='x')return;
+    const W=el.offsetWidth||320, v=Math.abs(s.dx)/Math.max(1,performance.now()-s.t), weit=Math.abs(s.dx)>W*0.3||(v>0.6&&Math.abs(s.dx)>60);
+    if(weit&&s.dx<0&&darfL)return abgAktion('bestaetigt');
+    if(weit&&s.dx>0)return abgAktion('ignoriert');
+    el.style.transition='transform .25s ease'; el.style.transform=''; el.querySelectorAll('.abg-lab').forEach(x=>x.style.opacity=0); setTimeout(()=>{ el.style.transition=''; },260); };
+  el.addEventListener('pointerup',ende); el.addEventListener('pointercancel',ende);
+}
+
+async function abgAktion(entscheid,gewaehlt){ if(ABG.busy||ABG.modus==='entschieden')return; const k=abgKarten()[0]; if(!k)return;
+  if(entscheid==='bestaetigt'&&k.art==='kein_treffer'&&!gewaehlt)return;
+  const fupaId=gewaehlt?gewaehlt.id:k.fupa_id, el=document.getElementById('abgK');
+  ABG.busy=true;
+  if(el){ el.style.transition='transform .28s ease, opacity .28s ease'; el.style.transform=`translate3d(${entscheid==='bestaetigt'?'-':''}130%,0,0) rotate(${entscheid==='bestaetigt'?-12:12}deg)`; el.style.opacity='0'; }
+  try{
+    const {data,error}=await SVB.sb.rpc('import_abgleich_entscheiden',{p_app:k.app_id,p_fupa:fupaId,p_entscheid:entscheid});
+    if(error||!data||!data.ok)throw error||new Error('fehlgeschlagen');
+    ABG.geaendert=true;
+    const L=ABG.L; L.karten=L.karten.filter(x=>!(x.app_id===k.app_id&&(entscheid==='bestaetigt'||fupaId===0||x.fupa_id===fupaId)));
+    const fn=gewaehlt?gewaehlt.name:(k.fupa&&k.fupa.name);
+    L.entschieden=[{app_id:k.app_id,fupa_id:fupaId,entscheid,am:new Date().toISOString(),app_name:k.app&&k.app.name,fupa_name:fn,von:null}].concat((L.entschieden||[]).filter(x=>!(x.app_id===k.app_id&&x.fupa_id===fupaId)));
+    if(ABG.fokus===k.app_id)ABG.fokus=null; ABG.suche={q:'',r:null,t:0};
+    ABG.busy=false; abgRender();
+    abgToast(entscheid==='bestaetigt'?`✓ ${k.app&&k.app.name||''} ist ${fn||'der FuPa-Spieler'}. Seine Werte sind schon da.`:fupaId===0?`${k.app&&k.app.name||''} ist für FuPa ausgeblendet.`:`${k.app&&k.app.name||''} ist nicht ${fn||'dieser FuPa-Spieler'}. Das Paar kommt nicht wieder.`,{app_id:k.app_id,fupa_id:fupaId});
+  }catch(e){ ABG.busy=false; abgRender(); const m=document.getElementById('abgMsg'); if(m)m.textContent='Das hat nicht geklappt. Bitte noch einmal versuchen.'; }
+}
+function abgToast(text,x){ let t=document.getElementById('abgToast'); const app=document.getElementById('abgApp'); if(!app)return;
+  if(!t){ t=document.createElement('div'); t.id='abgToast'; t.className='abg-toast'; app.appendChild(t); }
+  t.innerHTML=`<span>${abgE(text)}</span>${x?'<button type="button" id="abgUndo">Rückgängig</button>':''}`; t.hidden=false;
+  const u=t.querySelector('#abgUndo'); if(u)u.onclick=()=>{ t.hidden=true; abgZuruecknehmen(x); };
+  clearTimeout(ABG.undoT); ABG.undoT=setTimeout(()=>{ t.hidden=true; },7000); }
+async function abgZuruecknehmen(x){ if(!x||ABG.busy)return; ABG.busy=true; const m=document.getElementById('abgMsg'); if(m)m.textContent='Nimmt zurück …';
+  try{ const {error}=await SVB.sb.rpc('import_abgleich_zuruecknehmen',{p_app:x.app_id,p_fupa:x.fupa_id}); if(error)throw error;
+    ABG.geaendert=true; await abgLaden(); ABG.busy=false; abgRender(); const m2=document.getElementById('abgMsg'); if(m2)m2.textContent='Zurückgenommen. Die Automatik rechnet diesen Spieler neu.'; }
+  catch(e){ ABG.busy=false; const m2=document.getElementById('abgMsg'); if(m2)m2.textContent='Zurücknehmen hat nicht geklappt. Bitte noch einmal versuchen.'; } }
+
+/* ---------- Einstiege ---------- */
+// Radar: Hinweis, wenn Spieler auf den Abgleich warten. Die Zahl wird einmal nach der Anmeldung und nach dem Abgleich geholt,
+// das Radar selbst fragt nichts ab (kein Umbau der Liste beim Wischen).
+ABG.n=0;
+async function abgZahlLaden(){ if(typeof canScout!=='function'||!canScout())return;
+  try{ const r=await SVB.sb.from('import_pruefung').select('app_id',{count:'exact',head:true}).neq('art','kontrolle'); ABG.n=r.error?0:(r.count||0); }catch(e){ ABG.n=0; }
+  abgRadarZeigen(); }
+function abgRadarZeigen(){ const P=document.getElementById('panel-radar'); if(!P)return; const alt=P.querySelector('#abgRadar');
+  if(!ABG.n){ if(alt)alt.remove(); return; }
+  const txt=`${ABG.n} Spieler warten auf den Abgleich mit FuPa`; if(alt&&alt.dataset.n===String(ABG.n)&&alt.isConnected)return;
+  if(alt)alt.remove();
+  const el=document.createElement('div'); el.className='card abg-rad'; el.id='abgRadar'; el.dataset.n=String(ABG.n);
+  el.innerHTML=`<div><b>${txt}</b><span>Einmal kurz wischen: bestätigen oder ignorieren. Dann stimmen Profil, MScore und Bestenliste.</span></div><button class="btn sm">Abgleichen</button>`;
+  el.querySelector('button').onclick=()=>svAbgleich();
+  const rd=P.querySelector('.rd4'); if(rd)rd.after(el); else P.prepend(el); }
+function abgRadarHinweis(){ return abgZahlLaden(); }
+if(typeof rdRender==='function'){ const _rdA=rdRender; rdRender=function(){ const r=_rdA.apply(this,arguments); if(ABG.n)try{ abgRadarZeigen(); }catch(e){} return r; }; }
+{ let t=0; const iv=setInterval(()=>{ if(++t>240)return clearInterval(iv); if(typeof SVU!=='undefined'&&SVU&&SVU.role&&typeof _remoteDone!=='undefined'&&_remoteDone){ clearInterval(iv); abgZahlLaden().catch(()=>{}); } },500); }
+// Profil: Zuordnung prüfen oder selbst zuordnen
+if(typeof klaProfilHtml==='function'){ const _kp=klaProfilHtml; klaProfilHtml=function(p){ let h=_kp.apply(this,arguments);
+  if(!p||typeof canScout!=='function'||!canScout()||p.isJugend)return h;
+  const btn=`<button type="button" class="btn sm ghost abg-pf" data-abg="${abgE(p.id)}">${h?'Zuordnung prüfen':'FuPa-Spieler zuordnen'}</button>`;
+  if(h)return h.replace(/<\/div>\s*$/,btn+'</div>');
+  return (p.own&&typeof KLAW!=='undefined'&&KLAW.geladen)?`<div class="kla-pf"><div class="m94-h">Zahlen von FuPa</div><p class="note small">Noch kein FuPa-Spieler zugeordnet.</p>${btn}</div>`:h; }; }
+document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('[data-abg]'); if(!b)return; e.preventDefault(); e.stopPropagation(); svAbgleich(b.dataset.abg); },true);
+
+/* =====================================================================
    SV/BSC Scout · Runde 20: „Was ist neu“: Update-Fenster & Patch-Historie
    - Nach jedem Update ein Pop-up: das Wichtigste in Kürze → „OK“ oder „Mehr erfahren“ (ganze Historie)
    - Jederzeit erreichbar: Seitenleiste / „Mehr“ / Mein Konto → „Was ist neu“
@@ -11881,6 +12123,14 @@ if(typeof rdRender==='function'){ const _rd=rdRender; rdRender=function(){ const
    Sichtbarkeit je Punkt: r:'team' (ohne Gäste) · r:'scout' · r:'admin' · ohne r = alle
    ===================================================================== */
 const SV_PATCHES=[
+  {id:'0.15',v:'0.15',datum:'2026-09-26',titel:'Spieler-Abgleich zum Wischen',kurz:'Wo die App nicht sicher ist, welcher FuPa-Spieler zu welchem Spieler gehört, entscheidest du jetzt mit einem Wisch. Einmal, dann gilt es dauerhaft.',
+   punkte:[
+    {ic:'👈',t:'Nach links: bestätigen',d:'Stimmt der Vorschlag, nach links wischen oder „Bestätigen“ tippen. Die Werte stehen sofort im Profil, im MScore und in der Bestenliste und bleiben so, auch nach jedem neuen Abgleich.',r:'scout',go:'radar'},
+    {ic:'👉',t:'Nach rechts: ignorieren',d:'Ist es ein anderer Spieler, nach rechts wischen. Das Paar kommt nie wieder. Findet die App gar nichts, suchst du den Spieler selbst oder blendest ihn für FuPa aus. Alles lässt sich zurücknehmen.',r:'scout'},
+    {ic:'📍',t:'Aktuelle Liga statt Vorjahr',d:'Startseite, Profil und Wechselchance zeigen jetzt die Liga der laufenden Saison. Wo es noch keine aktuellen Daten gibt, steht „Stand 25/26“ dran, bei Platz 1 oder 2 mit „vermutlich aufgestiegen“.',r:'scout'},
+    {ic:'🗓️',t:'Neue Saison stellt sich selbst um',d:'Nach der Sommerpause erkennt die App die neue Saison am Spielplan, sobald das erste Spiel höchstens 14 Tage entfernt ist. Radar, Beobachtungen und Spieltag zählen dann automatisch die neue Saison.',r:'scout'},
+    {ic:'🔑',t:'Gegenprobe mit dem Leseschlüssel',d:'Jeder Abgleich prüft über die KLA-API, ob Schlüssel, Datenbasis und Stand passen, und zeigt, ob die Quelle gerade noch nachlädt.',r:'admin'},
+   ]},
   {id:'0.14',v:'0.14',datum:'2026-09-26',titel:'Zahlen von FuPa, automatisch',kurz:'Einsätze, Minuten, Tore, Vorlagen und der MVP von FuPa kommen jetzt von selbst in die App. Nichts muss eingetippt oder bestätigt werden.',
    punkte:[
     {ic:'📊',t:'Zahlen im Spielerprofil',d:'Im Profil steht jetzt „Zahlen von FuPa“ je Saison. Der MVP von FuPa fließt automatisch in den MScore, ein von Hand eingetragener Wert hat weiter Vorrang.',r:'scout'},
