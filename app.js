@@ -2100,7 +2100,7 @@ function openSlotPicker(i,depth){
 }
 
 /* ===== App-Modus: installierbar, offline-fest, aktualisiert sich selbst ===== */
-const APP_BUILD='beta-0.15', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
+const APP_BUILD='beta-0.16', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
 let _appPrompt=null, _appNew=null, _obT=null;
 function appStandalone(){ try{ return !!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
 function appPlatform(){
@@ -11895,21 +11895,43 @@ if(typeof rdRender==='function'){ const _rd=rdRender; rdRender=function(){ const
   return r; }; }
 
 /* =====================================================================
-   Sportzentrale Beta 0.15 · Liga jetzt statt Liga der Vorsaison
-   p.liga ist die Liga der Vorsaison 25/26 (dazu gehören Tore, Platz und Einsätze 25/26) und bleibt so für den MScore.
-   Angezeigt und für die Wechselchance gerechnet wird ab jetzt die Liga der laufenden Saison:
-     1) eigene Spieldaten der laufenden Saison (p.cur)
-     2) Tabelle seines Vereins in der laufenden Saison
-     3) FuPa, laufende Saison (nur zugeordnete Spieler)
+   Sportzentrale Beta 0.16 · Liga jetzt statt Liga der Vorsaison
+   p.liga ist in der App die Liga der Vorsaison 25/26 (dazu gehören Tore, Platz und Einsätze 25/26) und bleibt so für den MScore.
+   Seit der Saisonkorrektur im Datenbestand können Hauptfelder (liga, sub) schon die aktuelle Liga tragen; die alte Einordnung
+   steht dann in historical_classification_before_fix. Die App liest beides saisonrichtig:
+     Vorsaison  = historical_classification_before_fix (Saison 2025-26), sonst liga/sub
+     laufend    = 1) eigene Spieldaten der laufenden Saison (p.cur)  2) Tabelle seines Vereins  3) FuPa, laufende Saison
    Gibt es nichts davon, steht „Stand 25/26“ dran, bei Platz 1 oder 2 der Vorsaison „vermutlich aufgestiegen“.
+   Verbandsliga (VL) ist eine eigene Liga. Der Ligafilter der Suche nutzt die aktuelle Liga, damit niemand über den Filter
+   eine alte Liga behält.
    ===================================================================== */
+try{ if(typeof LIGA_NAME!=='undefined'&&!LIGA_NAME.VL)LIGA_NAME.VL='Verbandsliga'; if(typeof LIGA_W!=='undefined'&&LIGA_W.VL==null)LIGA_W.VL=1.9; if(typeof SV4_LVL!=='undefined'&&SV4_LVL.VL==null)SV4_LVL.VL=115; }catch(e){}
 const SVL_FUPA={'herren-gruppenliga-darmstadt':'GL','herren-kreisoberliga-bergstrasse':'KOL','kla-bergstrasse':'A','klb-bergstrasse':'B','klc-bergstrasse':'C','kreisliga-d-1-bergstrasse':'D','kld2-bergstrasse':'D'};
 function svLigaCode(l){ l=String(l||''); return /^D\d$/.test(l)?'D':l; }
+function svSaisonCur(){ const s=(typeof DATA!=='undefined'&&DATA&&DATA.season)||'2627'; return '20'+s.slice(0,2)+'-'+s.slice(2); }
+
+// Datenbestand saisonrichtig lesen: stehen in liga/sub schon aktuelle Werte, zurück auf die Vorsaison, die aktuelle Liga nach cur
+function svLigaNorm(p){
+  const h=p&&p.historical_classification_before_fix; if(!h||h.season!=='2025-26'||!h.liga)return;
+  if(p.__vs&&p.liga===p.__vs.liga&&p.sub===p.__vs.sub)return;   // schon saisonrichtig
+  const jetzt=p.liga, sjetzt=p.sub, cjetzt=p.club, quelle=p.currentClassificationSource||{};
+  if(jetzt&&jetzt!==h.liga&&(!quelle.season||quelle.season===svSaisonCur())){
+    p.cur=Object.assign({}, p.cur||{});
+    if(!p.cur.liga){ p.cur.liga=jetzt; if(sjetzt&&!p.cur.sub)p.cur.sub=sjetzt; }
+    if(!p.cur.club)p.cur.club=cjetzt;
+  }
+  p.liga=h.liga; p.sub=h.sub!=null?h.sub:null; if(h.club)p.club=h.club;
+  p.__vs={liga:p.liga,sub:p.sub};
+}
+function svLigaNormAlle(){ try{ if(typeof players!=='undefined')players.forEach(svLigaNorm); }catch(e){} }
+svLigaNormAlle();
+
 function svLigaJetzt(p){
   if(!p)return null;
-  const cs=(typeof DATA!=='undefined'&&DATA&&DATA.season)||'2627', alt=svLigaCode(p.liga);
+  const alt=svLigaCode(p.liga);
   if(p.isJugend)return {liga:alt,jetzt:true,quelle:'app',club:p.club};
   if(p.cur&&p.cur.liga)return {liga:svLigaCode(p.cur.liga),jetzt:true,quelle:'spiele',club:p.cur.club||p.club,rank:p.cur.rank,teamCount:p.cur.teamCount};
+  const cs=(typeof DATA!=='undefined'&&DATA&&DATA.season)||'2627';
   const cl=typeof clubFor==='function'?clubFor(p.club):null, s=cl&&cl['s'+cs];
   if(s&&s.liga)return {liga:svLigaCode(s.liga),jetzt:true,quelle:'verein',club:p.club,rank:s.platz};
   const K=typeof KLAW!=='undefined'&&KLAW.by&&KLAW.by[p.id], k=K&&typeof klaSk==='function'&&K[klaSk('cur')];
@@ -11917,33 +11939,47 @@ function svLigaJetzt(p){
   const s0=cl&&cl.s2526;
   return {liga:alt,jetzt:false,quelle:'alt',club:p.club,auf:!!(s0&&s0.platz!=null&&s0.platz<=2&&alt!=='D')}; }
 function svLigaHinweis(L){ return L&&!L.jetzt?'Stand 25/26'+(L.auf?', vermutlich aufgestiegen':''):''; }
-function svLigaText(p){ const L=svLigaJetzt(p); if(!L)return ''; const n=(typeof LIGA_NAME!=='undefined'&&LIGA_NAME[L.liga])||L.liga||''; const h=svLigaHinweis(L); return h?n+' ('+h+')':n; }
+function svLigaName(l){ return (typeof LIGA_NAME!=='undefined'&&LIGA_NAME[l])||l||'unbekannt'; }
+function svLigaText(p){ const L=svLigaJetzt(p); if(!L)return ''; const h=svLigaHinweis(L); return h?svLigaName(L.liga)+' ('+h+')':svLigaName(L.liga); }
 function svLigaZeile(p){ const L=svLigaJetzt(p); return (L&&L.club||p.club||'')+' · '+svLigaText(p); }
 
-// Wechselchance: mit der Liga (und dem Tabellenplatz) der laufenden Saison rechnen, den MScore aber unverändert lassen
+// Wechselchance: Liga und Tabellenplatz der laufenden Saison; Gründe aus der Vorsaison sind als 25/26 gekennzeichnet. MScore bleibt unverändert.
+const SVL_VS=/Spielzeit|Teamspielen|Teamtore|Torschützenkönig/;
 { const _w=wscore; wscore=function(p){
   if(!p||p.own)return _w.apply(this,arguments);
   const L=svLigaJetzt(p);
-  if(!L||!L.jetzt||L.liga===svLigaCode(p.liga)&&L.rank==null){ const r=_w.apply(this,arguments);
-    if(r&&L&&!L.jetzt)r.f.forEach(x=>{ if(/Gruppenliga|Kreisoberliga|\(KOL\)|Kreisliga [BCD]/.test(x[1]))x[1]+=' ('+svLigaHinweis(L)+')'; });
+  if(!L||!L.jetzt){ const r=_w.apply(this,arguments);
+    if(r&&L)r.f.forEach(x=>{ if(/Gruppenliga|Kreisoberliga|\(KOL\)|Kreisliga [BCD]/.test(x[1]))x[1]+=' ('+svLigaHinweis(L)+')'; });
     return r; }
-  const q=Object.create(p); q.liga=L.liga; if(L.rank!=null){ q.rank=L.rank; if(L.teamCount)q.teamCount=L.teamCount; }
+  const q=Object.create(p); q.liga=L.liga; q.rank=L.rank!=null?L.rank:null; q.teamCount=L.rank!=null?(L.teamCount||p.teamCount):null;
   const s=scores(p), _s=scores; scores=function(x){ return x===q?s:_s.apply(this,arguments); };
-  try{ return _w.call(this,q); } finally{ scores=_s; } }; }
+  let r; try{ r=_w.call(this,q); } finally{ scores=_s; }
+  if(!r)return r;
+  if(L.liga==='VL'){   // die Grundrechnung kennt die Verbandsliga nicht: drei Ligen über uns
+    const low=(p.min&&p.teamSp&&p.min/(p.teamSp*90)<0.45)||(!p.min&&p.einsaetze&&p.teamSp&&p.einsaetze/p.teamSp<0.6);
+    const v=low?-10:-32; r.f.push([v,low?'Kickt drei Ligen höher (Verbandsliga), dort aber meist draußen. Für garantierte Spielzeit ansprechbar':'Verbandsliga (3 Ligen über uns). Wechsel in die A-Klasse sehr unwahrscheinlich']);
+    r.w=Math.max(3,Math.min(97,Math.round(r.w+v))); r.k=Math.round((s.total*0.55+r.w*0.45)*10)/10; r.f.sort((a,b)=>Math.abs(b[0])-Math.abs(a[0])); }
+  r.f.forEach(x=>{ if(SVL_VS.test(x[1])&&!/25\/26/.test(x[1]))x[1]+=' (25/26)'; });
+  return r; }; }
+
+// Suche: der Ligafilter nutzt die aktuelle Liga (nicht die der Vorsaison)
+if(typeof visible==='function'){ const _vL=visible; visible=function(){
+  const alt=[]; try{ players.forEach(p=>{ if(p.isJugend)return; const L=svLigaJetzt(p); if(L&&L.jetzt&&L.liga!==p.liga){ alt.push([p,p.liga]); p.liga=L.liga; } }); }catch(e){}
+  try{ return _vL.apply(this,arguments); } finally{ alt.forEach(([p,l])=>{ p.liga=l; }); } }; }
 
 // Startseite: Verein und Liga der laufenden Saison
 { const _rhL=renderHome; renderHome=function(){ const r=_rhL.apply(this,arguments);
   try{ document.querySelectorAll('#homeCrm .rankrow[data-id], #homeWechsel .rankrow[data-id]').forEach(row=>{ const p=players.find(x=>x.id===row.dataset.id); if(!p)return;
     const i=row.querySelector('.rn i'); const alt=p.club+' · '+((typeof LIGA_NAME!=='undefined'&&LIGA_NAME[p.liga])||p.liga);
-    if(i&&i.textContent.trim()===alt)i.textContent=svLigaZeile(p); }); }catch(e){}
+    if(i&&i.textContent.trim()===alt){ i.textContent=svLigaZeile(p); i.dataset.liga='jetzt'; } }); }catch(e){}
   return r; }; }
 
 // Profil: Kopfzeile mit Liga und Platz der laufenden Saison
 { const _omL=openModal; openModal=function(id){ const r=_omL.apply(this,arguments);
   try{ const p=players.find(x=>x.id===id); const m=document.querySelector('#modal .msub'); if(p&&m&&!p.isJugend){
-      const L=svLigaJetzt(p), n=(typeof LIGA_NAME!=='undefined'&&LIGA_NAME[L.liga])||L.liga||'', h=svLigaHinweis(L);
+      const L=svLigaJetzt(p), h=svLigaHinweis(L);
       const platz=L.jetzt?(L.rank!=null?' · Platz '+L.rank+(L.teamCount?'/'+L.teamCount:''):''):(p.rank!=null?' · Platz '+p.rank+'/'+p.teamCount+' in 25/26':'');
-      if(m.textContent.startsWith(p.club+' · '))m.textContent=(L.club||p.club)+' · '+n+(h?' ('+h+')':'')+platz+(p.km!=null?' · '+p.km+' km':''); } }catch(e){}
+      if(m.textContent.startsWith(p.club+' · '))m.textContent=(L.club||p.club)+' · '+svLigaName(L.liga)+(h?' ('+h+')':'')+platz+(p.km!=null?' · '+p.km+' km':''); } }catch(e){}
   return r; }; }
 
 /* =====================================================================
@@ -12115,6 +12151,85 @@ if(typeof klaProfilHtml==='function'){ const _kp=klaProfilHtml; klaProfilHtml=fu
 document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('[data-abg]'); if(!b)return; e.preventDefault(); e.stopPropagation(); svAbgleich(b.dataset.abg); },true);
 
 /* =====================================================================
+   Sportzentrale Beta 0.16 · Live-Aktualisierung (Realtime)
+   Der Server sendet auf dem privaten Kanal kla:dataset das Ereignis dataset_updated, sobald sich der App-Datenbestand
+   oder die importierten FuPa-Werte ändern. Die Meldung enthält nur Version/Cursor/Zeitpunkt, keine Spielerdaten.
+   Die App lädt dann mit dem angemeldeten Client auf dem normalen, geschützten Weg nach (gleiche Zugriffsregeln wie beim Start):
+     1) dataset, wenn sich die Version geändert hat (Spieler werden an Ort und Stelle aktualisiert, eigene Ergänzungen bleiben)
+     2) die importierten FuPa-Werte (Profil, MScore, Bestenliste, Radar, Gegner-Vorschau, Abgleich-Zähler)
+     3) Zwischenspeicher leeren und neu zeichnen: Liga, Ligaabstand und Wechselbegründung werden frisch gerechnet
+   Beim (Wieder-)Verbinden wird einmal nachgeladen, damit verpasste Meldungen nicht fehlen. Kein Schlüssel im Browser.
+   connectKlaPush ist unverändert aus push-client.mjs (KLA-Paket) übernommen, nur ohne „export“, weil die App kein Modul ist.
+   ===================================================================== */
+/** Use the existing logged-in Supabase browser client; never a service key.
+ * reloadDataset must use the app's existing authorized loader and update its store.
+ */
+function connectKlaPush(supabase, reloadDataset, onError = console.error) {
+ let busy=false,again=false,closed=false;
+ async function refresh(){
+  if(closed)return;
+  if(busy){again=true;return;}
+  busy=true;
+  try{do{again=false;await reloadDataset();}while(again&&!closed);}
+  catch(e){onError(e);}finally{busy=false;}
+ }
+ const channel=supabase.channel('kla:dataset',{config:{private:true}})
+  .on('broadcast',{event:'dataset_updated'},refresh)
+  .subscribe(status=>{if(status==='SUBSCRIBED')refresh();});
+ // Reconnect subscription refresh catches events missed while offline.
+ return ()=>{closed=true;supabase.removeChannel(channel);};
+}
+
+const SVP={n:0,letzte:null,version:null,stand:null,fehler:null,stop:null,erstes:true};
+// Neue Fassung des Datenbestands in den laufenden Store übernehmen (an Ort und Stelle, ohne Seite neu zu laden)
+function svDatasetAnwenden(ds){
+  const B=ds&&ds.body; if(!B||!Array.isArray(B.players))return false;
+  Object.keys(B).forEach(k=>{ if(k!=='players'&&k!=='jugend')DATA[k]=B[k]; });
+  DATA.players=B.players; if(Array.isArray(B.jugend))DATA.jugend=B.jugend;
+  const byId=new Map(players.map(p=>[p.id,p]));
+  B.players.forEach(n=>{ const p=byId.get(n.id);
+    if(p){ Object.keys(p).forEach(k=>{ if(k==='__vs')delete p[k]; }); Object.assign(p,n,{isJugend:false});
+      if(!('cur' in n))delete p.cur; if(!('historical_classification_before_fix' in n))delete p.historical_classification_before_fix; }
+    else players.push(Object.assign({},typeof V6DEF!=='undefined'?V6DEF:{},n,{isJugend:false})); });
+  window.__SVBC_DATA=DATA; window.__SVBC_DSVER=ds.version; SVP.version=ds.version;
+  if(typeof svLigaNormAlle==='function')svLigaNormAlle();
+  return true; }
+// Die vorhandene Ladefunktion: Datenbestand + importierte Werte + neu zeichnen
+async function svDatenNeuLaden(){
+  if(!SVB||!SVB.sb||SVB.offline)return;
+  let neu=false;
+  // Stand prüfen: Version und Änderungszeitpunkt (eine Korrektur kann den Inhalt ändern, ohne die Versionsbezeichnung zu ändern)
+  const v=await SVB.sb.from('dataset').select('version,updated_at').eq('id',1).single(); if(v.error)throw v.error;
+  const stand=v.data&&(v.data.version+'|'+v.data.updated_at), erster=SVP.stand==null;
+  if(erster&&v.data&&v.data.version===window.__SVBC_DSVER)SVP.stand=stand;
+  if(v.data&&stand!==SVP.stand){
+    const {data,error}=await SVB.sb.from('dataset').select('version,body').eq('id',1).single(); if(error)throw error;
+    neu=svDatasetAnwenden(data); if(neu)SVP.stand=stand; }
+  if(typeof svKlaLaden==='function'&&!(SVP.erstes&&!neu&&typeof KLAW!=='undefined'&&KLAW.geladen))await svKlaLaden();   // beim ersten Verbinden sind die Werte gerade frisch geladen
+  try{ if(typeof KLAG!=='undefined')KLAG.v=undefined; if(typeof KLAR!=='undefined')KLAR.v=null; }catch(e){}
+  try{ if(typeof abgZahlLaden==='function')abgZahlLaden(); }catch(e){}
+  SVP.n++; SVP.letzte=new Date().toISOString();
+  if(SVP.erstes&&!neu){ SVP.erstes=false; return; }   // Verbindungsaufbau ohne Änderung: nichts neu zeichnen
+  SVP.erstes=false;
+  try{ if(typeof sv4Bump==='function')sv4Bump(); if(typeof SV94!=='undefined'){ SV94.cache.clear(); SV94.dist=null; } }catch(e){}
+  try{ if(typeof renderAll==='function')renderAll(); }catch(e){ console.warn('Neu zeichnen',e); }
+  try{ const M=document.getElementById('modal'), O=document.getElementById('overlay'); const pid=M&&M.dataset&&M.dataset.pid;
+    if(O&&O.classList.contains('open')&&pid&&typeof openModal==='function')openModal(pid); }catch(e){}
+  if(neu){ try{ kToast('Daten aktualisiert'); }catch(e){} }
+}
+async function svPushStart(){
+  if(SVP.stop||!SVB||!SVB.sb||SVB.offline)return;
+  try{ const {data:{session}}=await SVB.sb.auth.getSession(); if(!session)return; if(SVB.sb.realtime&&SVB.sb.realtime.setAuth)await SVB.sb.realtime.setAuth(session.access_token); }catch(e){}
+  SVP.version=window.__SVBC_DSVER||null;
+  SVP.stop=connectKlaPush(SVB.sb, svDatenNeuLaden, e=>{ SVP.fehler=String(e&&e.message||e); console.warn('Live-Aktualisierung',e); });
+}
+// Profil merkt sich, wer offen ist (damit ein offenes Profil nach der Aktualisierung neu gezeichnet wird)
+{ const _omP=openModal; openModal=function(id){ const r=_omP.apply(this,arguments); try{ const M=document.getElementById('modal'); if(M)M.dataset.pid=id; }catch(e){} return r; }; }
+// Start, sobald Anmeldung und Daten da sind
+{ let t=0; const iv=setInterval(()=>{ if(++t>240)return clearInterval(iv); if(typeof SVU!=='undefined'&&SVU&&SVU.role&&typeof _remoteDone!=='undefined'&&_remoteDone&&typeof players!=='undefined'&&players.length){ clearInterval(iv); svPushStart().catch(()=>{}); } },500); }
+window.addEventListener('pagehide',()=>{ try{ if(SVP.stop)SVP.stop(); }catch(e){} });
+
+/* =====================================================================
    SV/BSC Scout · Runde 20: „Was ist neu“: Update-Fenster & Patch-Historie
    - Nach jedem Update ein Pop-up: das Wichtigste in Kürze → „OK“ oder „Mehr erfahren“ (ganze Historie)
    - Jederzeit erreichbar: Seitenleiste / „Mehr“ / Mein Konto → „Was ist neu“
@@ -12123,6 +12238,11 @@ document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closes
    Sichtbarkeit je Punkt: r:'team' (ohne Gäste) · r:'scout' · r:'admin' · ohne r = alle
    ===================================================================== */
 const SV_PATCHES=[
+  {id:'0.16',v:'0.16',datum:'2026-09-26',titel:'Daten live aktuell',kurz:'Ändern sich Daten oder kommen neue FuPa-Werte, sieht die App das sofort. Kein Neuladen nötig.',
+   punkte:[
+    {ic:'⚡',t:'Ohne Neuladen aktuell',d:'Korrekturen im Datenbestand und neue FuPa-Werte erscheinen von selbst, auch in einem gerade offenen Profil. War das Handy kurz offline, holt die App Verpasstes beim Wiederverbinden nach.',r:'team',go:'home'},
+    {ic:'📍',t:'Liga immer aus der richtigen Saison',d:'Aktuelle Liga, Ligaabstand und Wechselbegründung kommen aus der laufenden Saison. Die Verbandsliga ist jetzt eine eigene Liga. Gründe aus der Vorsaison sind mit 25/26 gekennzeichnet.',r:'scout'},
+   ]},
   {id:'0.15',v:'0.15',datum:'2026-09-26',titel:'Spieler-Abgleich zum Wischen',kurz:'Wo die App nicht sicher ist, welcher FuPa-Spieler zu welchem Spieler gehört, entscheidest du jetzt mit einem Wisch. Einmal, dann gilt es dauerhaft.',
    punkte:[
     {ic:'👈',t:'Nach links: bestätigen',d:'Stimmt der Vorschlag, nach links wischen oder „Bestätigen“ tippen. Die Werte stehen sofort im Profil, im MScore und in der Bestenliste und bleiben so, auch nach jedem neuen Abgleich.',r:'scout',go:'radar'},
