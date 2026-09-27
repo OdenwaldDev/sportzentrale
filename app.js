@@ -2100,7 +2100,7 @@ function openSlotPicker(i,depth){
 }
 
 /* ===== App-Modus: installierbar, offline-fest, aktualisiert sich selbst ===== */
-const APP_BUILD='beta-0.16', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
+const APP_BUILD='beta-0.16.1', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
 let _appPrompt=null, _appNew=null, _obT=null;
 function appStandalone(){ try{ return !!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
 function appPlatform(){
@@ -4635,7 +4635,7 @@ function rdRender(){
 function vrHomeCard(){
   const host=document.getElementById('trHome')||document.getElementById('svRemind')||document.getElementById('svHello'); if(!host||!canScout())return;
   let el=document.getElementById('vrHome'); if(!el){ el=document.createElement('div'); el.id='vrHome'; host.after(el); }
-  const week=TRC.addDays(trToday(),-8), R=VR.radar.filter(r=>r.stand>=week&&r.lvl!=='info').slice(0,3);
+  const week=TRC.addDays(trToday(),-8), R=VR.radar.filter(r=>r.stand>=week&&r.lvl!=='info'&&!(r.player_id&&typeof sc2No==='function'&&sc2No(r.player_id))).slice(0,3);   // „Kein Interesse“ taucht hier nicht mehr auf
   let ms=[]; if(VR.at.length){ try{ ms=vrRanks().L.filter(x=>{ const p=x.pid&&trP(x.pid); return p&&p.own&&!p.verzicht; }).map(x=>({p:trP(x.pid),m:TRS.nextMilestones(x.tot).find(m=>(m.lab==='Spiele'&&m.rest<=5)||(m.lab==='Tore'&&m.rest<=3))})).filter(o=>o.m).slice(0,2); }catch(e){} }
   const tf=TR.loaded?TRS.teamForm(TR.st):null;
   if(!R.length&&!ms.length&&!(tf&&tf.n)){ el.innerHTML=''; return; }
@@ -4647,6 +4647,7 @@ function vrHomeCard(){
   el.querySelector('[data-home-verein]').onclick=()=>goTab('verein');
   el.querySelectorAll('[data-svp]').forEach(x=>x.onclick=()=>openModal(x.dataset.svp));
   el.querySelectorAll('[data-star]').forEach(b=>b.style.display='none');
+  try{ if(typeof sc2Wire==='function')sc2Wire(el); }catch(e){}
 }
 
 /* ---------- Import: Excel/CSV oder Einfügen (Trainingslisten, Helferlisten, Verletzungen) ---------- */
@@ -6476,6 +6477,7 @@ function sc2After(){
   try{ if(document.querySelector('#panel-kaderplan.active'))sc2PlanBox(); }catch(e){ console.warn(e); }
   try{ if(document.querySelector('#panel-radar.active'))rdRender(); }catch(e){}
   try{ sc2HomeCard(); }catch(e){}
+  try{ if(typeof vrHomeCard==='function')vrHomeCard(); }catch(e){}   // Übersicht: weggeklickte Spieler verschwinden sofort
   try{ sc2JobPopup(); }catch(e){ console.warn(e); }
 }
 function sc2Realtime(){
@@ -6530,7 +6532,8 @@ function sc2Wire(root,after){
     if(after)after(); else sc2After(); });
 }
 // Radar: jede Meldung bekommt die Entscheidungsknöpfe, „Kein Interesse“ verschwindet
-{ const _ri=rdItem; rdItem=function(r){ const h=_ri.apply(this,arguments); const p=r.player_id&&trP(r.player_id); return p&&!p.own?h.replace(/<\/div>\s*$/,'')+sc2Btns(p,true)+'</div>':h; }; }
+{ const _ri=rdItem; rdItem=function(r){ const p0=r&&r.player_id&&trP(r.player_id); if(p0&&!p0.own&&sc2No(p0.id))return '';   // Kein Interesse: Meldung verschwindet überall
+  const h=_ri.apply(this,arguments); const p=r.player_id&&trP(r.player_id); return p&&!p.own?h.replace(/<\/div>\s*$/,'')+sc2Btns(p,true)+'</div>':h; }; }
 { const _rr=rdRender; rdRender=function(){ const all=VR.radar, hid=all.filter(r=>sc2No(r.player_id)).length; VR.radar=all.filter(r=>!sc2No(r.player_id));
   try{ _rr.apply(this,arguments); } finally{ VR.radar=all; }
   const P=document.getElementById('panel-radar'); if(!P)return; sc2Wire(P,()=>rdRender());
