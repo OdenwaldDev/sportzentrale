@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="favicon-64.png">
-<meta name="app-build" content="beta-0.17">
+<meta name="app-build" content="beta-0.18">
 <title>SV/BSC Sportzentrale</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" async></script>
 <style>
@@ -2897,6 +2897,112 @@ body.abg-offen{overflow:hidden;}
 @media (max-width:420px){ .abg-cmp{grid-template-columns:minmax(0,1fr);} .abg-vs{display:none;} .abg-cmp>.abg-s+.abg-s,.abg-cmp>.abg-vs+.abg-s{border-top:1px solid var(--line2);padding-top:10px;} }
 .abg-msg:empty{display:none;} .abg-stapel{margin-bottom:10px;}
 
+/* ===== Sportzentrale Beta 0.18 · Mannschaft neu geordnet ===== */
+/* Aktionsleiste oben nur dort, wo sie hingehört */
+#panel-training[data-mn="injuries"] .tract,#panel-training[data-mn="urlaub"] .tract,#panel-training[data-mn="material"] .tract,
+#panel-training[data-mn="pflege"] .tract,#panel-training[data-mn="gstat"] .tract{display:none!important;}
+#panel-training[data-mn="urlaub"] .sx50,#panel-training[data-mn="material"] .sx50,#panel-training[data-mn="pflege"] .sx50,#panel-training[data-mn="gstat"] .sx50,
+#panel-training[data-mn="urlaub"] [data-sx50],#panel-training[data-mn="material"] [data-sx50],#panel-training[data-mn="pflege"] [data-sx50],#panel-training[data-mn="gstat"] [data-sx50]{display:none!important;}
+.q50-note{margin:4px 0 12px;}
+
+/* Spieler: Ansichten und Filter */
+.mn-views .chips4{margin:0 0 10px;}
+.mn-views .mn-add{border-style:dashed!important;color:var(--accent)!important;}
+.mn-views .mn-add svg{width:13px;height:13px;vertical-align:-2px;}
+.mn-fbox{display:grid;gap:10px;padding:12px;margin:0 0 12px;border:1px solid var(--line);border-radius:14px;background:rgba(148,163,196,.04);}
+.mn-fg>span{display:block;font-size:11.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--ink3);margin-bottom:6px;}
+.mn-fg>span small{text-transform:none;letter-spacing:0;font-weight:600;margin-left:4px;}
+.mn-fg .chips4{margin:0;}
+.mn-chk{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink2);}
+.mn-vbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;margin:0 0 12px;border-radius:12px;background:rgba(59,120,255,.08);border:1px solid rgba(59,120,255,.25);}
+.mn-vbar span{flex:1 1 180px;font-size:13px;color:var(--ink2);font-weight:600;}
+.mn-st{color:#fbbf24;letter-spacing:1px;font-size:12px;} .mn-st i{font-style:normal;color:var(--line2);}
+.mn-csel{display:grid;gap:6px;margin:10px 0 14px;}
+.mn-csel>div{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px 6px 12px;border:1px solid var(--line);border-radius:10px;}
+.mn-csel span{display:flex;gap:4px;}
+.mn-csel button{font:inherit;font-size:12px;width:30px;height:28px;border-radius:8px;border:1px solid var(--line);background:none;color:var(--ink2);cursor:pointer;}
+.mn-csel button:disabled{opacity:.3;cursor:default;}
+#modal .mn-fg{margin-bottom:10px;}
+
+/* Spiele: Statistik */
+.mn-form{display:flex;gap:4px;justify-content:center;}
+.mn-form .res,.mn-gt .res{font-style:normal;display:inline-grid;place-items:center;width:24px;height:24px;border-radius:7px;font-size:13px;font-weight:800;color:#fff;}
+.mn-form .res.w{background:#16a34a;} .mn-form .res.d{background:#64748b;} .mn-form .res.l{background:#dc2626;}
+.mn-tops{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 14px;}
+.mn-top{padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:var(--card2,rgba(148,163,196,.05));}
+.mn-top>span{display:block;font-size:11.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--ink3);margin-bottom:6px;}
+.mn-top p{display:flex;justify-content:space-between;gap:8px;margin:3px 0;cursor:pointer;font-size:13.5px;}
+.mn-top p b{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mn-top p em{font-style:normal;font-weight:800;font-variant-numeric:tabular-nums;}
+.mn-gtab td{font-variant-numeric:tabular-nums;}
+
+/* Abwesenheiten, Materialdienst */
+.mn91{display:grid;gap:14px;} .mn91 .tiles{margin:0;}
+.mn-md{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
+.mn-md span{display:inline-flex;gap:6px;align-items:center;padding:5px 10px;border-radius:999px;border:1px solid var(--line);font-size:12.5px;}
+.mn-md span.nie{border-color:rgba(251,191,36,.45);}
+.mn-md em{font-style:normal;color:var(--ink3);font-variant-numeric:tabular-nums;}
+
+/* Massenpflege */
+.mp18{padding-bottom:10px!important;}
+.mp-areas{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin:-4px -4px 12px;padding:4px;}
+.mp-areas::-webkit-scrollbar{display:none;}
+.mp-areas button{flex:0 0 auto;font:inherit;font-size:13px;font-weight:700;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:none;color:var(--ink2);cursor:pointer;white-space:nowrap;}
+.mp-areas button.on{background:linear-gradient(180deg,#3b78ff,#2459e6);border-color:transparent;color:#fff;}
+.mp-areas button i{font-style:normal;display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:9px;background:#f59e0b;color:#111;font-size:11px;font-weight:800;}
+.mp-areas .mp-lock svg{width:12px;height:12px;vertical-align:-1px;opacity:.7;}
+.mp-f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;}
+.mp-f input[type=search]{flex:1 1 180px;min-width:0;}
+.mp-f .chips4{margin:0;}
+.mp-list{display:grid;border-top:1px solid var(--line);}
+.mp-r{display:grid;grid-template-columns:minmax(120px,190px) minmax(0,1fr);gap:8px 14px;align-items:start;padding:10px 6px;border-bottom:1px solid var(--line);border-left:3px solid transparent;}
+.mp-r.chg{border-left-color:#f59e0b;background:rgba(245,158,11,.06);}
+.mp-r.fo{box-shadow:inset 0 0 0 2px rgba(59,120,255,.6);border-radius:10px;}
+.mp-n{min-width:0;padding-top:6px;} .mp-n b{display:block;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mp-n small{color:var(--ink3);font-size:12px;} .mp-n em{font-style:normal;color:#f59e0b;font-weight:700;}
+.mp-c{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0;}
+.mp-c input,.mp-c select{font:inherit;font-size:14px;padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(148,163,196,.06);color:var(--ink);min-width:0;}
+.mp-c input:disabled,.mp-c select:disabled,.mp-c button:disabled{opacity:.55;cursor:default;}
+.mp-kontakt .mp-c input{flex:1 1 150px;}
+.mp-geb .mp-c input{width:auto;} .mn-age{color:var(--ink3);font-size:12.5px;}
+.mn-seg{margin:0;} .mn-wf{margin:0;display:flex;align-items:center;gap:2px;} .mn-wf span{font-size:12px;color:var(--ink3);margin-right:4px;}
+.mn-eye{display:grid;grid-template-columns:repeat(6,minmax(44px,1fr));gap:6px;flex:1 1 300px;}
+.mn-eye label{display:grid;gap:2px;text-align:center;} .mn-eye span{font-size:10.5px;font-weight:800;letter-spacing:.5px;color:var(--ink3);}
+.mn-eye input{width:100%;text-align:center;padding:7px 2px!important;}
+.mn-eyeavg{color:var(--ink3);font-size:12px;flex:1 0 100%;}
+.mn-alt{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:0;} .mn-alt>span{font-size:12px;color:var(--ink3);margin-right:2px;}
+.mn-lbl{display:grid;gap:3px;flex:1 1 150px;min-width:0;} .mn-lbl>span{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--ink3);}
+.mn-num{display:inline-flex;align-items:center;gap:6px;} .mn-num input{width:96px;} .mn-num span{color:var(--ink3);font-size:13px;}
+.mn-sum{all:unset;cursor:pointer;display:flex;flex-wrap:wrap;gap:4px;align-items:baseline;font-size:13px;color:var(--ink2);width:100%;}
+.mn-sum em{font-style:normal;margin-left:auto;color:var(--accent);font-weight:700;font-size:12.5px;}
+.mn-sb{display:grid;gap:12px;width:100%;padding:10px 0 4px;}
+.mn-sb .chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:4px;}
+.mn-2{display:flex;flex-wrap:wrap;gap:10px;}
+.mp-bar{position:sticky;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:30;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;padding:10px 12px;border-radius:16px;
+  border:1px solid var(--line);background:rgba(16,21,33,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 12px 30px -12px rgba(0,0,0,.7);}
+.mp-bar span{flex:1 1 160px;font-size:13.5px;color:var(--ink3);} .mp-bar.on span{color:var(--ink);}
+.mp-bar.on{border-color:rgba(245,158,11,.55);}
+.mn-err{margin:8px 0 12px 18px;font-size:13.5px;line-height:1.5;}
+@media (max-width:760px){
+  .mp-r{grid-template-columns:1fr;padding:10px 4px;}
+  .mp-bar{bottom:calc(92px + env(safe-area-inset-bottom,0px));}
+  .mn-eye{grid-template-columns:repeat(6,minmax(0,1fr));}
+}
+
+/* Profil: interne Spieler nur lesen */
+#modal.ro18 .pf4 [data-pf4="edit"],#modal.ro18 .pf4 [data-pf4="eye"],#modal.ro18 .pf4-sec[data-k="edit"],#modal.ro18 .pf4-eye,#modal.ro18 .svpos-ed,
+#modal.ro18 .sbedit,#modal.ro18 .kx-add,#modal.ro18 .kxbox [data-kx-back],#modal.ro18 [data-kx-edit],#modal.ro18 [data-kx-del],#modal.ro18 .m94-mvp{display:none!important;}
+#modal.ro18 .zk4 button{cursor:default;} #modal.ro18 .zk4 button:not(.on){opacity:.45;}
+#modal.ro18 .pf4-head{position:relative;}
+#modal .mn-pfl{position:absolute;top:0;right:60px;white-space:nowrap;}
+#modal .mn-pfl svg{width:14px;height:14px;}
+#modal .mn-lnk{display:inline-flex;gap:6px;align-items:center;margin-top:8px;}
+#modal .mn-lnk svg{width:13px;height:13px;}
+@media (max-width:760px){
+  #modal.ro18 .pf4-head{padding-top:44px;}
+  #modal .mn-pfl{top:0;right:34px;left:auto;}
+}
+
 </style>
 <style id="v3gate">
 /* =====================================================================
@@ -3539,9 +3645,9 @@ a.kbtn{text-decoration:none;display:inline-block}
 
 
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
-<script>window.SVBC_CFG={"url": "https://lvaukuzgcwgqipxwzabo.supabase.co", "anon": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2YXVrdXpnY3dncWlweHd6YWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNTYwMTcsImV4cCI6MjEwNTczMjAxN30.jYZF8q8-SyCaWykM0wwcK58EzfTbO2VASKz1NIv1xbo", "build": "beta-0.17", "dataBytes": 3053230};</script>
-<script src="vendor/supabase.js?v=beta-0.17"></script>
-<script src="icons.js?v=beta-0.17"></script>
-<script src="boot.js?v=beta-0.17"></script>
+<script>window.SVBC_CFG={"url": "https://lvaukuzgcwgqipxwzabo.supabase.co", "anon": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2YXVrdXpnY3dncWlweHd6YWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNTYwMTcsImV4cCI6MjEwNTczMjAxN30.jYZF8q8-SyCaWykM0wwcK58EzfTbO2VASKz1NIv1xbo", "build": "beta-0.18", "dataBytes": 3053230};</script>
+<script src="vendor/supabase.js?v=beta-0.18"></script>
+<script src="icons.js?v=beta-0.18"></script>
+<script src="boot.js?v=beta-0.18"></script>
 </body>
 </html>
