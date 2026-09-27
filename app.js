@@ -2100,7 +2100,7 @@ function openSlotPicker(i,depth){
 }
 
 /* ===== App-Modus: installierbar, offline-fest, aktualisiert sich selbst ===== */
-const APP_BUILD='beta-0.16.1', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
+const APP_BUILD='beta-0.17', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
 let _appPrompt=null, _appNew=null, _obT=null;
 function appStandalone(){ try{ return !!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
 function appPlatform(){
@@ -11578,10 +11578,14 @@ function impQuellstatus(q){ const s=q.quellstatus; if(!s)return '';
     ${s.anbieter||s.dataset_epoch?`<div class="imp-mute">Datenbasis: ${impE(s.anbieter==='supabase'?'Supabase':s.anbieter||'unbekannt')}${s.dataset_epoch?' · Epoche '+impE(String(s.dataset_epoch).slice(0,8)):''}</div>`:''}
     ${s.helfer&&s.helfer.zugeordnet!=null?`<div>Automatisch zugeordnet: <b>${impN(s.helfer.zugeordnet)}</b> Spieler der App${s.helfer.eigene?`, davon ${impN(s.helfer.eigene_zugeordnet)} von ${impN(s.helfer.eigene)} eigenen`:''}. Ihre Werte stehen im Profil, im MScore und in der Bestenliste.</div>`:''}
     ${s.helfer&&s.helfer.pruefen!=null?`<div class="imp-abg">${s.helfer.von_hand?`Davon ${impN(s.helfer.von_hand)} von Hand bestätigt. `:''}${s.helfer.pruefen?`<b>${impN(s.helfer.pruefen)}</b> Spieler warten auf eine Entscheidung.`:'Nichts offen im Abgleich.'} <button type="button" class="btn sm ghost" id="impAbg">Spieler-Abgleich öffnen</button></div>`:''}
+    ${impCheckerZeile()}
     ${impSaisonZeile(s.saison)}
     ${impApiZeile(s.api)}
     ${impNachladen(s.nachladen)}
     ${impAbdeckung(s.abdeckung)}</div>${impModell(s.modell)}`; }
+function impCheckerZeile(){ const c=IMP.stand&&IMP.stand.checker; if(!c)return '';
+  const n=Object.keys(c.probleme||{}).length, z=c.geprueft?impZeit(c.geprueft,true):'';
+  return `<div>${c.ok?'<span class="imp-okt">✓ Server-Checker: alles aktuell</span>':`<span class="imp-warn">⚠ Server-Checker: ${n} Problem${n>1?'e':''}</span>`} <span class="imp-mute">(prüft alle 10 Minuten, zuletzt ${z}; meldet sich bei dir, wenn etwas länger als 15 Minuten hängt)</span></div>`; }
 function impSaisonZeile(z){ if(!z||!z.saison)return '';
   const g={spielplan:'aus dem Spielplan der Ersten',einsaetze:'aus den Einsätzen',kalender:'nach dem Kalender'}[z.grund]||'';
   return `<div>Laufende Saison laut FuPa: <b>${impE(impSaison(z.saison))}</b> <span class="imp-mute">(${impE(g)}${z.erstes_spiel?', erstes Spiel '+impZeit(z.erstes_spiel,true).split(',')[0]:''}). Stellt nach der Sommerpause von selbst um, sobald das erste Spiel der neuen Saison höchstens 14 Tage entfernt ist.</span></div>`; }
@@ -11635,6 +11639,7 @@ function impFilterHtml(q){ const f=IMP.filter, lg=(q.ligen||[]).slice().sort((a,
 async function impLaden(){ const {data,error}=await SVB.sb.rpc('import_status'); if(error)throw error; IMP.st=data;
   try{ const k=await SVB.sb.rpc('import_schluessel_status'); IMP.key=k.error?{}:(k.data||{}); }catch(e){ IMP.key={}; }
   try{ const w=await SVB.sb.rpc('import_hinweise_liste'); IMP.hinw=w.error?[]:(w.data||[]); }catch(e){ IMP.hinw=[]; }
+  try{ const s=await SVB.sb.rpc('kla_stand'); IMP.stand=s.error?null:s.data; }catch(e){ IMP.stand=null; }
   return data; }
 function impKeyHtml(id){ if(id!=='kla')return ''; const k=(IMP.key||{})[id];
   return `<div class="imp-key">${k?`<span class="imp-okt">✓ Leseschlüssel hinterlegt</span> <span class="imp-mute">seit ${impZeit(k)}</span> <button type="button" class="btn sm ghost imp-key-neu">Ersetzen</button>`:'<b>Leseschlüssel hinterlegen</b>'}
@@ -12183,7 +12188,7 @@ function connectKlaPush(supabase, reloadDataset, onError = console.error) {
  return ()=>{closed=true;supabase.removeChannel(channel);};
 }
 
-const SVP={n:0,letzte:null,version:null,stand:null,fehler:null,stop:null,erstes:true};
+const SVP={n:0,letzte:null,version:null,stand:null,werte:null,cursor:null,checker:null,fehler:null,stop:null,lauf:null,nochmal:false,geprueftT:0};
 // Neue Fassung des Datenbestands in den laufenden Store übernehmen (an Ort und Stelle, ohne Seite neu zu laden)
 function svDatasetAnwenden(ds){
   const B=ds&&ds.body; if(!B||!Array.isArray(B.players))return false;
@@ -12197,37 +12202,67 @@ function svDatasetAnwenden(ds){
   window.__SVBC_DATA=DATA; window.__SVBC_DSVER=ds.version; SVP.version=ds.version;
   if(typeof svLigaNormAlle==='function')svLigaNormAlle();
   return true; }
-// Die vorhandene Ladefunktion: Datenbestand + importierte Werte + neu zeichnen
-async function svDatenNeuLaden(){
+// Stand vom Server: nur Versionsangaben und Zähler (kla_stand), daraus folgt, was neu geladen werden muss
+async function svStandHolen(){
+  const r=await SVB.sb.rpc('kla_stand'); if(!r.error&&r.data)return r.data;
+  const v=await SVB.sb.from('dataset').select('version,updated_at').eq('id',1).single(); if(v.error)throw v.error;   // Rückfall ohne kla_stand
+  return {dataset:v.data.version+'|'+v.data.updated_at}; }
+// Die vorhandene Ladefunktion: Datenbestand + importierte Werte + neu zeichnen, jeweils nur wenn sich etwas geändert hat
+async function svDatenNeuLadenKern(){
   if(!SVB||!SVB.sb||SVB.offline)return;
-  let neu=false;
-  // Stand prüfen: Version und Änderungszeitpunkt (eine Korrektur kann den Inhalt ändern, ohne die Versionsbezeichnung zu ändern)
-  const v=await SVB.sb.from('dataset').select('version,updated_at').eq('id',1).single(); if(v.error)throw v.error;
-  const stand=v.data&&(v.data.version+'|'+v.data.updated_at), erster=SVP.stand==null;
-  if(erster&&v.data&&v.data.version===window.__SVBC_DSVER)SVP.stand=stand;
-  if(v.data&&stand!==SVP.stand){
+  const st=await svStandHolen(); let neu=false, kla=false;
+  if(SVP.stand==null&&st.dataset&&st.dataset.split('|')[0]===window.__SVBC_DSVER)SVP.stand=st.dataset;   // Startstand = was die App gerade geladen hat
+  if(st.dataset&&st.dataset!==SVP.stand){
     const {data,error}=await SVB.sb.from('dataset').select('version,body').eq('id',1).single(); if(error)throw error;
-    neu=svDatasetAnwenden(data); if(neu)SVP.stand=stand; }
-  if(typeof svKlaLaden==='function'&&!(SVP.erstes&&!neu&&typeof KLAW!=='undefined'&&KLAW.geladen))await svKlaLaden();   // beim ersten Verbinden sind die Werte gerade frisch geladen
-  try{ if(typeof KLAG!=='undefined')KLAG.v=undefined; if(typeof KLAR!=='undefined')KLAR.v=null; }catch(e){}
-  try{ if(typeof abgZahlLaden==='function')abgZahlLaden(); }catch(e){}
-  SVP.n++; SVP.letzte=new Date().toISOString();
-  if(SVP.erstes&&!neu){ SVP.erstes=false; return; }   // Verbindungsaufbau ohne Änderung: nichts neu zeichnen
-  SVP.erstes=false;
+    neu=svDatasetAnwenden(data); if(neu)SVP.stand=st.dataset; }
+  const wk=[st.werte||'',st.entscheid||'',st.cursor==null?'':st.cursor].join('#');
+  if(SVP.werte==null){ SVP.werte=wk; }   // erster Lauf: nur den Ausgangsstand merken (die App hat gerade frisch geladen), nichts neu zeichnen
+  else if(wk!==SVP.werte){ SVP.werte=wk; kla=true; }
+  if(st.cursor!=null&&SVP.cursor!=null&&st.cursor!==SVP.cursor)kla=true; SVP.cursor=st.cursor;
+  if(kla&&typeof svKlaLaden==='function')await svKlaLaden();
+  if(kla){ try{ if(typeof KLAG!=='undefined')KLAG.v=undefined; if(typeof KLAR!=='undefined')KLAR.v=null; if(typeof abgZahlLaden==='function')abgZahlLaden(); }catch(e){} }
+  SVP.checker=st.checker||null; SVP.n++; SVP.letzte=new Date().toISOString(); SVP.fehler=null;
+  if(!neu&&!kla)return;
   try{ if(typeof sv4Bump==='function')sv4Bump(); if(typeof SV94!=='undefined'){ SV94.cache.clear(); SV94.dist=null; } }catch(e){}
   try{ if(typeof renderAll==='function')renderAll(); }catch(e){ console.warn('Neu zeichnen',e); }
   try{ const M=document.getElementById('modal'), O=document.getElementById('overlay'); const pid=M&&M.dataset&&M.dataset.pid;
-    if(O&&O.classList.contains('open')&&pid&&typeof openModal==='function')openModal(pid); }catch(e){}
+    if(O&&O.classList.contains('open')&&pid&&typeof openModal==='function'){
+      if(svModalBearbeitet(M)){ try{ kToast('Neue Daten da. Nach dem Speichern das Profil neu öffnen.'); }catch(e){} }   // nie in eine laufende Eingabe hineinzeichnen
+      else openModal(pid); } }catch(e){}
   if(neu){ try{ kToast('Daten aktualisiert'); }catch(e){} }
 }
+// Nie zwei Läufe gleichzeitig: kommt währenddessen ein Anstoß, läuft danach genau einer nach
+async function svDatenNeuLaden(){
+  if(SVP.lauf){ SVP.nochmal=true; return SVP.lauf; }
+  SVP.lauf=(async()=>{ try{ do{ SVP.nochmal=false; await svDatenNeuLadenKern(); }while(SVP.nochmal); } finally{ SVP.lauf=null; SVP.geprueftT=Date.now(); } })();
+  return SVP.lauf; }
+// Unabhängig von der Live-Verbindung prüfen: beim Zurückholen in den Vordergrund, wieder online, und alle 5 Minuten solange sichtbar
+function svFrischPruefen(){ if(!SVP.stop||Date.now()-SVP.geprueftT<15000)return; svDatenNeuLaden().catch(e=>{ SVP.fehler=String(e&&e.message||e); }); }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible')svFrischPruefen(); });
+window.addEventListener('online',svFrischPruefen);
+window.addEventListener('focus',svFrischPruefen);
+setInterval(()=>{ if(document.visibilityState==='visible')svFrischPruefen(); },5*60*1000);
+function svLiveStatus(){ let ch=null; try{ ch=(SVB.sb.getChannels()||[]).find(c=>/kla:dataset$/.test(c.topic)); }catch(e){}
+  return {verbunden:!!(ch&&ch.state==='joined'), letzte:SVP.letzte, checker:SVP.checker, fehler:SVP.fehler}; }
+// Mein Konto: Live-Stand und Server-Checker
+if(typeof svAccount==='function'){ const _acc=svAccount; svAccount=function(){ const r=_acc.apply(this,arguments);
+  try{ const M=document.getElementById('modal'); const n=[...M.querySelectorAll('.note')].find(x=>/Datenstand/.test(x.textContent)); if(n&&!M.querySelector('.sv-live')){
+    const L=svLiveStatus(), c=L.checker, z=t=>t?new Date(t).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'';
+    n.insertAdjacentHTML('afterend',`<p class="note small sv-live">${L.verbunden?'🟢 Live-Verbindung aktiv':'⚪ Live-Verbindung gerade getrennt, die App prüft trotzdem beim Öffnen und alle 5 Minuten'}${L.letzte?' · zuletzt abgeglichen '+z(L.letzte)+' Uhr':''}${c?' · Server-Checker '+(c.ok?'✓ alles aktuell':'⚠ '+Object.keys(c.probleme||{}).length+' Problem(e)')+(c.geprueft?' ('+z(c.geprueft)+' Uhr)':''):''}</p>`); } }catch(e){}
+  return r; }; }
 async function svPushStart(){
   if(SVP.stop||!SVB||!SVB.sb||SVB.offline)return;
   try{ const {data:{session}}=await SVB.sb.auth.getSession(); if(!session)return; if(SVB.sb.realtime&&SVB.sb.realtime.setAuth)await SVB.sb.realtime.setAuth(session.access_token); }catch(e){}
   SVP.version=window.__SVBC_DSVER||null;
+  try{ await svDatenNeuLaden(); }catch(e){ SVP.fehler=String(e&&e.message||e); }   // Ausgangsstand merken, unabhängig von der Live-Verbindung
   SVP.stop=connectKlaPush(SVB.sb, svDatenNeuLaden, e=>{ SVP.fehler=String(e&&e.message||e); console.warn('Live-Aktualisierung',e); });
 }
 // Profil merkt sich, wer offen ist (damit ein offenes Profil nach der Aktualisierung neu gezeichnet wird)
-{ const _omP=openModal; openModal=function(id){ const r=_omP.apply(this,arguments); try{ const M=document.getElementById('modal'); if(M)M.dataset.pid=id; }catch(e){} return r; }; }
+{ const _omP=openModal; openModal=function(id){ const r=_omP.apply(this,arguments); try{ const M=document.getElementById('modal'); if(M){ M.dataset.pid=id; M.dataset.fw='1'; setTimeout(()=>{ try{ M.__fw=svFormWerte(M); }catch(e){} },0); } }catch(e){} return r; }; }
+// Wer im offenen Profil gerade etwas eintippt oder verstellt hat, wird nicht durch eine Aktualisierung unterbrochen
+function svFormWerte(M){ return [...M.querySelectorAll('input,textarea,select')].map(el=>el.type==='checkbox'||el.type==='radio'?el.checked:el.value).join('\u0001'); }
+function svModalBearbeitet(M){ try{ const a=document.activeElement; if(a&&M.contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))return true;
+  return M.dataset.fw!=null&&svFormWerte(M)!==M.__fw; }catch(e){ return false; } }
 // Start, sobald Anmeldung und Daten da sind
 { let t=0; const iv=setInterval(()=>{ if(++t>240)return clearInterval(iv); if(typeof SVU!=='undefined'&&SVU&&SVU.role&&typeof _remoteDone!=='undefined'&&_remoteDone&&typeof players!=='undefined'&&players.length){ clearInterval(iv); svPushStart().catch(()=>{}); } },500); }
 window.addEventListener('pagehide',()=>{ try{ if(SVP.stop)SVP.stop(); }catch(e){} });
