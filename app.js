@@ -2100,7 +2100,7 @@ function openSlotPicker(i,depth){
 }
 
 /* ===== App-Modus: installierbar, offline-fest, aktualisiert sich selbst ===== */
-const APP_BUILD='beta-0.18', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
+const APP_BUILD='beta-0.19', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
 let _appPrompt=null, _appNew=null, _obT=null;
 function appStandalone(){ try{ return !!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
 function appPlatform(){
@@ -4523,7 +4523,7 @@ function vrViewAllTime(B){
   const stand=VR.at.reduce((a,r)=>r.stand&&r.stand>a?r.stand:a,'');
   const active=L.filter(x=>{ const p=x.pid&&trP(x.pid); return p&&p.own&&!p.verzicht&&!p.isJugend; });
   const ms=active.map(x=>({x,p:trP(x.pid),m:TRS.nextMilestones(x.tot).filter(m=>(m.lab==='Spiele'&&m.rest<=10)||(m.lab==='Tore'&&m.rest<=5)||(m.lab==='Vorlagen'&&m.rest<=3))})).filter(o=>o.m.length).sort((a,b)=>a.m[0].rest-b.m[0].rest);
-  const back=L.filter(x=>{ const p=x.pid&&trP(x.pid); return p&&!p.own&&x.tot.sp>=25; }).sort((a,b)=>b.tot.sp-a.tot.sp).slice(0,12);
+  const back=L.filter(x=>{ const p=x.pid&&trP(x.pid); return p&&!p.own&&x.tot.sp>=25&&!(typeof crmOf==='function'&&crmOf(p).s==='no'); }).sort((a,b)=>b.tot.sp-a.tot.sp).slice(0,12);   // „Kein Interesse“ fliegt raus
   const legends=L.filter(x=>x.tot.sp>=200||x.tot.tore>=75).sort((a,b)=>b.tot.sp-a.tot.sp);
   const q=TRC.N(VR.atQ||''), key={sp:x=>x.tot.sp,tore:x=>x.tot.tore,vor:x=>x.tot.vor,siege:x=>x.tot.siege,quote:x=>x.tot.sp>=30?x.tot.quote:-1}[VR.atSort];
   const rows=L.filter(x=>!q||TRC.N(vrAtName(x)).includes(q)||TRC.N(x.r.name).includes(q)).sort((a,b)=>key(b)-key(a)||b.tot.sp-a.tot.sp);
@@ -4532,7 +4532,7 @@ function vrViewAllTime(B){
   B.innerHTML=`<div class="vrgrid">
       <div class="card"><h3 class="trh">${SVI('trophy')} Meilensteine in Sicht</h3>${ms.length?ms.slice(0,8).map(o=>`<div class="tra l-mittel"><span class="tra-av" data-svp="${svEsc(o.p.id)}">${avaHtml(o.p)}</span><div class="tra-b"><b data-svp="${svEsc(o.p.id)}">${svEsc(o.p.name)}</b><span>${o.m.map(m=>`noch ${m.rest} bis ${m.ziel} ${m.lab}`).join(' · ')}</span></div></div>`).join('')+'<div class="note">Rechtzeitig Ehrung vorbereiten: Stadionsprecher, Social-Media-Post, Erinnerungstrikot, so etwas bindet.</div>':'<div class="note">Gerade niemand kurz vor einem runden Jubiläum.</div>'}</div>
       <div class="card"><h3 class="trh">${SVI('star')} Vereinslegenden <small>(200+ Spiele oder 75+ Tore)</small></h3><div class="vrchips">${legends.map(x=>`<span ${x.pid?`data-svp="${svEsc(x.pid)}"`:''}>${svEsc(vrAtName(x))} <small>${x.tot.sp} Sp. · ${x.tot.tore} T.</small></span>`).join('')||'<span class="note">–</span>'}</div>
-        ${back.length?`<h3 class="trh" style="margin-top:14px">${SVI('refresh')} Rückkehrer-Radar</h3><div class="note" style="margin-top:0">Ehemalige mit vielen Spielen für uns, die laut Datenbestand jetzt woanders spielen.</div><div class="vrchips">${back.map(x=>{ const p=trP(x.pid); return `<span data-svp="${svEsc(x.pid)}">${svEsc(vrAtName(x))} <small>${x.tot.sp} Sp. · jetzt ${svEsc(p.club||'?')}${p.cur&&p.cur.tore?' · '+p.cur.tore+' Tore 26/27':''}</small></span>`; }).join('')}</div>`:''}</div>
+        ${back.length?`<h3 class="trh" style="margin-top:14px">${SVI('refresh')} Rückkehrer-Radar</h3><div class="note" style="margin-top:0">Ehemalige mit vielen Spielen für uns, die laut Datenbestand jetzt woanders spielen.${canScout()?' Nach rechts wischen: kein Interesse, nach links: interessiert (Merkliste).':''}</div><div class="vrbackl">${back.map(x=>{ const p=trP(x.pid); return `<div class="tra vrback${p.star?' vrfav':''}"><span class="tra-av" data-svp="${svEsc(x.pid)}">${avaHtml(p)}</span><div class="tra-b"><b data-svp="${svEsc(x.pid)}">${svEsc(vrAtName(x))}${p.star?' ⭐':''}</b><span>${x.tot.sp} Spiele für uns · jetzt ${svEsc(p.club||'?')}${p.cur&&p.cur.tore?' · '+p.cur.tore+' Tore 26/27':''}</span></div></div>`; }).join('')}</div>`:''}</div>
     </div>
     <div class="card"><div class="vrat-h"><h3 class="trh" style="margin:0">${SVI('chart')} Ewige Liste seit 2013/14</h3><input class="search" id="vrAtQ" type="search" placeholder="Name suchen …" value="${svEsc(VR.atQ)}"></div>
       <div class="trtw"><table class="trtab vrat"><thead><tr><th>#</th><th>Spieler</th>${th('sp','Spiele')}${th('tore','Tore')}${th('vor','Vorl.')}${th('siege','Siege')}${th('quote','Quote')}<th>Abzeichen</th></tr></thead><tbody>
@@ -4631,18 +4631,29 @@ function rdRender(){
   setTimeout(rdMarkSeen,1500);
 }
 
+/* ---------- Ehrungen: erscheinen 3 Spiele vorher und 1 Spiel vorher nochmal, auch wenn sie weggewischt wurden ---------- */
+function vrMsStufe(m){ return !m?0:m.rest<=1?1:m.rest<=3?3:0; }
+function vrMsKey(pid,m){ return pid+'|'+m.lab+'|'+m.ziel+'|'+vrMsStufe(m); }
+function vrMsHideList(){ try{ const H=JSON.parse(localStorage.getItem('svMsHide')||'[]'); return Array.isArray(H)?H:[]; }catch(e){ return []; } }
+function vrMsHidden(k){ return vrMsHideList().includes(k); }
+function vrMsHide(k,undo){ try{ const H=vrMsHideList().filter(x=>x!==k); if(!undo)H.push(k); localStorage.setItem('svMsHide',JSON.stringify(H.slice(-300))); }catch(e){} }
+function vrMsDue(tot,pid){ return TRS.nextMilestones(tot).filter(m=>(m.lab==='Spiele'||m.lab==='Tore')&&vrMsStufe(m)).map(m=>Object.assign({},m,{key:vrMsKey(pid,m)})).filter(m=>!vrMsHidden(m.key)); }
+function vrMsText(m){ return vrMsStufe(m)===1?(m.lab==='Spiele'?'Das nächste Spiel ist das Jubiläum. Ehrung steht?':'Beim nächsten Tor ist es so weit. Ehrung steht?'):'Ehrung vorbereiten? Kommt 1 Spiel vorher nochmal.'; }
+
 /* ---------- Übersicht: Radar & Verein ---------- */
 function vrHomeCard(){
   const host=document.getElementById('trHome')||document.getElementById('svRemind')||document.getElementById('svHello'); if(!host||!canScout())return;
   let el=document.getElementById('vrHome'); if(!el){ el=document.createElement('div'); el.id='vrHome'; host.after(el); }
   const week=TRC.addDays(trToday(),-8), R=VR.radar.filter(r=>r.stand>=week&&r.lvl!=='info'&&!(r.player_id&&typeof sc2No==='function'&&sc2No(r.player_id))).slice(0,3);   // „Kein Interesse“ taucht hier nicht mehr auf
-  let ms=[]; if(VR.at.length){ try{ ms=vrRanks().L.filter(x=>{ const p=x.pid&&trP(x.pid); return p&&p.own&&!p.verzicht; }).map(x=>({p:trP(x.pid),m:TRS.nextMilestones(x.tot).find(m=>(m.lab==='Spiele'&&m.rest<=5)||(m.lab==='Tore'&&m.rest<=3))})).filter(o=>o.m).slice(0,2); }catch(e){} }
+  let ms=[]; if(VR.at.length){ try{ ms=vrRanks().L.filter(x=>{ const p=x.pid&&trP(x.pid); return p&&p.own&&!p.verzicht; }).map(x=>({p:trP(x.pid),m:vrMsDue(x.tot,x.pid)[0]})).filter(o=>o.m).sort((a,b)=>a.m.rest-b.m.rest).slice(0,3); }catch(e){} }
   const tf=TR.loaded?TRS.teamForm(TR.st):null;
-  if(!R.length&&!ms.length&&!(tf&&tf.n)){ el.innerHTML=''; return; }
-  el.innerHTML=`<div class="card trhome"><div class="rm-h"><div class="rm-ic co">${SVI('radar')}</div><div class="rm-t"><h3>Radar &amp; Verein</h3><p>${tf&&tf.n?`Form: <b>${tf.res.slice(0,5).join(' ')}</b>${tf.clean>=2?` · ${tf.clean} Spiele zu Null`:''}${tf.wins>=3?` · ${tf.wins} Siege in Folge`:''}`:'Was sich in der Region tut'}</p></div>
+  if(!R.length&&!ms.length&&!(tf&&tf.n)){ el.innerHTML=''; el.__h=''; return; }
+  const html=`<div class="card trhome"><div class="rm-h"><div class="rm-ic co">${SVI('radar')}</div><div class="rm-t"><h3>Radar &amp; Verein</h3><p>${tf&&tf.n?`Form: <b>${tf.res.slice(0,5).join(' ')}</b>${tf.clean>=2?` · ${tf.clean} Spiele zu Null`:''}${tf.wins>=3?` · ${tf.wins} Siege in Folge`:''}`:'Was sich in der Region tut'}</p></div>
     <button class="btn sm" data-home-radar>${SVI('radar')} Radar</button></div>
-    ${R.map(rdItem).join('')}${ms.map(o=>`<div class="tra l-mittel"><span class="tra-av" data-svp="${svEsc(o.p.id)}">${avaHtml(o.p)}</span><div class="tra-b"><b data-svp="${svEsc(o.p.id)}">${svEsc(o.p.name)}: noch ${o.m.rest} bis ${o.m.ziel} ${o.m.lab}</b><span>Ehrung vorbereiten?</span></div></div>`).join('')}
+    ${R.map(rdItem).join('')}${ms.map(o=>`<div class="tra l-mittel vrms" data-ms="${svEsc(o.m.key)}"><span class="tra-av" data-svp="${svEsc(o.p.id)}">${avaHtml(o.p)}</span><div class="tra-b"><b data-svp="${svEsc(o.p.id)}">🎉 ${svEsc(o.p.name)}: noch ${o.m.rest} bis ${o.m.ziel} ${o.m.lab}</b><span>${vrMsText(o.m)}</span></div></div>`).join('')}
     <div class="rm-f"><button class="btn ghost" data-home-verein>Rankings &amp; Verein →</button></div></div>`;
+  if(el.__h===html&&el.firstChild)return;   // unverändert: nicht neu zeichnen (sonst reißt eine laufende Wischgeste ab)
+  el.__h=html; el.innerHTML=html;
   el.querySelector('[data-home-radar]').onclick=()=>goTab('radar');
   el.querySelector('[data-home-verein]').onclick=()=>goTab('verein');
   el.querySelectorAll('[data-svp]').forEach(x=>x.onclick=()=>openModal(x.dataset.svp));
@@ -4939,8 +4950,8 @@ function svInsights(){
   try{ if(canScout()){ const s=rdSeen(); VR.radar.filter(x=>x.lvl==='hoch'&&(x.created_at>s||x.stand>=TRC.addDays(trToday(),-4))).slice(0,2).forEach(x=>add(W.radar,'mittel','📡 '+x.titel,x.detail||'',()=>goTab('radar')));
     const n=VR.radar.filter(x=>x.created_at>s).length; if(n>2)add(W.radar+0.5,'info',`${n} neue Radar-Meldungen`,'Torserien, Überflieger, junge Talente',()=>goTab('radar')); } }catch(e){}
   try{ if(r!=='viewer'){ const due=kandList().filter(kandIsDue).length; if(due)add(W.kand,due>3?'mittel':'info',`${due} Kandidaten-Kontakt${due>1?'e':''} fällig`,'Zeit für einen Anruf',()=>goTab('kandidaten')); } }catch(e){}
-  try{ if(VR.at.length){ const ms=vrRanks().L.filter(x=>{ const p=x.pid&&trP(x.pid); return p&&p.own&&!p.verzicht; }).map(x=>({p:trP(x.pid),m:TRS.nextMilestones(x.tot).find(m=>(m.lab==='Spiele'&&m.rest<=3)||(m.lab==='Tore'&&m.rest<=2))})).filter(o=>o.m);
-    ms.slice(0,2).forEach(o=>add(W.ms,'info',`🎉 ${o.p.name}: noch ${o.m.rest} bis ${o.m.ziel} ${o.m.lab}`,'Ehrung vorbereiten?',()=>openModal(o.p.id))); } }catch(e){}
+  try{ if(VR.at.length){ const ms=vrRanks().L.filter(x=>{ const p=x.pid&&trP(x.pid); return p&&p.own&&!p.verzicht; }).map(x=>({p:trP(x.pid),m:vrMsDue(x.tot,x.pid)[0]})).filter(o=>o.m).sort((a,b)=>a.m.rest-b.m.rest);
+    ms.slice(0,2).forEach(o=>{ add(W.ms,vrMsStufe(o.m)===1?'mittel':'info',`🎉 ${o.p.name}: noch ${o.m.rest} bis ${o.m.ziel} ${o.m.lab}`,vrMsText(o.m),()=>openModal(o.p.id)); out[out.length-1].ms=o.m.key; }); } }catch(e){}
   try{ if(team&&TR.loaded&&VR.evLoaded){ const risk=vrKader(false).map(p=>({p,rt:vrScores(p).rt})).filter(x=>x.rt.lvl).sort((a,b)=>b.rt.risk-a.rt.risk);
     risk.slice(0,2).forEach(x=>add(W.risk,x.rt.lvl,`Bindungsrisiko: ${x.p.name}`,x.rt.why.join(' · '),()=>vrWhy(x.p.id))); } }catch(e){}
   try{ if(TR.loaded){ const f=TRS.teamForm(TR.st); if(f.n>=3)add(W.form,f.winless>=3?'mittel':'info',`Form: ${f.res.slice(0,5).join(' ')}`,`${f.ppg.toFixed(2)} Punkte/Spiel · ${f.tf}:${f.ta} Tore${f.clean>=2?` · ${f.clean}× zu Null in Folge`:''}`,()=>goTab('training')); } }catch(e){}
@@ -6524,7 +6535,7 @@ function sc2Wire(root,after){
     try{
       if(k==='star'){ const on=!p.star; crmSet(p.id,{f:on?1:undefined}); try{crmApply();}catch(x){} kToast(on?'⭐ '+p.name+' auf der Merkliste':'Von der Merkliste genommen'); }
       if(k==='follow'){ if(SC2.follow.has(p.id)){ const {error}=await SVB.sb.from('scout_follow').delete().eq('player_id',p.id); if(error)throw error; SC2.follow.delete(p.id); kToast('🔕 '+p.name+' nicht mehr beobachtet'); }
-        else { const {error}=await SVB.sb.from('scout_follow').insert({player_id:p.id}); if(error)throw error; SC2.follow.add(p.id); kToast('🔔 Du bekommst nach jedem Spieltag ein Update zu '+p.name); } }
+        else { const {error}=await SVB.sb.from('scout_follow').insert({player_id:p.id}); if(error)throw error; SC2.follow.add(p.id); kToast('👁 '+p.name+' ist in deinem Blickfeld. Montags kommt dein Wochenbericht.'); } }
       if(k==='no'){ crmSet(p.id,{s:'no'}); try{crmApply();}catch(x){} if(SC2.follow.has(p.id)){ await SVB.sb.from('scout_follow').delete().eq('player_id',p.id); SC2.follow.delete(p.id); } kToast('🚫 '+p.name+' · keine Meldungen mehr'); }
       if(k==='undo'){ crmSet(p.id,{s:undefined}); try{crmApply();}catch(x){} kToast('↩️ '+p.name+' wird wieder gemeldet'); }
       if(k==='job'){ await sc2JobStart({art:'spieler',player_id:p.id}); }
@@ -6916,6 +6927,8 @@ function trWeiterWire(L){
       if(o.typ==='export')return sxExport(o.export||'scouting');
       if(o.typ==='scouting'){ if(o.player_id&&trP(o.player_id))return sc2JobStart({art:'spieler',player_id:o.player_id}); closeOverlay(); return setTimeout(()=>sc2JobNew(o.pos?{pos:o.pos}:null),150); }
       if(o.typ==='oeffnen'&&o.bereich){ closeOverlay(); return goTab(o.bereich); }
+      if((o.typ==='profil'||o.typ==='oeffnen')&&o.player_id){ const id=o.player_id; if(/^fupa:\d+$/.test(id)&&typeof bfFupaProfil==='function')return bfFupaProfil(id.slice(5)); if(trP(id))return openModal(id); return kToast('Spieler nicht gefunden'); }
+      if(o.typ==='blickfeld'&&o.player_id&&typeof bfToggle==='function'){ const p=trP(o.player_id); if(typeof bfFollowing==='function'&&bfFollowing(o.player_id))return kToast('Ist schon in deinem Blickfeld'); return bfToggle(o.player_id,p?p.name:''); }
       if(o.frage)return trChatSend(o.frage);
     }catch(e){ kToast('⚠️ '+(e.message||e)); } });
 }
@@ -8845,6 +8858,7 @@ function sv44Refresh(){
   try{ renderAll(); }catch(e){}
   try{ if(typeof sc2After==='function')sc2After(); }catch(e){}
   try{ if(svCurTab()==='bedarf'&&typeof sc4Bedarf==='function')sc4Bedarf(); }catch(e){}
+  try{ if(typeof vrAfter==='function')vrAfter(); }catch(e){}   // Rückkehrer-Radar im Verein
 }
 function sv44Undo(pid,name){
   kToast('🚫 '+name+' ist raus','Rückgängig',()=>{
@@ -8901,7 +8915,7 @@ document.addEventListener('click',e=>{
    - Beim ersten Mal zeigt ein Eintrag kurz, was geht (einmal pro Gerät)
    ===================================================================== */
 const SW45={on:null,hintShown:false,justSwiped:0};
-const SW45_SEL='.sw45no[data-id],#list .row[data-id],#gemlist .row[data-id],.rdit,.sc2k,.sc2f[data-sc2open],.bk4r,.sc2m[data-m],.svc-i[data-ins],[data-sc2h]';
+const SW45_SEL='.tra.vrms[data-ms],.tra.vrback,.sw45no[data-id],#list .row[data-id],#gemlist .row[data-id],.rdit,.sc2k,.sc2f[data-sc2open],.bk4r,.sc2m[data-m],.svc-i[data-ins],[data-sc2h]';
 const sw45Today=()=>new Date().toLocaleDateString('sv-SE');
 function sw45Get(k,d){ try{ return JSON.parse(localStorage.getItem(k)||'null')||d; }catch(e){ return d; } }
 function sw45Set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
@@ -8917,6 +8931,8 @@ const sw45InsKey=x=>sw45Today()+'|'+String(x&&x.t||'');
 // Was bedeutet Wischen bei diesem Eintrag?
 function sw45What(el){
   let pid=null;
+  if(el.matches('.vrms[data-ms]'))return {kind:'ms',key:el.dataset.ms};
+  if(el.matches('.vrback')){ const h=el.querySelector('[data-svp]'), q=h&&trP(h.dataset.svp); return q&&!q.own&&canScout()?{kind:'ehem',pid:q.id,p:q}:null; }
   if(el.matches('.sw45no[data-id]')){ const q=trP(el.dataset.id); return q?{kind:'nolist',pid:q.id,p:q}:null; }
   if(el.matches('.row[data-id]'))pid=el.dataset.id;
   else if(el.matches('.sc2f'))return {kind:'follow',pid:el.dataset.sc2open};
@@ -8930,7 +8946,7 @@ function sw45What(el){
   if(!canScout())return null;
   return {kind:'player',pid:p.id,p};
 }
-const SW45_LAB={player:{r:['🚫','Kein Interesse','no'],l:['⭐','Merkliste','fav']},nolist:{r:['↩️','Zurückholen','back'],l:['⭐','Zurück auf die Merkliste','fav']},follow:{r:['🔕','Nicht mehr beobachten','no']},meld:{r:['✓','Gelesen','ok']},meldall:{r:['✓','Alle gelesen','ok']},radar:{r:['✓','Ausblenden','ok']},ins:{r:['✓','Für heute erledigt','ok']}};
+const SW45_LAB={player:{r:['🚫','Kein Interesse','no'],l:['⭐','Merkliste','fav']},ehem:{r:['🚫','Weg damit','no'],l:['⭐','Interessiert','fav']},ms:{r:['✓','Ausblenden','ok']},nolist:{r:['↩️','Zurückholen','back'],l:['⭐','Zurück auf die Merkliste','fav']},follow:{r:['🔕','Nicht mehr beobachten','no']},meld:{r:['✓','Gelesen','ok']},meldall:{r:['✓','Alle gelesen','ok']},radar:{r:['✓','Ausblenden','ok']},ins:{r:['✓','Für heute erledigt','ok']}};
 
 function sw45Bg(el,w){
   const par=el.parentElement; if(!par)return null;
@@ -8987,6 +9003,11 @@ window.addEventListener('click',e=>{ if(Date.now()-SW45.justSwiped<400&&e.target
 
 async function sw45Do(w,dir){
   try{
+    if(w.kind==='ehem'){ w=Object.assign({},w,{kind:'player'}); setTimeout(()=>{ try{ vrAfter(); }catch(x){} },30); }
+    if(w.kind==='ms'){
+      vrMsHide(w.key); const st=w.key.split('|').pop();
+      try{ vrHomeCard(); }catch(x){} try{ svCockpit(); }catch(x){}
+      kToast(st==='3'?'🎉 Ausgeblendet. Kommt 1 Spiel vorher nochmal':'🎉 Ausgeblendet','Rückgängig',()=>{ vrMsHide(w.key,true); try{ vrHomeCard(); }catch(x){} try{ svCockpit(); }catch(x){} }); return; }
     if(w.kind==='player'&&dir==='r'){
       const p=w.p; crmSet(p.id,{s:'no'}); try{ crmApply(); }catch(x){}
       if(SC2.follow.has(p.id)){ SC2.follow.delete(p.id); SVB.sb.from('scout_follow').delete().eq('player_id',p.id).then(()=>{},()=>{}); }
@@ -9014,7 +9035,8 @@ async function sw45Do(w,dir){
       try{ rdRender(); }catch(x){}
       kToast('Meldung ausgeblendet','Rückgängig',()=>{ sw45Set('svRdHide',sw45Get('svRdHide',[]).filter(x=>x!==String(w.rid))); try{ rdRender(); }catch(x){} }); return; }
     if(w.kind==='ins'){
-      const L=svInsights(), x=L[w.idx]; if(x){ const H=sw45Get('svInsHide',[]).filter(k=>k.startsWith(sw45Today())); H.push(sw45InsKey(x)); sw45Set('svInsHide',H); }
+      const L=svInsights(), x=L[w.idx]; if(x&&x.ms){ vrMsHide(x.ms); svCockpit(); kToast(x.ms.endsWith('|3')?'🎉 Ausgeblendet. Kommt 1 Spiel vorher nochmal':'🎉 Ausgeblendet'); try{ vrHomeCard(); }catch(y){} return; }
+      if(x){ const H=sw45Get('svInsHide',[]).filter(k=>k.startsWith(sw45Today())); H.push(sw45InsKey(x)); sw45Set('svInsHide',H); }
       svCockpit(); kToast('✓ Für heute erledigt'); return; }
   }catch(e){ kToast('⚠️ '+(e.message||e)); try{ sv44Refresh(); }catch(x){} }
 }
@@ -9028,7 +9050,7 @@ function sw45Hint(){
   const w=sw45What(el), bg=sw45Bg(el,w); if(bg)bg.classList.add('go-r');
   el.classList.add('sw45peek');
   setTimeout(()=>{ el.classList.remove('sw45peek'); if(bg)bg.remove();
-    kToast(w.kind==='player'?'Tipp: Nach rechts wischen = Kein Interesse, nach links = Merkliste':'Tipp: Nach rechts wischen = erledigt'); },1500);
+    kToast(w.kind==='player'||w.kind==='ehem'?'Tipp: Nach rechts wischen = Kein Interesse, nach links = Merkliste':'Tipp: Nach rechts wischen = erledigt'); },1500);
 }
 { const _gt45b=goTab; goTab=function(){ const r=_gt45b.apply(this,arguments); setTimeout(()=>{ try{ sw45Hint(); }catch(e){} },900); return r; }; }
 
@@ -12521,7 +12543,8 @@ function mnViewPlayers(B){
   if(typeof SV91!=='undefined'&&!SV91.loaded&&canTraining())mnLoadOnce('sv91p',()=>sv91Load(),mnRerender('players'));
   try{ mnApplyGw(); }catch(e){}
   const S=MN.sp, f=S.f, cols=S.cols.length?S.cols:MN_STD.cols, q=TRC.N(S.q||'');
-  let rows=mnIntern().filter(p=>(!q||TRC.N(p.name).includes(q))&&mnFilterRow(p,f)).map(p=>({p,t:mnTeam(p)||'-',s:sv50Stat(p)}));
+  const qs=q&&typeof suFind==='function'?new Set(suFind(S.q,{limit:1e5,noScore:true,scope:mnIsIntern}).list.map(x=>x.p.id)):null;
+  let rows=mnIntern().filter(p=>(!q||(qs?qs.has(p.id):TRC.N(p.name).includes(q)))&&mnFilterRow(p,f)).map(p=>({p,t:mnTeam(p)||'-',s:sv50Stat(p)}));
   const sk=S.sort&&cols.includes(S.sort)?S.sort:null;
   rows.sort((a,b)=>{ if(sk){ const va=SV50_COLS[sk].v(a.p,a.s), vb=SV50_COLS[sk].v(b.p,b.s); if(va!==vb)return (va<vb?-1:1)*S.dir; }
     const pi=p=>{ const i=TR_POS.indexOf(p.pos); return i<0?99:i; }; return (pi(a.p)-pi(b.p))||a.p.name.localeCompare(b.p.name,'de'); });
@@ -12676,7 +12699,8 @@ function mnViewPflege(B){
   if(typeof kxLoad==='function'&&!KX.loaded&&typeof kxOk==='function'&&kxOk())mnLoadOnce('kx',()=>kxLoad(),mnRerender('pflege'));
   try{ mnApplyGw(); }catch(e){}
   const a=MN_A[MN.area], ok=a.can(), q=TRC.N(MN.q||'');
-  const L=mnIntern().filter(p=>(!q||TRC.N(p.name).includes(q))&&(MN.team==='alle'||(mnTeam(p)||'-')===MN.team)&&(!MN.leer||a.leer(p)||(MN.draft[a.k]||{})[p.id]));
+  const qs=q&&typeof suFind==='function'?new Set(suFind(MN.q,{limit:1e5,noScore:true,scope:mnIsIntern}).list.map(x=>x.p.id)):null;
+  const L=mnIntern().filter(p=>(!q||(qs?qs.has(p.id):TRC.N(p.name).includes(q)))&&(MN.team==='alle'||(mnTeam(p)||'-')===MN.team)&&(!MN.leer||a.leer(p)||(MN.draft[a.k]||{})[p.id]));
   const leerN=mnIntern().filter(a.leer).length, n=mnDraftAll();
   const hint={eye:'Deine eigene Bewertung dieser Saison, 1 bis 10 (5 = Kreisliga-Durchschnitt). Die Karte zeigt den Schnitt aller Bewerter.',
     team:'Stammmannschaft und Zweitmannschaft der laufenden Saison. Umfeld: hat einen Spielerpass, spielt aber nicht regelmäßig.',
@@ -12821,6 +12845,328 @@ function mnArchiv(B){
 }
 
 /* =====================================================================
+   Sportzentrale Beta 0.19 · Spielersuche: sofort und mit Vorschlägen
+   - Ein Suchindex für alle Spieler (einmal aufgebaut, bei neuen Daten erneuert), Rechnen nur für die Treffer, die angezeigt werden
+   - Umlaute egal: „Mueller“, „Müller“ und „Muller“ finden dasselbe, „ß“ = „ss“, Akzente zählen nicht
+   - Anfang von Vor- oder Nachname zählt am meisten, dann Teil des Namens, dann Verein; eigene Spieler und Merkliste leicht vorne
+   - Vertipper: findet die Suche nichts, schlägt sie ähnliche Namen vor („Meintest du …“)
+   - Vorschläge beim Tippen in der Kopfzeile, im Spielermarkt, in der Spielerliste und in der Massenpflege
+   - Leeres Feld: zuletzt angesehene Spieler
+   ===================================================================== */
+const SU={idx:null,n:-1,sc:new Map(),recent:null};
+const suN1=s=>svNorm(s).replace(/[^a-z0-9]+/g,' ').trim();
+const suN2=s=>suN1(s).replace(/ae/g,'a').replace(/oe/g,'o').replace(/ue/g,'u');
+const suN3=s=>suN1(String(s||'').toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue'));
+function suIndex(){
+  if(SU.idx&&SU.n===players.length)return SU.idx;
+  SU.idx=players.map(p=>{ const n1=suN1(p.name), c1=suN1(((p.cur&&p.cur.club)||p.club||''));
+    const n3=suN3(p.name); return {p,n1,n2:suN2(p.name),n3,w1:n1.split(' '),w2:suN2(p.name).split(' '),w3:n3.split(' '),c1,c2:suN2(c1)}; });
+  SU.n=players.length; SU.sc.clear(); return SU.idx;
+}
+{ const _ra19=renderAll; renderAll=function(){ SU.idx=null; return _ra19.apply(this,arguments); }; }
+function suScore(p){ if(SU.sc.has(p.id))return SU.sc.get(p.id); let v=0; try{ v=scores(p).total||0; }catch(e){} SU.sc.set(p.id,v); return v; }
+// Wie gut passt ein Suchwort? 0 = gar nicht
+function suPart(x,w){
+  const w2=suN2(w), dig=w2!==w; let s=0;   // „ue“ bewusst getippt: dann nur Namen mit ü oder ue
+  const edge=i=>i===0||i===x.w1.length-1;
+  for(let i=0;i<x.w1.length;i++){ if(x.w1[i].startsWith(w)||(x.w3[i]||'').startsWith(w))s=Math.max(s,edge(i)?3:2.6); else if(!dig&&x.w2[i].startsWith(w2))s=Math.max(s,edge(i)?2.2:2); }
+  if(!s&&(x.n1.includes(w)||x.n3.includes(w)))s=1.4; else if(!s&&!dig&&x.n2.includes(w2))s=1.1;
+  if(!s&&w.length>=2&&(x.c1.includes(w)||x.c2.includes(w2)))s=x.c1.split(' ').some(c=>c.startsWith(w))?0.9:0.5;
+  return s;
+}
+function suLev1(a,b){ // höchstens ein Tippfehler (vertauscht, fehlt, zu viel, falsch)
+  if(a===b)return true; const la=a.length, lb=b.length; if(Math.abs(la-lb)>1)return false;
+  let i=0; while(i<la&&i<lb&&a[i]===b[i])i++;
+  if(la===lb)return a.slice(i+1)===b.slice(i+1)||(a[i]===b[i+1]&&a[i+1]===b[i]&&a.slice(i+2)===b.slice(i+2));
+  return la>lb?a.slice(i+1)===b.slice(i):a.slice(i)===b.slice(i+1);
+}
+function suFind(q,opt){
+  opt=opt||{}; const lim=opt.limit||8, parts=suN1(q).split(' ').filter(Boolean); if(!parts.length)return {list:[],fuzzy:false};
+  const I=suIndex(), scope=opt.scope||null, full=suN1(q), full2=suN2(q);
+  let hits=[];
+  for(const x of I){ if(scope&&!scope(x.p))continue; let s=0, ok=true;
+    for(const w of parts){ const v=suPart(x,w); if(!v){ ok=false; break; } s+=v; }
+    if(!ok)continue;
+    if(x.n1===full||x.n3===full||x.n2===full2)s+=5; else if(x.n1.startsWith(full)||x.n3.startsWith(full))s+=2.5; else if(x.n2.startsWith(full2))s+=1;
+    if(x.p.own)s+=1.2; if(x.p.star)s+=0.6; if(x.p.isJugend)s-=0.3;
+    hits.push({p:x.p,s}); }
+  let fuzzy=false;
+  if(!hits.length&&parts[parts.length-1].length>=4){
+    const seen=new Set(hits.map(h=>h.p.id)), w=suN2(parts[parts.length-1]), pre=parts.slice(0,-1);
+    for(const x of I){ if(seen.has(x.p.id)||(scope&&!scope(x.p)))continue;
+      if(pre.some(v=>!suPart(x,v)))continue;
+      if(x.w2.some(t=>suLev1(t,w)||(t.length>w.length&&suLev1(t.slice(0,w.length),w)))){ hits.push({p:x.p,s:(x.p.own?1.2:0)+0.2,fz:true}); fuzzy=true; } } }
+  // erst nach Treffergüte grob vorsortieren, dann nur die Besten mit der Spielstärke fein sortieren
+  hits.sort((a,b)=>b.s-a.s);
+  if(opt.noScore)return {list:hits.slice(0,lim),total:hits.length,fuzzy};
+  const top=hits.slice(0,Math.max(lim*5,40)); top.forEach(h=>h.m=suScore(h.p));
+  top.sort((a,b)=>(b.s-a.s)||(b.m-a.m)||a.p.name.localeCompare(b.p.name,'de'));
+  return {list:top.slice(0,lim),total:hits.length,fuzzy};
+}
+// Treffer im Namen hervorheben (Wortanfänge)
+function suMark(name,q){
+  const parts=suN1(q).split(' ').filter(Boolean); if(!parts.length)return svEsc(name);
+  const n=svNorm(name); if(n.length!==name.length)return svEsc(name);
+  const mark=new Array(name.length).fill(false);
+  parts.forEach(w=>{ const w2=suN2(w); let re=/[a-z0-9]+/g, m; while((m=re.exec(n))){ const t=m[0];
+      if(t.startsWith(w))for(let i=0;i<w.length;i++)mark[m.index+i]=true;
+      else if(suN2(t).startsWith(w2)){ let k=0,j=0; while(j<w2.length&&k<t.length){ mark[m.index+k]=true; if(t.slice(k,k+2)===w2[j]+'e'&&'aou'.includes(w2[j])&&w2[j+1]!=='e'){ mark[m.index+k+1]=true; k+=2; } else k++; j++; } } } });
+  let out='', on=false; for(let i=0;i<name.length;i++){ if(mark[i]&&!on){ out+='<mark>'; on=true; } if(!mark[i]&&on){ out+='</mark>'; on=false; } out+=svEsc(name[i]); } if(on)out+='</mark>';
+  return out;
+}
+// Zuletzt angesehen
+function suRecent(){ if(SU.recent)return SU.recent; try{ SU.recent=JSON.parse(localStorage.getItem('svRecent')||'[]').filter(x=>typeof x==='string').slice(0,8); }catch(e){ SU.recent=[]; } return SU.recent; }
+{ const _om19=openModal; openModal=function(id){ const r=_om19.apply(this,arguments);
+  try{ if(typeof id==='string'&&players.some(p=>p.id===id)){ const L=suRecent().filter(x=>x!==id); L.unshift(id); SU.recent=L.slice(0,8); try{ localStorage.setItem('svRecent',JSON.stringify(SU.recent)); }catch(e){} } }catch(e){}
+  return r; }; }
+function suLiga(p){ try{ return typeof svLigaText==='function'?svLigaText(p):((LIGA_NAME&&LIGA_NAME[p.liga])||p.liga||''); }catch(e){ return p.liga||''; } }
+function suItem(p,q,i,sel,fz){
+  const club=(p.cur&&p.cur.club)||p.club||'', m=suScore(p);
+  return `<div class="gi${i===sel?' sel':''}" role="option" aria-selected="${i===sel}" data-i="${i}">${avaHtml(p)}<div style="min-width:0"><b>${q&&!fz?suMark(p.name,q):svEsc(p.name)}${p.own?' <i class="su-own">eigener</i>':''}${p.star?' <i class="su-star">★</i>':''}</b><span>${svEsc(club)}${club?' · ':''}${svEsc(suLiga(p))}${p.pos?' · '+svEsc(p.pos):''}${p.alter!=null?' · '+p.alter:''}</span></div><div class="sc">${Math.round(m)}</div></div>`;
+}
+// Vorschläge an ein Suchfeld hängen
+function suAttach(inp,opt){
+  if(!inp||inp.dataset.su)return; inp.dataset.su='1'; opt=opt||{};
+  inp.setAttribute('autocomplete','off'); inp.setAttribute('role','combobox'); inp.setAttribute('aria-autocomplete','list');
+  let pop=opt.pop||null, sel=0, list=[], moved=false;
+  if(!pop){ pop=document.createElement('div'); pop.className='gres su-pop'; pop.setAttribute('role','listbox'); document.body.appendChild(pop); }
+  const place=()=>{ if(opt.pop)return; const r=inp.getBoundingClientRect(); pop.style.position='fixed'; pop.style.top=(r.bottom+6)+'px'; pop.style.left=Math.max(8,r.left)+'px'; pop.style.width=Math.max(280,Math.min(r.width,innerWidth-16))+'px'; pop.style.right='auto'; };
+  const close=()=>{ pop.classList.remove('open'); moved=false; };
+  const draw=()=>{
+    const q=inp.value.trim();
+    if(!q){ const R=opt.recent===false?[]:suRecent().map(id=>players.find(p=>p.id===id)).filter(p=>p&&(!opt.scope||opt.scope(p))).slice(0,6);
+      list=R; if(!R.length){ close(); return; }
+      pop.innerHTML='<div class="gh">Zuletzt angesehen</div>'+R.map((p,i)=>suItem(p,'',i,moved?sel:-1)).join('');
+    } else {
+      const t=performance.now(), F=suFind(q,{scope:opt.scope,limit:opt.limit||8,fupa:opt.fupa}); list=F.list.map(x=>x.p); SU.last=performance.now()-t;
+      sel=Math.min(sel,Math.max(0,list.length-1));
+      pop.innerHTML=list.length?`<div class="gh">${F.fuzzy&&!F.list.some(x=>!x.fz)?'Meintest du':opt.title||'Spieler'}${F.total>list.length?` <small>${F.total} Treffer</small>`:''}</div>`+F.list.map((x,i)=>suItem(x.p,q,i,sel,x.fz)).join('')
+        +(opt.more&&F.total>list.length?`<div class="su-more" data-more>Alle ${F.total} Treffer in der Liste zeigen</div>`:'')
+        :'<div class="ge">Kein Spieler gefunden. Tippfehler? Schon ein Teil vom Vor- oder Nachnamen reicht.</div>';
+    }
+    place(); pop.classList.add('open');
+    pop.querySelectorAll('.gi').forEach(g=>g.onmousedown=e=>{ e.preventDefault(); pick(+g.dataset.i); });
+    const mo=pop.querySelector('[data-more]'); if(mo)mo.onmousedown=e=>{ e.preventDefault(); close(); if(opt.more)opt.more(inp.value); };
+  };
+  const pick=i=>{ const p=list[i]; if(!p)return; close(); (opt.pick||(p=>{ inp.value=''; inp.blur(); openModal(p.id); }))(p,inp); };
+  inp.addEventListener('input',()=>{ sel=0; moved=false; draw(); if(opt.onInput)opt.onInput(inp.value); });
+  inp.addEventListener('focus',()=>{ if(opt.focusOpen!==false)draw(); });
+  inp.addEventListener('keydown',e=>{
+    const open=pop.classList.contains('open');
+    if(e.key==='ArrowDown'&&open){ e.preventDefault(); sel=moved?Math.min(sel+1,list.length-1):0; moved=true; draw(); }
+    else if(e.key==='ArrowUp'&&open){ e.preventDefault(); sel=Math.max(sel-1,0); moved=true; draw(); }
+    else if(e.key==='Enter'){ if(open&&list.length&&(moved||opt.enterPicks)){ e.preventDefault(); pick(moved?sel:0); } else { close(); if(opt.onEnter)opt.onEnter(inp.value); } }
+    else if(e.key==='Escape'){ close(); if(opt.onEscape)opt.onEscape(); }
+  });
+  inp.addEventListener('blur',()=>setTimeout(close,160));
+  addEventListener('resize',()=>{ if(pop.classList.contains('open'))place(); });
+  document.addEventListener('scroll',()=>{ if(pop.classList.contains('open')&&document.activeElement===inp)place(); else close(); },true);
+  return {draw,close};
+}
+
+/* ---------- Kopfzeile (⌘K) ---------- */
+function svSearchWire(){
+  const box=document.getElementById('gSearchBox'), inp=document.getElementById('gSearch'), res=document.getElementById('gRes'); if(!inp)return;
+  const shut=()=>{ box.classList.remove('mopen'); };
+  suAttach(inp,{pop:res,enterPicks:true,pick:p=>{ inp.value=''; inp.blur(); shut(); openModal(p.id); },onEscape:()=>{ inp.value=''; inp.blur(); shut(); }});
+  inp.addEventListener('blur',()=>setTimeout(shut,160));
+  document.addEventListener('keydown',e=>{
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); svSearchOpen(); }
+    else if(e.key==='/'&&!crmIsTyping()&&!document.getElementById('overlay').classList.contains('open')){ e.preventDefault(); svSearchOpen(); }
+  });
+}
+
+/* ---------- Spielermarkt: Vorschläge sofort, die große Liste zieht kurz danach nach ---------- */
+function suMarkt(){
+  const q=document.getElementById('q'); if(!q||q.dataset.su)return;
+  let t=null; const apply=v=>{ clearTimeout(t); query=String(v||'').toLowerCase(); renderList(); };
+  q.oninput=null;
+  suAttach(q,{title:'Spieler',onInput:v=>{ clearTimeout(t); t=setTimeout(()=>apply(v),260); },onEnter:v=>apply(v),more:v=>apply(v),
+    pick:p=>{ q.blur(); openModal(p.id); }});
+}
+
+/* ---------- Mannschaft → Spieler und Massenpflege: Zeilen sofort filtern, ohne neu zu zeichnen ---------- */
+function suRows(inp,rowSel,idOf,after,scope){
+  const f=()=>{ const v=inp.value.trim(); const I=v?new Set(suFind(v,{limit:100000,noScore:true,scope}).list.map(x=>x.p.id)):null; let n=0;
+    document.querySelectorAll(rowSel).forEach(r=>{ const show=!I||I.has(idOf(r)); r.style.display=show?'':'none'; if(show)n++; }); if(after)after(v,n); };
+  return f;
+}
+{ const _vp19=mnViewPlayers; mnViewPlayers=function(B){ const r=_vp19.apply(this,arguments);
+  try{ const qi=B.querySelector('#sp50q'); if(qi){ qi.oninput=null; const rows=suRows(qi,'.mn-sp tr[data-svp]',x=>x.dataset.svp,v=>{ MN.sp.q=v; B.querySelectorAll('.mn-sp .sp50-h').forEach(h=>{ const t=h.nextElementSibling; const n=t?[...t.querySelectorAll('tr[data-svp]')].filter(x=>x.style.display!=='none').length:0; h.style.display=n?'':'none'; const s=h.querySelector('small'); if(s)s.textContent=n; }); },mnIsIntern);
+      suAttach(qi,{scope:mnIsIntern,recent:false,focusOpen:false,onInput:rows}); if(qi.value)rows(); } }catch(e){ console.warn('Suche Spielerliste',e); }
+  return r; }; }
+trViewPlayers=mnViewPlayers;
+{ const _pf19=mnViewPflege; mnViewPflege=function(B){ const r=_pf19.apply(this,arguments);
+  try{ const qi=B.querySelector('#mpq'); if(qi){ qi.oninput=null; const rows=suRows(qi,'.mp-list .mp-r',x=>x.dataset.mp,v=>{ MN.q=v; },mnIsIntern);
+      suAttach(qi,{scope:mnIsIntern,recent:false,focusOpen:false,onInput:rows,pick:p=>{ qi.value=p.name; rows(); const el=B.querySelector(`[data-mp="${CSS.escape(p.id)}"]`); if(el){ el.classList.add('fo'); el.scrollIntoView({behavior:'smooth',block:'center'}); } }}); if(qi.value)rows(); } }catch(e){ console.warn('Suche Massenpflege',e); }
+  return r; }; }
+MN_VIEWS.pflege=mnViewPflege;
+// Spielermarkt-Liste: dieselbe Suche (Umlaute egal) statt „Text kommt vor“
+{ const _vis19=visible; visible=function(){ const v=((document.getElementById('q')||{}).value||'').trim(); if(!v||!query)return _vis19.apply(this,arguments);
+  const I=new Set(suFind(v,{limit:1e6,noScore:true}).list.map(x=>x.p.id)), sv=query; query=''; let L; try{ L=_vis19.apply(this,arguments); }finally{ query=sv; } return L.filter(p=>I.has(p.id)); }; }
+
+/* ---------- Start ---------- */
+{ const _si19=svInit; svInit=function(){ const r=_si19.apply(this,arguments);
+  try{ suMarkt(); }catch(e){ console.warn('Suche Spielermarkt',e); }
+  // Index im Leerlauf vorbereiten, damit schon der erste Buchstabe sofort kommt
+  try{ suWarm(); }catch(e){}
+  return r; }; }
+
+// Im Leerlauf: Index bauen, einmal „durchsuchen“ und die Spielstärke aller Spieler vorrechnen (in kleinen Häppchen, blockiert nichts)
+function suWarm(){
+  const idle=window.requestIdleCallback||(f=>setTimeout(()=>f({timeRemaining:()=>8}),300));
+  let i=0;
+  const step=d=>{ try{ const I=suIndex(); if(i===0){ suFind('a'); suItem(I[0].p,'a',0,0); }
+      while(i<I.length&&(!d||d.timeRemaining()>2)){ suScore(I[i].p); i++; if(!d&&i%200===0)break; }
+      if(i<I.length)idle(step); }catch(e){} };
+  setTimeout(()=>idle(step),1200);
+}
+{ const _ra19b=renderAll; renderAll=function(){ const r=_ra19b.apply(this,arguments); try{ clearTimeout(SU.wt); SU.wt=setTimeout(suWarm,2000); }catch(e){} return r; }; }
+
+/* =====================================================================
+   Sportzentrale Beta 0.19 · Im Blickfeld und FuPa-Spieler
+   - Die Suche kennt jetzt auch alle FuPa-Spieler (Herren) der laufenden und letzten Saison, die noch nicht in der App sind
+   - FuPa-Profil: Saisons, Einsätze, Minuten, Tore, Vorlagen, Tabellenplatz des Teams
+   - Im Blickfeld: jeder beobachtet seine eigenen Spieler, geordnet vom Torwart bis zum Sturm. Montags kommt ein Wochenbericht
+     nur mit den eigenen Spielern (Spiele, Minuten, Tore, Vorlagen oder „kein Einsatz“, Tabellenplatz des Teams)
+   ===================================================================== */
+const BF={dir:null,dirBusy:false,rep:null,repBusy:false,repT:0};
+const BF_POS=[['TW','Torwart'],['IV','Innenverteidigung'],['AV','Außenverteidigung'],['ZM','Zentrales Mittelfeld'],['OM','Offensives Mittelfeld'],['Flügel','Flügel'],['ST','Sturm'],['?','Position offen']];
+const bfFollowing=k=>typeof SC2!=='undefined'&&SC2.follow&&SC2.follow.has(k);
+async function bfToggle(key,name){
+  if(!canScout())return svDenied('Das Blickfeld gibt es für das Scouting-Team.');
+  if(typeof SC2!=='undefined'&&!SC2.loaded&&typeof sc2Load==='function')await sc2Load();
+  const on=bfFollowing(key);
+  try{ if(on){ const {error}=await SVB.sb.from('scout_follow').delete().eq('player_id',key); if(error)throw error; SC2.follow.delete(key); kToast('Aus deinem Blickfeld genommen: '+(name||'Spieler')); }
+    else { const {error}=await SVB.sb.from('scout_follow').insert({player_id:key}); if(error)throw error; SC2.follow.add(key); kToast('👁 '+(name||'Spieler')+' ist in deinem Blickfeld. Montags kommt dein Wochenbericht.'); }
+    BF.rep=null; try{ svSound('pop'); }catch(e){}
+  }catch(e){ kToast('⚠️ '+(e.message||e)); }
+  if(svCurTab()==='blick')bfRender();
+  return !on;
+}
+
+/* ---------- FuPa-Verzeichnis für die Suche ---------- */
+async function bfDirLoad(){
+  if(BF.dir||BF.dirBusy||!canScout())return; BF.dirBusy=true;
+  try{ const {data,error}=await SVB.sb.rpc('kla_spieler_verzeichnis'); if(error)throw error;
+    const inApp=new Set(players.map(p=>p.id));
+    BF.dir=(data||[]).filter(r=>!(r[10]&&inApp.has(r[10]))).map(r=>({id:'fupa:'+r[0],fid:r[0],name:((r[1]||'')+' '+(r[2]||'')).trim(),club:r[3]||'',liga:r[4]||'',fupa:true,season:r[5],sp:r[6],mi:r[7],t:r[8],v:r[9]}))
+      .filter(x=>x.name);
+    BF.cur=(data||[]).reduce((m,r)=>r[5]>m?r[5]:m,'');
+    SU.idx=null;
+  }catch(e){ console.warn('FuPa-Verzeichnis',e); BF.dir=[]; }
+  BF.dirBusy=false;
+  setTimeout(()=>{ try{ suIndex(); }catch(e){} },50);
+}
+// Index: App-Spieler und FuPa-Spieler zusammen, FuPa-Spieler nur, wenn die Suche sie will
+{ const _ix19=suIndex; suIndex=function(){
+  const known=SU.idx&&SU.n===players.length&&SU.nf===(BF.dir?BF.dir.length:-1);
+  if(known)return SU.idx;
+  SU.idx=null; const I=_ix19.apply(this,arguments).filter(x=>!x.p.fupa);
+  (BF.dir||[]).forEach(p=>{ const n1=suN1(p.name), c1=suN1(p.club), n3=suN3(p.name); I.push({p,n1,n2:suN2(p.name),n3,w1:n1.split(' '),w2:suN2(p.name).split(' '),w3:n3.split(' '),c1,c2:suN2(c1)}); });
+  SU.idx=I; SU.nf=BF.dir?BF.dir.length:-1; return I; }; }
+{ const _sf19=suScore; suScore=function(p){ if(p&&p.fupa)return -1; return _sf19.apply(this,arguments); }; }
+{ const _fd19=suFind; suFind=function(q,opt){ opt=Object.assign({},opt||{}); const sc=opt.scope; if(!opt.fupa)opt.scope=p=>!p.fupa&&(!sc||sc(p)); else if(sc)opt.scope=p=>p.fupa||sc(p);
+  const R=_fd19.call(this,q,opt);
+  if(opt.fupa&&!opt.noScore)R.list.sort((a,b)=>(b.s-a.s)||((a.p.fupa?1:0)-(b.p.fupa?1:0))||((b.m??-1)-(a.m??-1)));
+  return R; }; }
+
+/* ---------- Vorschläge: Wappen, Bild, FuPa-Kennzeichen, Blickfeld-Knopf ---------- */
+function bfCrest(club){ try{ return typeof scCrest==='function'?scCrest(club,'su-crest'):''; }catch(e){ return ''; } }
+suItem=function(p,q,i,sel,fz){
+  const club=p.fupa?p.club:((p.cur&&p.cur.club)||p.club||''), liga=p.fupa?(LIGA_NAME[p.liga]||p.liga):suLiga(p), key=p.id, on=bfFollowing(key);
+  const stats=p.fupa?`${p.sp||0} Sp. · ${p.t||0} T.${p.season&&BF.cur&&p.season<BF.cur?' ('+p.season.slice(2,4)+'/'+p.season.slice(5)+')':''}`:(p.pos?svEsc(p.pos):'')+(p.alter!=null?' · '+p.alter:'');
+  return `<div class="gi${i===sel?' sel':''}${p.fupa?' su-fupa':''}" role="option" aria-selected="${i===sel}" data-i="${i}">${p.fupa?`<div class="ava">${svEsc(svIni(p.name))}</div>`:avaHtml(p)}
+    <div style="min-width:0;flex:1"><b>${q&&!fz?suMark(p.name,q):svEsc(p.name)}${p.own?' <i class="su-own">eigener</i>':''}${p.fupa?' <i class="su-fp">nur FuPa</i>':''}</b>
+      <span class="su-cl">${bfCrest(club)}${svEsc(club)}${club&&liga?' · ':''}${svEsc(liga||'')}${stats?' · '+stats:''}</span></div>
+    ${canScout()?`<button type="button" class="su-eye${on?' on':''}" data-eye="${svEsc(key)}" title="${on?'Aus dem Blickfeld nehmen':'Ins Blickfeld'}" aria-label="${on?'Aus dem Blickfeld nehmen':'Ins Blickfeld'}">${SVI(on?'eye':'eye')}</button>`:''}
+    ${p.fupa?'':`<div class="sc">${Math.round(suScore(p))}</div>`}</div>`;
+};
+// Klick auf das Auge: ins Blickfeld, ohne das Profil zu öffnen
+document.addEventListener('mousedown',e=>{ const b=e.target.closest&&e.target.closest('.gres [data-eye]'); if(!b)return; e.preventDefault(); e.stopPropagation();
+  const k=b.dataset.eye, it=b.closest('.gi'), nm=it&&it.querySelector('b')?it.querySelector('b').textContent.replace(/(eigener|nur FuPa)/g,'').trim():'';
+  bfToggle(k,nm).then(on=>{ b.classList.toggle('on',!!on); b.title=on?'Aus dem Blickfeld nehmen':'Ins Blickfeld'; }); },true);
+function bfOpen(p){ if(p&&p.fupa)return bfFupaProfil(p.fid); openModal(p.id); }
+// Kopfzeile und Spielermarkt: FuPa-Spieler mit anbieten
+{ const _at19=suAttach; suAttach=function(inp,opt){ opt=opt||{};
+  if(inp&&(inp.id==='gSearch'||inp.id==='q'||inp.id==='bfq')){ opt=Object.assign({},opt,{fupa:true});
+    const pk=opt.pick; if(inp.id!=='bfq')opt.pick=(p,i)=>{ if(p.fupa){ i.value=''; i.blur(); try{ document.getElementById('gSearchBox').classList.remove('mopen'); }catch(e){} return bfFupaProfil(p.fid); } return pk?pk(p,i):(i.value='',i.blur(),openModal(p.id)); }; }
+  return _at19.call(this,inp,opt); }; }
+
+/* ---------- FuPa-Profil (Spieler, der noch nicht in der App ist) ---------- */
+async function bfFupaProfil(fid){
+  const M=svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('user')}</div><div><h2 style="margin:0">Lade …</h2></div></div>`);
+  let P=null; try{ const {data,error}=await SVB.sb.rpc('kla_spieler_profil',{p_fid:+fid}); if(error)throw error; P=data; }catch(e){ M.innerHTML='<p class="note">⚠️ '+svEsc(e.message||e)+'</p>'; return; }
+  if(!P){ M.querySelector('h2').textContent='Keine Daten gefunden'; return; }
+  if(P.app_id&&players.some(p=>p.id===P.app_id)){ closeOverlay(); return openModal(P.app_id); }
+  const key='fupa:'+fid, on=bfFollowing(key), T=P.team, form=(T&&T.form||[]).slice(0,5).map(r=>`<i class="res ${r==='win'?'w':r==='draw'?'d':'l'}">${r==='win'?'S':r==='draw'?'U':'N'}</i>`).join('');
+  const S=P.saisons||[], s0=S[0]||{};
+  svModal(`<div class="mhead bf-head"><div class="ava bf-ava">${svEsc(svIni(P.name))}</div><div style="min-width:0"><h2 style="margin:0">${svEsc(P.name)}</h2>
+      <div class="msub">${bfCrest(P.club)} ${svEsc(P.club||'')} · ${svEsc(LIGA_NAME[P.liga]||P.liga||'')} <i class="su-fp">nur FuPa</i></div></div></div>
+    <div class="bf-act"><button type="button" class="btn sm${on?' ghost':''}" id="bfTog">${SVI('eye')} ${on?'Im Blickfeld · entfernen':'Ins Blickfeld'}</button></div>
+    <div class="tiles trtiles bf-tiles"><div class="tile"><div class="v">${s0.sp??'–'}</div><div class="l">Spiele ${svEsc(String(s0.season||'').replace(/^20/,''))}</div><div class="s">${s0.mi?s0.mi.toLocaleString('de-DE')+' Min.':'Minuten offen'}</div></div>
+      <div class="tile"><div class="v">${s0.t??'–'}</div><div class="l">Tore</div><div class="s">${s0.v??0} Vorlagen</div></div>
+      ${T&&T.platz?`<div class="tile"><div class="v">${T.platz}.</div><div class="l">Tabellenplatz Team</div><div class="s">${T.vorher&&T.vorher!==T.platz?'vorher '+T.vorher+'. · ':''}${svEsc(T.liga||'')}</div></div>`:''}
+      ${form?`<div class="tile"><div class="v mn-form">${form}</div><div class="l">Form des Teams</div><div class="s">letzte Spiele</div></div>`:''}</div>
+    <div class="card"><h3 class="trh">${SVI('chart')} Saisons</h3><div class="trtw"><table class="trtab"><thead><tr><th>Saison</th><th>Verein</th><th>Liga</th><th>Sp.</th><th>Min.</th><th>T</th><th>V</th></tr></thead><tbody>
+      ${S.map(x=>`<tr><td>${svEsc(x.season)}</td><td>${svEsc(x.club||'')}</td><td>${svEsc(LIGA_NAME[x.liga]||x.liga||'')}</td><td>${x.sp}</td><td>${x.mi?x.mi.toLocaleString('de-DE'):'–'}</td><td>${x.t||'–'}</td><td>${x.v||'–'}</td></tr>`).join('')}</tbody></table></div>
+      <p class="note small">Dieser Spieler ist noch nicht im Datenbestand der App. Die Werte kommen aus FuPa (Herren, alle Teams zusammen), nur für die interne Kaderplanung.</p></div>
+    <div class="btnrow sbact"><button class="btn ghost" type="button" onclick="closeOverlay()">Schließen</button></div>`);
+  const b=document.getElementById('bfTog'); if(b)b.onclick=async()=>{ const now=await bfToggle(key,P.name); b.className='btn sm'+(now?' ghost':''); b.innerHTML=SVI('eye')+' '+(now?'Im Blickfeld · entfernen':'Ins Blickfeld'); };
+}
+
+/* ---------- Profil: Knopf „Ins Blickfeld“ ---------- */
+{ const _om19b=openModal; openModal=function(id){ const r=_om19b.apply(this,arguments);
+  try{ const M=document.getElementById('modal'), act=M&&M.querySelector('.pf4-act'), p=trP(id);
+    if(act&&p&&canScout()&&!act.querySelector('[data-bf]')){ const on=bfFollowing(p.id); act.insertAdjacentHTML('afterbegin',`<button type="button" class="btn sm${on?'':' ghost'}" data-bf>${SVI('eye')} ${on?'Im Blickfeld':'Ins Blickfeld'}</button>`);
+      const b=act.querySelector('[data-bf]'); b.onclick=async()=>{ const now=await bfToggle(p.id,p.name); b.className='btn sm'+(now?'':' ghost'); b.innerHTML=SVI('eye')+' '+(now?'Im Blickfeld':'Ins Blickfeld'); }; } }catch(e){ console.warn('Blickfeld-Knopf',e); }
+  return r; }; }
+
+/* ---------- Bereich „Im Blickfeld“ ---------- */
+SV4_HUB.scouting.tabs.splice(1,0,['blick','Im Blickfeld']);
+SV4_OF.blick='scouting';
+SV_PAGES.blick=['Scouting','Im Blickfeld: deine Spieler, jede Woche auf dem neuesten Stand'];
+{ const _ta19=svTabAllowed; svTabAllowed=function(t){ if(t==='blick')return canScout(); return _ta19.apply(this,arguments); }; }
+{ const _gt19=goTab; goTab=function(tab){ const r=_gt19.apply(this,arguments); try{ if(svCurTab()==='blick')bfRender(); }catch(e){ console.warn('Blickfeld',e); } return r; }; }
+if(typeof SV50_INFO!=='undefined')SV50_INFO.blick={w:'Deine persönliche Beobachtungsliste, wie „Im Blickfeld“ bei FIFA: nur du siehst sie, jeder im Team hat seine eigene.',
+  f:'Montags bekommst du einen Wochenbericht nur zu diesen Spielern: Spiele, Minuten, Tore, Vorlagen oder „kein Einsatz“, dazu der Tabellenplatz seines Teams.',
+  h:'Spieler kommen über das Auge in der Suche, im Profil oder hier oben dazu, auch FuPa-Spieler, die noch nicht in der App sind.',
+  s:'Oben einen Namen tippen und das Auge antippen. Geordnet vom Torwart bis zum Sturm.',b:['„Diese Woche“ zeigt, was sich seit dem letzten Wochenbericht getan hat.']};
+async function bfRepLoad(force){
+  if(BF.repBusy||(!force&&BF.rep&&Date.now()-BF.repT<60000))return; BF.repBusy=true;
+  try{ const {data,error}=await SVB.sb.rpc('blick_bericht'); if(error)throw error; BF.rep=data||[]; BF.repT=Date.now(); }catch(e){ console.warn('Blickfeld',e); BF.rep=BF.rep||[]; }
+  BF.repBusy=false; if(svCurTab()==='blick')bfRender(true);
+}
+function bfPos(x){ const p=trP(x.key); const pos=(p&&p.pos)||x.pos; return BF_POS.some(([k])=>k===pos)?pos:'?'; }
+function bfWoche(x){
+  if(x.d_sp==null)return '<span class="bf-w neu">neu im Blickfeld</span>';
+  if(x.d_sp>0)return `<span class="bf-w ok">+${x.d_sp} Spiel${x.d_sp>1?'e':''}${x.d_mi>0?` · ${x.d_mi} Min.`:''}${x.d_t>0?` · ⚽ ${x.d_t}`:''}${x.d_v>0?` · 🅰️ ${x.d_v}`:''}</span>`;
+  return '<span class="bf-w nix">kein Einsatz</span>';
+}
+function bfRender(noLoad){
+  const P=document.getElementById('panel-blick'); if(!P)return;
+  if(!canScout()){ P.innerHTML='<div class="card"><div class="empty">Das Blickfeld gibt es für das Scouting-Team.</div></div>'; return; }
+  if(!noLoad)bfRepLoad(); if(!BF.dir)bfDirLoad();
+  const L=BF.rep, n=L?L.length:0;
+  P.innerHTML=`<div class="card bf-top"><div class="bf-srch">${SVI('search')}<input type="search" id="bfq" placeholder="Spieler suchen und mit dem Auge ins Blickfeld nehmen" autocomplete="off" aria-label="Spieler fürs Blickfeld suchen"></div>
+      <p class="note small">${n?`<b>${n}</b> Spieler in deinem Blickfeld. `:''}Montags kommt dein Wochenbericht mit allen Spielern hier. Nur du siehst diese Liste.</p></div>
+    ${L==null?'<div class="card"><div class="empty">Lade dein Blickfeld …</div></div>':!n?'<div class="card"><div class="empty">Noch niemand im Blickfeld. Oben einen Namen tippen und auf das Auge drücken, oder im Spielerprofil auf „Ins Blickfeld“.</div></div>'
+      :BF_POS.map(([k,t])=>{ const G=L.filter(x=>bfPos(x)===k); if(!G.length)return '';
+        return `<div class="bf-grp"><h3 class="trh">${svEsc(t)} <small>${G.length}</small></h3><div class="bf-l">${G.map(x=>{ const p=trP(x.key), T=x.team||{};
+          return `<div class="bf-c" data-bfk="${svEsc(x.key)}">${p?avaHtml(p):`<div class="ava">${svEsc(svIni(x.name||'?'))}</div>`}
+            <div class="bf-m"><b>${svEsc(x.name||x.key)}${x.key.startsWith('fupa:')?' <i class="su-fp">nur FuPa</i>':''}</b><span>${bfCrest(x.club)}${svEsc(x.club||'?')}${x.liga?' · '+svEsc(LIGA_NAME[x.liga]||x.liga):''}</span>
+              <span>Saison ${x.sp||0} Sp. · ${x.mi?x.mi.toLocaleString('de-DE')+' Min. · ':''}${x.t||0} T. · ${x.v||0} V.${T.platz?` · Team ${T.platz}. von ${T.teams||'?'}`:''}${x.alt?` · zuletzt ${svEsc(x.alt.season)}: ${x.alt.sp} Sp.`:''}</span></div>
+            <div class="bf-r">${bfWoche(x)}<button type="button" class="lk4 mut" data-bfx="${svEsc(x.key)}" title="Aus dem Blickfeld nehmen">✕</button></div></div>`; }).join('')}</div></div>`; }).join('')}`;
+  const q=P.querySelector('#bfq'); if(q)suAttach(q,{title:'Spieler',recent:true,pick:(p,i)=>{ i.value=''; bfToggle(p.id,p.name); }});
+  P.querySelectorAll('.bf-c').forEach(c=>c.onclick=e=>{ if(e.target.closest('[data-bfx]'))return; const k=c.dataset.bfk; if(k.startsWith('fupa:'))bfFupaProfil(k.slice(5)); else openModal(k); });
+  P.querySelectorAll('[data-bfx]').forEach(b=>b.onclick=async e=>{ e.stopPropagation(); if(!b.classList.contains('sure')){ b.classList.add('sure'); b.textContent='Entfernen?'; return; }
+    const x=(BF.rep||[]).find(r=>r.key===b.dataset.bfx); await bfToggle(b.dataset.bfx,x&&x.name); BF.rep=(BF.rep||[]).filter(r=>r.key!==b.dataset.bfx); bfRender(true); bfRepLoad(true); });
+}
+// Nach dem Start: Verzeichnis im Leerlauf laden
+{ const _si19b=svInit; svInit=function(){ const r=_si19b.apply(this,arguments);
+  try{ setTimeout(()=>{ if(canScout())bfDirLoad(); },2500); }catch(e){} return r; }; }
+
+/* =====================================================================
    SV/BSC Scout · Runde 20: „Was ist neu“: Update-Fenster & Patch-Historie
    - Nach jedem Update ein Pop-up: das Wichtigste in Kürze → „OK“ oder „Mehr erfahren“ (ganze Historie)
    - Jederzeit erreichbar: Seitenleiste / „Mehr“ / Mein Konto → „Was ist neu“
@@ -12829,6 +13175,15 @@ function mnArchiv(B){
    Sichtbarkeit je Punkt: r:'team' (ohne Gäste) · r:'scout' · r:'admin' · ohne r = alle
    ===================================================================== */
 const SV_PATCHES=[
+  {id:'0.19',v:'0.19',datum:'2026-09-27',titel:'Spielersuche und Im Blickfeld',kurz:'Spieler blitzschnell finden, auch mit Tippfehlern und auch alle FuPa-Spieler der Region. Dazu dein persönliches Blickfeld mit Wochenbericht.',
+   punkte:[
+    {ic:'🔎',t:'Suche beim Tippen',d:'Vorschläge ab dem ersten Buchstaben, mit Verein, Wappen und Bild. Vor- oder Nachname, Reihenfolge und Umlaute egal, bei Vertippern kommt „Meintest du“. Am Handy über die Lupe oben.',r:'team'},
+    {ic:'🌍',t:'Alle FuPa-Spieler der Region',d:'Auch Spieler, die noch nicht in der App sind, tauchen in der Suche auf (nur FuPa). Ein Tipp zeigt ihre Saisons mit Spielen, Minuten, Toren und dem Tabellenplatz ihres Teams.',r:'scout'},
+    {ic:'👁',t:'Im Blickfeld',d:'Jeder hat seine eigene Beobachtungsliste, geordnet vom Torwart bis zum Sturm. Mit dem Auge in der Suche oder im Profil hinzufügen. Montags kommt dein Wochenbericht nur mit deinen Spielern: Spiele, Minuten, Tore oder kein Einsatz.',r:'scout',go:'blick'},
+    {ic:'🎉',t:'Ehrungen verpasst keiner mehr',d:'Ein Jubiläum erscheint 3 Spiele vorher auf der Übersicht. Wegwischen geht, 1 Spiel vorher kommt es trotzdem noch einmal.',r:'team'},
+    {ic:'↩️',t:'Rückkehrer-Radar zum Wischen',d:'Ehemalige im Verein-Bereich: nach rechts heißt kein Interesse, nach links interessiert (Merkliste).',r:'scout'},
+    {ic:'🤖',t:'Co-Trainer schlägt selbst nach',d:'Nennst du einen Namen, sucht er sofort in der Datenbank, auch mit Tippfehler, und antwortet mit echten Werten. Statt im Kreis zu fragen, bietet er Profil und Blickfeld direkt an.',r:'team'},
+   ]},
   {id:'0.18',v:'0.18',datum:'2026-09-27',titel:'Mannschaft neu geordnet',kurz:'Eine Spielerliste mit eigenen Ansichten, die Massenpflege für alle Spielerdaten und klare Reiter für Training, Spiele, Abwesenheiten und Materialdienst.',
    punkte:[
     {ic:'🗂️',t:'Massenpflege',d:'Fuß, Eye-Test, Position, Mannschaft, Kontaktdaten, Geburtsdatum, Skills, Größe und Gewicht: alle internen Spieler untereinander bearbeiten und mit einem Tipp speichern. Profile zeigen die Daten nur noch an, „Spielerdaten pflegen“ springt direkt hierher.',r:'team',go:'pflege'},
@@ -13025,7 +13380,7 @@ function spGo(k){
   const F={kontakte:()=>kb('kontakte'),kasse:()=>kb('kasse'),abst:()=>kb('abst'),pflege:()=>sv4Go('training:pflege'),spieler:()=>sv4Go('training:players'),abwesend:()=>sv4Go('training:urlaub'),gstat:()=>sv4Go('training:gstat'),cotrainer:()=>{ const f=document.getElementById('trFab'); if(f)f.click(); }}[k];
   if(F)F(); else goTab(k);
 }
-const SP_TEAM=['kontakte','kasse','abst','cotrainer','training','pflege','spieler','abwesend','gstat'], SP_SCOUT=['scout','best','radar','kaderplan','kandidaten','db','sxi','jugend'];
+const SP_TEAM=['kontakte','kasse','abst','cotrainer','training','pflege','spieler','abwesend','gstat'], SP_SCOUT=['blick','scout','best','radar','kaderplan','kandidaten','db','sxi','jugend'];
 function spCanGo(g){ return !!g&&(SP_TEAM.includes(g)?canTraining():SP_SCOUT.includes(g)?canScout():(typeof svTabAllowed==='function'?svTabAllowed(g):true)); }
 function spItem(x,btn){ return `<div class="sp-it"><span class="sp-ic">${x.ic||'•'}</span><div><b>${svEsc(x.t)}</b><p>${svEsc(x.d)}</p>${btn&&spCanGo(x.go)?`<button class="sp-go" data-spgo="${svEsc(x.go)}">Ausprobieren →</button>`:''}</div></div>`; }
 function spWire(M){ M.querySelectorAll('[data-spgo]').forEach(b=>b.onclick=()=>spGo(b.dataset.spgo)); }
