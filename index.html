@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="favicon-64.png">
-<meta name="app-build" content="beta-0.19">
+<meta name="app-build" content="beta-0.20">
 <title>SV/BSC Sportzentrale</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" async></script>
 <style>
@@ -3043,6 +3043,36 @@ body.abg-offen{overflow:hidden;}
 .vrbackl .tra:first-child{border-top:0}
 .tra.vrfav .tra-b b{color:#86efac}
 
+/* 0.20 Qualitätspaket */
+.svq-na{color:var(--ink3,#8a93a6);font-style:normal}
+.svq-wrap{margin:0 0 10px}
+.svq-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;text-align:left;border:1px solid var(--line,rgba(255,255,255,.1));background:rgba(255,255,255,.03);border-radius:12px;padding:8px 10px;cursor:pointer;color:inherit;font:inherit}
+.svq-bar.warn{border-color:rgba(251,191,36,.45)} .svq-bar.bad{border-color:rgba(248,113,113,.55)}
+.svq-l{font-weight:700;font-size:12.5px;margin-right:4px}
+.svq-t{font-size:11.5px;color:var(--ink3,#8a93a6)}
+.svq-chip{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+.svq-chip.ok{background:rgba(34,197,94,.12);color:#86efac;border-color:rgba(34,197,94,.35)}
+.svq-chip.warn{background:rgba(251,191,36,.12);color:#fde68a;border-color:rgba(251,191,36,.35)}
+.svq-chip.bad{background:rgba(248,113,113,.14);color:#fecaca;border-color:rgba(248,113,113,.4)}
+.svq-chip.na{background:rgba(148,163,184,.12);color:#cbd5e1}
+.svq-det .svq-row{display:flex;flex-direction:column;gap:2px;padding:8px 0;border-top:1px solid var(--line2,rgba(255,255,255,.06))}
+.svq-det .svq-row.ok b{color:#86efac} .svq-det .svq-row.warn b{color:#fde68a} .svq-det .svq-row.bad b{color:#fecaca}
+.svq-det .svq-row span{font-size:12.5px;color:var(--ink2,#c7cdd8)}
+.svq-t td,.svq-t th{text-align:right} .svq-t td:first-child,.svq-t th:first-child{text-align:left}
+tr.svq-bad td{color:#fecaca}
+.svq-imp{margin:0 0 12px;padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.1));border-radius:12px}
+.svq-imp h4{margin:0 0 4px}
+.svq-prof h5{margin:14px 0 6px;font-size:13px}
+.svq-prof h5 small{font-weight:400;color:var(--ink3,#8a93a6)}
+.svq-prof-q{display:flex;flex-wrap:wrap;gap:6px}
+.svq-akt>div,.svq-mb>div,.svq-mvp>div{display:flex;flex-direction:column;gap:2px;padding:6px 0;border-top:1px solid var(--line2,rgba(255,255,255,.06))}
+.svq-akt span,.svq-mb span,.svq-mvp span{font-size:12.5px;color:var(--ink2,#c7cdd8)}
+.svq-akt.na b{color:#fde68a}
+.svq-mb .sum b{color:#86efac}
+.svq-st td small{display:block;color:var(--ink3,#8a93a6);font-size:11px}
+.svq-st td,.svq-st th{white-space:nowrap}
+.badge.svq-alt{opacity:.8;border-style:dashed}
+
 </style>
 <style id="v3gate">
 /* =====================================================================
@@ -3686,9 +3716,9 @@ a.kbtn{text-decoration:none;display:inline-block}
 
 
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
-<script>window.SVBC_CFG={"url": "https://lvaukuzgcwgqipxwzabo.supabase.co", "anon": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2YXVrdXpnY3dncWlweHd6YWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNTYwMTcsImV4cCI6MjEwNTczMjAxN30.jYZF8q8-SyCaWykM0wwcK58EzfTbO2VASKz1NIv1xbo", "build": "beta-0.19", "dataBytes": 3053230};</script>
-<script src="vendor/supabase.js?v=beta-0.19"></script>
-<script src="icons.js?v=beta-0.19"></script>
-<script src="boot.js?v=beta-0.19"></script>
+<script>window.SVBC_CFG={"url": "https://lvaukuzgcwgqipxwzabo.supabase.co", "anon": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2YXVrdXpnY3dncWlweHd6YWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNTYwMTcsImV4cCI6MjEwNTczMjAxN30.jYZF8q8-SyCaWykM0wwcK58EzfTbO2VASKz1NIv1xbo", "build": "beta-0.20", "dataBytes": 3053230};</script>
+<script src="vendor/supabase.js?v=beta-0.20"></script>
+<script src="icons.js?v=beta-0.20"></script>
+<script src="boot.js?v=beta-0.20"></script>
 </body>
 </html>
