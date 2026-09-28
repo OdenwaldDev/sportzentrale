@@ -2,7 +2,7 @@
    - App-Seite: erst Netz (max. 4 s), sonst gespeicherte Version → startet auch im Funkloch
    - Icons/Wappen/Chart-Bibliothek: aus dem Speicher, im Hintergrund aufgefrischt
    - Sync (Make) und version.json laufen NIE über den Speicher */
-const BUILD = 'beta-0.20';
+const BUILD = 'beta-0.21';
 const CACHE = 'svbc-scout-' + BUILD;
 const SHELL = ['./', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './favicon-64.png', './crest.svg', './logo.png',
   './fonts/inter-var.woff2', './fonts/barlowc-700.woff2', './vendor/supabase.js?v=' + BUILD, './icons.js?v=' + BUILD, './boot.js?v=' + BUILD, './app.js?v=' + BUILD];
@@ -88,10 +88,16 @@ self.addEventListener('notificationclick', e => {
   const scope = self.registration.scope;
   let target = scope;
   try { const u = new URL((e.notification.data && e.notification.data.url) || './#kandidaten', scope); if (u.origin === new URL(scope).origin) target = u.href; } catch (_) {}
+  const ziel = target.split('#')[1] || 'kandidaten';
   e.waitUntil((async () => {
+    // Merkzettel: falls das Handy die Adresse beim Öffnen verliert (iPhone-App), holt die App das Ziel beim Start ab
+    try { const c = await caches.open('svbc-ziel'); await c.put(new Request(new URL('./__ziel', scope).href), new Response(JSON.stringify({ ziel, t: Date.now() }), { headers: { 'content-type': 'application/json' } })); } catch (_) {}
     const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of list) {
-      if (c.url.startsWith(scope)) { try { await c.focus(); c.postMessage({ svbcGo: target.split('#')[1] || 'kandidaten' }); return; } catch (_) {} }
+      if (c.url.startsWith(scope)) {   // offene App: Nachricht schicken, auch wenn das Nach-vorne-Holen nicht erlaubt ist
+        try { c.postMessage(/^[a-z]+$/.test(ziel) ? { svbcGo: ziel } : { svbcZiel: ziel }); } catch (_) { continue; }
+        try { await c.focus(); } catch (_) {}
+        return; }
     }
     await self.clients.openWindow(target);
   })());

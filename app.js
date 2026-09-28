@@ -2100,7 +2100,7 @@ function openSlotPicker(i,depth){
 }
 
 /* ===== App-Modus: installierbar, offline-fest, aktualisiert sich selbst ===== */
-const APP_BUILD='beta-0.20', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
+const APP_BUILD='beta-0.21', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
 let _appPrompt=null, _appNew=null, _obT=null;
 function appStandalone(){ try{ return !!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
 function appPlatform(){
@@ -6581,7 +6581,7 @@ function sc2ScoutBox(){
       <div class="btnrow" style="margin-top:10px"><button class="btn ghost sm" id="sc2Exp">${SVI('download')} Scouting-Bericht (PDF/Excel)</button></div></div></div>`;
   const rd=document.getElementById('sc2Read'); if(rd)rd.onclick=async()=>{ await SVB.sb.rpc('meldungen_gelesen',{p_ids:null}); SC2.meld.forEach(m=>m.gelesen_at=m.gelesen_at||new Date().toISOString()); sc2After(); };
   el.querySelectorAll('[data-m]').forEach(x=>x.onclick=async()=>{ const m=SC2.meld.find(y=>y.id==x.dataset.m); await SVB.sb.rpc('meldungen_gelesen',{p_ids:[+x.dataset.m]}); if(m)m.gelesen_at=new Date().toISOString();
-    if(m&&m.data&&m.data.job)sc2JobView(m.data.job); else if(m&&m.player_id)openModal(m.player_id); sc2After(); });
+    if(m&&m.data&&m.data.job)sc2JobView(m.data.job); else if(m&&m.player_id&&m.art==='scout_update')openModal(m.player_id); else if(m&&typeof svMeldungZeigen==='function')svMeldungZeigen([m.id]); sc2After(); });
   el.querySelectorAll('[data-sc2open]').forEach(x=>x.onclick=()=>openModal(x.dataset.sc2open));
   el.querySelectorAll('[data-job]').forEach(x=>x.onclick=()=>sc2JobView(x.dataset.job));
   document.getElementById('sc2New').onclick=()=>sc2JobNew();
@@ -6592,8 +6592,8 @@ function sc2HomeCard(){
   let el=document.getElementById('sc2Home'); const U=SC2.meld.filter(m=>!m.gelesen_at);
   if(!U.length){ if(el)el.remove(); return; }
   if(!el){ el=document.createElement('div'); el.id='sc2Home'; host.before(el); }
-  el.innerHTML=`<div class="card kbhome" data-sc2h><div><span class="trpill">${SVI('bell')} Scouting</span><b>${U.length===1?svEsc(U[0].titel):U.length+' neue Meldungen'}</b><small>${svEsc(U.length===1?(U[0].text||''):U.slice(0,2).map(m=>m.titel).join(' · '))}</small></div></div>`;
-  el.querySelector('[data-sc2h]').onclick=()=>goTab('scout');
+  el.innerHTML=`<div class="card kbhome" data-sc2h><div><span class="trpill">${SVI('bell')} ${U.every(m=>/^scout_/.test(m.art))?'Scouting':'Meldungen'}</span><b>${U.length===1?svEsc(U[0].titel):U.length+' neue Meldungen'}</b><small>${svEsc(U.length===1?(U[0].text||''):U.slice(0,2).map(m=>m.titel).join(' · '))}</small></div></div>`;
+  el.querySelector('[data-sc2h]').onclick=()=>{ if(typeof svMeldungZeigen==='function')svMeldungZeigen(U.slice(0,10).map(m=>m.id)); else goTab('scout'); };   // Tipp zeigt genau diese Meldungen
 }
 
 /* ---------- KI-Aufträge ---------- */
@@ -13231,8 +13231,11 @@ function svqTore(q){
       d:`${d.currently_verified?'Rohdaten vollständig und unverändert in der App (':'Letzter Abgleich '}${svqD(d.last_audit_at,true)}${d.currently_verified?')':''}. ${ab?ab.toLocaleString('de-DE')+' Abweichungen oder fehlende Datensätze.':'0 fehlend, 0 Abweichungen im letzten Bericht.'}`}); }
   T.push({k:'quelle',t:d&&d.source_complete?'Quelle vollständig':'Quelle unvollständig',s:d&&d.source_complete?'ok':'warn',d:(d&&d.source_completeness_note)||'FuPa-Abdeckung ist ein Ausschnitt der vereinbarten Ligen und Spielzeiten.'});
   T.push({k:'app',t:d&&d.ui_verified?'App-Anzeige abgenommen':'App-Anzeige nicht abgenommen',s:d&&d.ui_verified?'ok':'warn',d:'Eigene Prüfung der Anzeige, getrennt vom Übertragungsnachweis.'});
-  const k=q.kapazitaet; if(k&&k.ueber)T.push({k:'kap',t:'Speichergrenze erreicht',s:'bad',d:`${(k.bytes/1e6).toFixed(1)} von ${(k.grenze/1e6).toFixed(0)} MB: Quellenimport und Nachladen pausieren.`});
+  const k=q.kapazitaet, k0=k; if(k&&k.ueber)T.push({k:'kap',t:'Speichergrenze erreicht',s:'bad',d:`${(k.bytes/1e6).toFixed(1)} von ${(k.grenze/1e6).toFixed(0)} MB: Quellabruf und Nachladen pausieren. Die Grenze hält die Datenbank in den 8 GB des Supabase-Tarifs.`});
   const i=q.import||{}; if(i.lauf_status&&i.lauf_status!=='ok')T.push({k:'import',t:'Letzter Import: '+i.lauf_status,s:'bad',d:(i.lauf_fehler||'')+(i.lauf_start?' · '+svqD(i.lauf_start,true):'')});
+  const c=q.checker; if(c){ const P=c.probleme||{}, S=c.stufen||{}, ks=Object.keys(P).filter(k=>S[k]!=='info'&&!(k==='speicher'&&k0&&k0.ueber)), alt=!c.geprueft||Date.now()-new Date(c.geprueft).getTime()>30*60000;
+    T.push({k:'checker',t:alt?'Server-Checker steht':ks.length?'Server-Checker: '+ks.length+' Problem'+(ks.length>1?'e':''):'Server-Checker ok',s:alt||ks.some(k=>S[k]==='fehler')?'bad':ks.length?'warn':'ok',
+      d:alt?'Letzte Prüfung '+svqD(c.geprueft,true)+'. Sonst prüft er alle 10 Minuten.':ks.length?ks.map(k=>P[k]).join(' '):'Prüft alle 10 Minuten Übertragung, Speicher und Quellabruf, zuletzt '+svqD(c.geprueft,true)+'.'}); }
   const qe=d&&(d.source_queue||[]).find(x=>x.status==='error'); if(qe&&qe.n)T.push({k:'queue',t:qe.n+' Quellenabrufe mit Fehler',s:'warn',d:'Warteschlange der Quelle: '+(d.source_queue||[]).map(x=>x.n+' '+x.status).join(', ')});
   return T; }
 function svqGesamt(T){ return T.some(x=>x.s==='bad')?'bad':T.every(x=>x.s==='ok')?'ok':'warn'; }
@@ -13246,15 +13249,21 @@ function svqBarZeichnen(){
     b.innerHTML=svqBarHtml(); const k=b.querySelector('[data-svq]'); if(k)k.onclick=()=>svqDetail(); });
   document.querySelectorAll('.svq-prof-q').forEach(el=>{ el.innerHTML=svqChips(svqTore(SVQ.q),true); });
 }
+function svqCheckerHtml(q){ const c=q&&q.checker; if(!c)return '';
+  const B=c.beobachtet||{}, S=c.stufen||{}, Z=c.seit||{}, Q=c.quelle||{}, ks=Object.keys(B), lab={fehler:'Fehler',warnung:'Warnung',info:'Info'};
+  return `<div class="svq-chk"><b>Server-Checker</b> <span class="note small">prüft alle 10 Minuten, zuletzt ${svqD(c.geprueft,true)}. Ein Problem zählt ab 15 Minuten Dauer, dann bekommen Admins eine Meldung.</span>
+    ${ks.length?`<ul>${ks.map(k=>`<li class="${S[k]==='fehler'?'svq-bad':''}"><b>${lab[S[k]]||'Warnung'}</b> ${svqE(B[k])} <small>seit ${svqD(Z[k],true)}${c.probleme&&c.probleme[k]?'':' (noch in der 15-Minuten-Frist)'}</small></li>`).join('')}</ul>`:'<p class="note small">Keine Probleme.</p>'}
+    <p class="note small">Quellabruf: ${svqNum(Q.wartend)} Seiten wartend, ${svqNum(Q.fehler)} ohne Ergebnis, letzter Abruf ${Q.letzter_abruf?svqD(Q.letzter_abruf,true):'unbekannt'}${Q.pausiert?', pausiert wegen Speicher':''}.</p></div>`; }
 function svqDetailHtml(){ const q=SVQ.q, d=q&&q.delivery, T=svqTore(q), i=(q&&q.import)||{}, k=q&&q.kapazitaet;
   const arten=d&&d.by_kind?d.by_kind.map(x=>`<tr class="${x.missing||x.data_mismatch||x.metadata_mismatch||x.freshness_mismatch?'svq-bad':''}"><td>${svqE(x.kind)}</td><td>${svqNum(x.expected)}</td><td>${svqNum(x.missing)}</td><td>${svqNum(x.data_mismatch)}</td><td>${svqNum(x.metadata_mismatch)}</td><td>${svqNum(x.freshness_mismatch)}</td></tr>`).join(''):'';
   return `<div class="svq-det">${T.map(x=>`<div class="svq-row ${x.s}"><b>${x.s==='ok'?'✓':x.s==='bad'?'✕':'!'} ${svqE(x.t)}</b><span>${svqE(x.d)}</span></div>`).join('')}
     ${d?`<div class="trtw"><table class="trtab svq-t"><thead><tr><th>Art</th><th>erwartet</th><th>fehlt</th><th>Inhalt</th><th>Metadaten</th><th>Prüfzeit</th></tr></thead><tbody>${arten}</tbody></table></div>
       <p class="note small">Nachweis-Status <b>${svqE(d.audit_state)}</b> · letzter Bericht ${svqD(d.last_audit_at,true)} · App-Cursor ${svqNum(d.app_cursor)} von ${svqNum(d.source_head)} · Epoche ${d.app_epoch&&d.app_epoch===d.dataset_epoch?'gleich':'abweichend oder unbekannt'}.
         „Aktuell geprüft“ gilt nur für die Rohdatenübertragung in die App. Vollständigkeit der FuPa-Quelle und Abnahme der Anzeige sind eigene, offene Punkte.</p>`:''}
+    ${svqCheckerHtml(q)}
     <p class="note small">Import: letzter Lauf ${svqE(i.lauf_status||'unbekannt')}${i.lauf_start?' ('+svqD(i.lauf_start,true)+')':''}${i.lauf_fehler?' · Fehler: '+svqE(i.lauf_fehler):''} · letzter Erfolg ${i.letzter_erfolg?svqD(i.letzter_erfolg,true):'unbekannt'}.
       ${k?` Datenbank ${(k.bytes/1e6).toFixed(1)} MB von ${(k.grenze/1e6).toFixed(0)} MB Grenze${k.ueber?': Quellenimport pausiert':''}.`:''} Abgefragt ${q?svqD(q.abgefragt,true):'nie'}${SVQ.fehler?' · letzter Abruf fehlgeschlagen: '+svqE(SVQ.fehler):''}.</p></div>`; }
-function svqDetail(){ svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('db')}</div><div><h2 style="margin:0">FuPa-Datenqualität</h2><div class="msub">Drei getrennte Prüfungen, keine Gesamtnote</div></div></div>
+function svqDetail(){ svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('db')}</div><div><h2 style="margin:0">FuPa-Datenqualität</h2><div class="msub">Getrennte Prüfungen, keine Gesamtnote</div></div></div>
     <div id="svqDet">${svqDetailHtml()}</div><div class="btnrow sbact"><button class="btn ghost" type="button" id="svqNeu">${SVI('refresh')} Neu abfragen</button><button class="btn" type="button" onclick="closeOverlay()">Schließen</button></div>`);
   const b=document.getElementById('svqNeu'); if(b)b.onclick=async()=>{ b.disabled=true; await svqLaden(true); const x=document.getElementById('svqDet'); if(x)x.innerHTML=svqDetailHtml(); b.disabled=false; }; }
 
@@ -13374,6 +13383,84 @@ if(typeof impCard==='function'){ const _icQ=impCard; impCard=function(P){ const 
   return r; }; }
 
 /* =====================================================================
+   Sportzentrale Beta 0.21 · Push öffnet genau die Nachricht
+   - Jede Push-Nachricht liegt als Meldung in der Datenbank (nur für den Empfänger lesbar) und trägt ihr Ziel: #meldung=<id>[,<id>…]
+   - Tipp auf die Push-Nachricht: die App öffnet genau diese Nachricht mit vollem Text und dem, worum es geht
+     (Radar-Tipps und Talente mit Profil, Spieltag-Update mit Spieler, fertiger KI-Auftrag, Co-Trainer-Hinweise, Kandidaten, Checker)
+   - Das Ziel kommt auf drei Wegen an, damit es auch am iPhone nicht verloren geht: Adresse (#…), Nachricht vom Service Worker
+     an die offene App und ein kurzer Merkzettel im Cache, den die App beim Start oder beim Zurückkehren abholt.
+   ===================================================================== */
+const SVZ={offen:null, cache:'svbc-ziel', key:'./__ziel'};
+function svzParse(h){ h=String(h||'').replace(/^#/,''); const m=/^meldung=([\d,]{1,200})$/.exec(h);
+  if(m){ const ids=m[1].split(',').map(Number).filter(x=>x>0).slice(0,20); return ids.length?{ids}:null; }
+  return /^[a-z]+$/.test(h)?{tab:h}:null; }
+async function svzMerkzettel(){ // vom Service Worker abgelegt (max. 10 Minuten alt), einmal abholen
+  try{ if(!('caches' in window))return null; const c=await caches.open(SVZ.cache); const r=await c.match(SVZ.key); if(!r)return null; await c.delete(SVZ.key);
+    const j=await r.json(); return j&&j.ziel&&Date.now()-(+j.t||0)<600000?j.ziel:null; }catch(e){ return null; } }
+function svzBereit(){ return typeof SVB!=='undefined'&&SVB.sb&&typeof SVU!=='undefined'&&SVU&&SVU.id&&typeof _remoteDone!=='undefined'&&_remoteDone; }
+async function svZiel(h,quelle){
+  const z=svzParse(h); if(!z)return false;
+  const t0=Date.now(); while(!svzBereit()&&Date.now()-t0<45000)await new Promise(r=>setTimeout(r,250));
+  if(!svzBereit())return false;
+  if(z.tab){ try{ if(z.tab==='kandidaten'&&typeof svMyCands==='function'&&svMyCands().length)kandFP='__me'; goTab(z.tab); }catch(e){} return true; }
+  const k=z.ids.join(','); if(SVZ.laeuft===k||(SVZ.offen===k&&document.querySelector('#overlay.open .svz')))return true;
+  SVZ.laeuft=k; try{ await svMeldungZeigen(z.ids); }finally{ SVZ.laeuft=null; } return true; }
+async function svzPruefen(){ // beim Start, beim Zurückkehren in die App
+  let h=(location.hash||'').slice(1);
+  if(/^meldung=/.test(h)){ try{ history.replaceState(history.state,'',location.pathname+location.search); }catch(e){} await svzMerkzettel(); return svZiel(h,'adresse'); }
+  const m=await svzMerkzettel(); if(m)return svZiel(m,'merkzettel'); return false; }
+
+const SVZ_ART={scout_update:['⚽','Spieltag-Update'],scout_job:['🔎','KI-Auftrag'],radar:['📡','Radar'],training:['🧠','Co-Trainer'],kontakte:['📞','Kandidaten'],
+  brief:['🗓️','Wochen-Briefing'],admin:['🔒','Admin'],system:['🩺','Server-Checker'],kasse:['💶','Kasse']};
+function svzZeit(t){ try{ return new Date(t).toLocaleString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' Uhr'; }catch(e){ return ''; } }
+function svzSpieler(id,txt){ const p=typeof trP==='function'&&trP(id); if(!p)return '';
+  return `<div class="tra l-info svz-sp" data-svzp="${svEsc(p.id)}"><span class="tra-av">${avaHtml(p)}</span><div class="tra-b"><b>${svEsc(p.name)}</b><span>${svEsc(txt||[p.pos,p.club].filter(Boolean).join(' · '))}</span></div><button class="btn sm ghost" type="button">Profil</button></div>`; }
+async function svzInhalt(m){ const d=m.data||{}; let h='', knopf='', ohneText=false;
+  if(m.art==='radar'&&Array.isArray(d.radar)&&d.radar.length){
+    let R=[]; try{ const {data}=await SVB.sb.from('radar').select('id,key,stand,typ,lvl,player_id,club_key,titel,detail,data,created_at').in('id',d.radar.slice(0,60)); R=data||[]; }catch(e){}
+    const pos=new Map(d.radar.map((x,i)=>[String(x),i])); R.sort((a,b)=>(pos.get(String(a.id))??99)-(pos.get(String(b.id))??99));
+    if(R.length){ ohneText=true; h+=`<div class="svz-liste">${R.map(r=>typeof rdItem==='function'?rdItem(r):`<div class="tra"><div class="tra-b"><b>${svEsc(r.titel)}</b><span>${svEsc(r.detail||'')}</span></div></div>`).join('')}</div>`; }
+    knopf=`<button class="btn ghost" type="button" data-svzgo="radar">${SVI('radar')} Ganzes Radar</button>`; }
+  else if(m.art==='kontakte'&&Array.isArray(d.spieler)){ h+=`<div class="svz-liste">${d.spieler.slice(0,20).map(x=>svzSpieler(x.id||x,x.why||'')).join('')}</div>`; knopf=`<button class="btn ghost" type="button" data-svzgo="kandidaten">${SVI('users')} Meine Kandidaten</button>`; }
+  else if(m.art==='training'){ knopf=`<button class="btn ghost" type="button" data-svzgo="training">${SVI('activity')} Zum Training</button>`; }
+  else if(m.art==='scout_job'&&d.job){ knopf=`<button class="btn" type="button" data-svzjob="${svEsc(d.job)}">${SVI('search')} Ergebnis ansehen</button>`; }
+  else if(m.art==='system'&&d.quelle==='checker'){ knopf=typeof canScout==='function'&&canScout()?`<button class="btn ghost" type="button" data-svzq>${SVI('db')} Datenqualität</button>`:''; }
+  else if(m.art==='admin'){ knopf=`<button class="btn ghost" type="button" data-svzgo="admin">${SVI('shield')} Adminbereich</button>`; }
+  if(m.player_id)h+=svzSpieler(m.player_id);
+  return {h,knopf,ohneText}; }
+async function svMeldungZeigen(ids){
+  let M=[]; try{ const {data,error}=await SVB.sb.from('meldungen').select('*').in('id',ids); if(error)throw error; M=data||[]; }catch(e){ M=null; }
+  if(M===null){ if(typeof kToast==='function')kToast('Die Nachricht lässt sich gerade nicht laden. Bitte gleich nochmal.'); return; }
+  if(!M.length){ if(typeof kToast==='function')kToast('Diese Nachricht gibt es nicht mehr.'); return; }
+  const pos=new Map(ids.map((x,i)=>[x,i])); M.sort((a,b)=>(pos.get(a.id)??99)-(pos.get(b.id)??99));
+  const teile=[]; for(const m of M){ const [ic,lab]=SVZ_ART[m.art]||['🔔','Meldung']; const x=await svzInhalt(m);
+    teile.push(`<section class="svz-m" data-svzm="${m.id}"><div class="svz-kopf"><span class="svz-ic">${ic}</span><div><b>${svEsc(m.titel)}</b><small>${svEsc(lab)} · ${svzZeit(m.created_at)}</small></div></div>
+      ${m.text&&!x.ohneText?`<p class="svz-text">${svEsc(m.text)}</p>`:''}${x.h}${x.knopf?`<div class="btnrow">${x.knopf}</div>`:''}</section>`); }
+  SVZ.offen=ids.join(',');
+  svModal(`<div class="svz"><div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('bell')}</div><div><h2 style="margin:0">${M.length>1?M.length+' Nachrichten':'Deine Nachricht'}</h2><div class="msub">Genau das, was als Push-Nachricht kam</div></div></div>
+    ${teile.join('')}<div class="btnrow sbact"><button class="btn" type="button" onclick="closeOverlay()">Schließen</button></div></div>`);
+  const W=document.querySelector('#modal .svz'); if(W){
+    W.querySelectorAll('[data-svp],[data-svzp]').forEach(x=>x.onclick=e=>{ e.stopPropagation(); const id=x.dataset.svp||x.dataset.svzp; closeOverlay(); setTimeout(()=>openModal(id),60); });
+    W.querySelectorAll('[data-svzgo]').forEach(b=>b.onclick=()=>{ closeOverlay(); const t=b.dataset.svzgo; if(t==='kandidaten'&&typeof svMyCands==='function'&&svMyCands().length)kandFP='__me'; goTab(t); });
+    W.querySelectorAll('[data-svzjob]').forEach(b=>b.onclick=()=>{ closeOverlay(); setTimeout(()=>sc2JobView(b.dataset.svzjob),60); });
+    W.querySelectorAll('[data-svzq]').forEach(b=>b.onclick=()=>{ closeOverlay(); setTimeout(()=>svqDetail(),60); });
+    W.querySelectorAll('[data-star]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const p=trP(b.dataset.star); if(!p)return; const on=!p.star; crmSet(p.id,{f:on?1:undefined}); try{crmApply();}catch(x){} b.classList.toggle('on',on); if(typeof kToast==='function')kToast(on?'⭐ '+p.name+' auf der Merkliste':'Von der Merkliste genommen'); });
+  }
+  const neu=M.filter(m=>!m.gelesen_at).map(m=>m.id);
+  if(neu.length){ try{ await SVB.sb.rpc('meldungen_gelesen',{p_ids:neu}); }catch(e){}
+    try{ if(typeof SC2!=='undefined'&&SC2.meld)SC2.meld.forEach(m=>{ if(neu.includes(m.id))m.gelesen_at=new Date().toISOString(); }); if(typeof sc2After==='function')sc2After(); }catch(e){} try{ svBadges(); }catch(e){} } }
+
+// Anschluss: Service Worker schickt das Ziel an die offene App; beim Start und beim Zurückkehren Merkzettel abholen
+if(navigator.serviceWorker)navigator.serviceWorker.addEventListener('message',e=>{ const t=e.data&&e.data.svbcZiel; if(typeof t==='string'&&/^meldung=/.test(t)){ svzMerkzettel(); svZiel(t,'sw'); } });
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible')setTimeout(svzPruefen,150); });
+// Ziel per Adresse, während die App offen ist (z. B. Link): vor der Zurück-Logik abfangen, damit sie nicht als „Zurück“ zählt
+window.addEventListener('popstate',e=>{ if(e.state)return; const h=location.hash;   // nur fremde Adresswechsel, nicht die eigenen Verlaufseinträge
+  if(/^#meldung=/.test(h)){ if(typeof SVH!=='undefined'&&SVH.ready)SVH.ignore++; svzPruefen(); }
+  else if(/^#[a-z]+$/.test(h)&&document.getElementById('panel-'+h.slice(1))){ if(typeof SVH!=='undefined'&&SVH.ready)SVH.ignore++; svZiel(h.slice(1),'adresse'); } });
+window.addEventListener('hashchange',e=>{ let h=''; try{ h=new URL(e.newURL).hash; }catch(x){} if(/^#meldung=/.test(h))svZiel(h,'adresse'); });
+setTimeout(svzPruefen,50);
+
+/* =====================================================================
    SV/BSC Scout · Runde 20: „Was ist neu“: Update-Fenster & Patch-Historie
    - Nach jedem Update ein Pop-up: das Wichtigste in Kürze → „OK“ oder „Mehr erfahren“ (ganze Historie)
    - Jederzeit erreichbar: Seitenleiste / „Mehr“ / Mein Konto → „Was ist neu“
@@ -13382,6 +13469,13 @@ if(typeof impCard==='function'){ const _icQ=impCard; impCard=function(P){ const 
    Sichtbarkeit je Punkt: r:'team' (ohne Gäste) · r:'scout' · r:'admin' · ohne r = alle
    ===================================================================== */
 const SV_PATCHES=[
+  {id:'0.21',v:'0.21',datum:'2026-09-28',titel:'Push-Nachrichten und Server-Checker',kurz:'Ein Tipp auf eine Push-Nachricht öffnet genau diese Nachricht, mit allem, worum es geht. Dazu prüft der Server alle 10 Minuten, ob alle Daten sauber ankommen.',
+   punkte:[
+    {ic:'🔔',t:'Push öffnet genau die Nachricht',d:'Tippst du auf eine Push-Nachricht, siehst du genau diese Nachricht mit vollem Text. Bei Radar-Tipps und Talenten gleich die Spieler mit Profil, bei Spieltag-Updates den Spieler, beim KI-Auftrag das Ergebnis. Auch auf der Übersicht öffnet die Meldungskarte die Nachrichten selbst.',r:'team'},
+    {ic:'🩺',t:'Checker in der Qualitätsleiste',d:'Neuer Punkt „Server-Checker“: grün, wenn alles passt, sonst mit Klartext, was fehlt oder hängt. Ein Tipp zeigt alle Prüfungen mit Uhrzeit und den Stand des Datenabrufs.',r:'scout',go:'scout'},
+    {ic:'💾',t:'Speicher im Blick',d:'Wird die Datenbank knapp, kommt eine Vorwarnung. Ist sie voll, sagt der Checker, dass der Datenabruf pausiert und wie viele Seiten warten.',r:'scout'},
+    {ic:'🔔',t:'Meldung an Admins',d:'Fehlende oder abweichende Datensätze, veraltete Prüfberichte, voller Speicher oder ein stehender Datenabruf lösen nach 15 Minuten eine Meldung aus. Reine Quellenlücken stehen nur als Info drin.',r:'admin'},
+   ]},
   {id:'0.20',v:'0.20',datum:'2026-09-27',titel:'Datenqualität und richtige Saison',kurz:'Jeder Spieler steht mit der Mannschaft und Liga der laufenden Saison drin, belegt aus Kader oder Einsätzen. Alte Werte bleiben bei ihrer Saison, fehlende Werte bleiben unbekannt.',
    punkte:[
     {ic:'📍',t:'Aktuelle Zuordnung belegt',d:'Verein, Mannschaft und Liga kommen aus der laufenden Saison (Kader oder Einsätze). Aufsteiger wie in die Verbandsliga verlieren ihre Zuordnung nicht mehr durch die Suchligen.',r:'scout',go:'scout'},
