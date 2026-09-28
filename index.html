@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="favicon-64.png">
-<meta name="app-build" content="beta-0.23.1">
+<meta name="app-build" content="beta-0.24">
 <title>SV/BSC Sportzentrale</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" async></script>
 <style>
@@ -3431,6 +3431,54 @@ h2 .svm-i{vertical-align:3px;margin-left:8px}
 .svki-auf{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;}
 .svki-auf>div{display:flex;flex-direction:column;gap:4px;align-items:flex-start;padding:12px;border-radius:14px;border:1px solid var(--line);} .svki-auf b{font-size:14px;} .svki-auf span{font-size:12.5px;color:var(--ink3);flex:1;}
 
+/* ===== Beta 0.24 · Organisation (Verein → Vorstand & Ziele) ===== */
+.org-top{display:flex;flex-direction:column;gap:12px;}
+.org-search{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:12px;padding:0 12px;background:rgba(148,163,196,.05);}
+.org-search svg{width:17px;height:17px;color:var(--ink3);flex:none;}
+.org-search input{flex:1;min-width:0;border:0;background:none;color:var(--ink);font:inherit;font-size:15px;padding:12px 0;outline:none;}
+.org-hits{display:flex;flex-direction:column;gap:8px;}
+.org-hit{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:12px;background:rgba(91,155,255,.08);}
+.org-hit b{display:block;font-size:14px;} .org-hit small{display:block;color:var(--ink2);font-size:12.5px;line-height:1.45;margin-top:2px;}
+.org-av{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex:none;font-size:12px;font-weight:800;background:rgba(91,155,255,.16);color:var(--brand2);}
+.org-av.lg{width:42px;height:42px;border-radius:13px;font-size:14px;}
+.org-lei{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;}
+.org-p{display:flex;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:14px;}
+.org-p b{display:block;font-size:14.5px;} .org-p small{display:block;color:var(--ink3);font-size:12px;margin-top:1px;}
+.org-sec{display:flex;align-items:center;gap:8px;margin:22px 2px 10px;font-size:15px;} .org-sec svg{width:17px;height:17px;color:var(--brand2);} .org-sec small{font-weight:500;color:var(--ink3);font-size:12.5px;}
+.org-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;align-items:start;}
+.org-b{border:1px solid var(--line);border-radius:16px;background:var(--card,#0d1119);overflow:hidden;}
+.org-b.open{grid-column:1/-1;border-color:rgba(91,155,255,.45);}
+.org-bh{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:1fr;gap:8px;padding:14px;cursor:pointer;}
+.org-bh:focus-visible{outline:2px solid var(--brand2);outline-offset:-2px;border-radius:16px;}
+.org-bt{font-weight:800;font-size:14.5px;text-wrap:balance;}
+.org-bv{display:flex;gap:10px;align-items:center;} .org-bv b{display:block;font-size:13.5px;} .org-bv small{display:block;font-size:12px;color:var(--ink3);}
+.org-bm{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink3);} .org-bm svg{width:13px;height:13px;}
+.org-bm i{margin-left:auto;display:grid;transition:transform .2s;} .org-b.open .org-bm i{transform:rotate(90deg);}
+.org-bd{padding:0 14px 14px;display:flex;flex-direction:column;gap:10px;}
+.org-ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:13.5px;color:var(--ink2);line-height:1.45;}
+.org-note{margin:0;padding:10px 12px;border-radius:12px;background:rgba(245,158,11,.09);font-size:13px;line-height:1.5;color:var(--ink2);}
+.org-hl{display:flex;flex-wrap:wrap;gap:6px;}
+.org-h{display:inline-flex;flex-direction:column;padding:6px 10px;border-radius:12px;background:rgba(148,163,196,.08);font-size:12.5px;line-height:1.3;}
+.org-h i{font-style:normal;color:var(--ink3);font-size:11.5px;}
+.org-ziele{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.org-zh{display:flex;justify-content:space-between;align-items:baseline;} .org-zh span{font-size:12.5px;color:var(--ink3);font-variant-numeric:tabular-nums;}
+.org-zbar{height:6px;border-radius:99px;background:rgba(148,163,196,.14);margin:8px 0 10px;overflow:hidden;} .org-zbar i{display:block;height:100%;background:#22c55e;border-radius:99px;transition:width .3s;}
+.org-z{all:unset;box-sizing:border-box;width:100%;display:flex;gap:10px;align-items:flex-start;padding:8px 4px;font-size:13.5px;line-height:1.45;color:var(--ink2);cursor:pointer;border-radius:10px;}
+.org-z:disabled{cursor:default;} .org-z:not(:disabled):hover{background:rgba(148,163,196,.06);}
+.org-zc{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line2);flex:none;display:grid;place-items:center;margin-top:1px;} .org-zc svg{width:13px;height:13px;}
+.org-z.ok{color:var(--ink);} .org-z.ok .org-zc{background:#16a34a;border-color:#16a34a;color:#fff;}
+.org-g{padding:8px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:3px;} .org-g:last-child{border-bottom:0;}
+.org-g span{font-size:12.5px;color:var(--ink3);} .org-g .note{margin:2px 0 0;} .org-g summary{cursor:pointer;}
+.org-pr{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-size:13.5px;line-height:1.45;} .org-pr svg{width:15px;height:15px;color:#22c55e;flex:none;margin-top:2px;}
+.org-vm{display:flex;flex-wrap:wrap;gap:6px;width:100%;}
+.org-vmi{display:inline-flex;align-items:center;gap:6px;padding:4px 4px 4px 10px;border-radius:999px;border:1px dashed rgba(245,158,11,.55);font-size:12.5px;font-weight:650;}
+.org-vmi i{font-style:normal;font-size:11px;color:var(--ink3);font-weight:600;}
+.org-vmi .btn.sm{padding:3px 10px;min-height:0;font-size:12px;}
+.org-vmx{all:unset;cursor:pointer;padding:2px 6px;color:var(--ink3);font-size:12px;border-radius:99px;} .org-vmx.sure{color:#f05252;font-weight:700;}
+.org-eltern{font-size:13px;line-height:1.55;color:var(--ink2);margin:8px 0 0;}
+#orgRmDel.sure{color:#f05252;border-color:rgba(240,82,82,.5);}
+@media (max-width:640px){ .org-ziele{grid-template-columns:1fr;} .org-grid{grid-template-columns:1fr;} }
+
 </style>
 <style id="v3gate">
 /* =====================================================================
@@ -3986,7 +4034,7 @@ a.kbtn{text-decoration:none;display:inline-block}
         <li><b>📋 Kaderplan-Board (NEU):</b> Traumelf mit Backup und Ziel je Position, offene Positionen markiert, druckfertig als PDF für Vorstand und Kaderplanung.</li>
         <li><b>👥 Schattenmannschaft:</b> Kaderplanungs-Werkzeug wie im Profiscouting. Hinter jeder Position der Startelf stehen ein geplanter <b>Backup</b> aus dem eigenen Kader und ein externes <b>Transferziel</b> (sortiert nach Transfer-Chance). Auto-Vervollständigen besetzt offene Planungen positionstreu; alles wird geräteübergreifend mitgespeichert.</li>
         <li><b>Gruppenliga-Radar (NEU):</b> Alle Torschützen (≥2 Tore) der 7 Gruppenliga-Vereine im Umkreis (Wald-Michelbach, FC/SV Fürth, Fehlheim, Auerbach, Bensheim, Riedrode) sind erfasst. Quelle fussball.de (Torschützenliste, Tabelle, 24 Spielerprofile mit Minuten). Der <b>Wechsel-Index</b> unterscheidet: Gruppenliga-<i>Stammspieler</i> sind quasi unerreichbar (−26), wer dort aber <i>meist draußen sitzt</i>, ist für garantierte Spielzeit ansprechbar. Echte Bankspieler ohne Torbeteiligung sind öffentlich nicht auffindbar (nur FuPa hätte komplette Kader. Für automatisierte Abrufe gesperrt).</li>
-        <li><b>Positionen &amp; Nebenpositionen:</b> Jeder Spieler hat eine feste Hauptposition. Hat er laut Vereinsheft-Aufstellungen nachweislich auch woanders gespielt (z.B. S. Goderbauer im Mittelfeld, Fries vorne), ist das als <b>Nebenposition</b> hinterlegt. Die „Beste Elf“-Automatik bewertet mit <b>75 % Stärke + Trainer-Vertrauen</b> (bis +10 für Startelf-Häufigkeit 25/26) <b>− 8 bei Disziplin-Risiko</b> (Rote Karten) und besetzt Slots nur mit Haupt-/Nebenposition; einzig LM/RM dürfen zur Not von zentralen Spielern (ZM/OM/ST) mit Malus übernommen werden. Kreisliga-Realität. Lieber ein Slot leer als wild verschoben.</li>
+        <li><b>Positionen &amp; Nebenpositionen:</b> Jeder Spieler hat eine feste Hauptposition. Hat er laut Vereinsheft-Aufstellungen nachweislich auch woanders gespielt (z.B. ein Verteidiger, der auch schon im Mittelfeld aufgelaufen ist), ist das als <b>Nebenposition</b> hinterlegt. Die „Beste Elf“-Automatik bewertet mit <b>75 % Stärke + Trainer-Vertrauen</b> (bis +10 für Startelf-Häufigkeit 25/26) <b>− 8 bei Disziplin-Risiko</b> (Rote Karten) und besetzt Slots nur mit Haupt-/Nebenposition; einzig LM/RM dürfen zur Not von zentralen Spielern (ZM/OM/ST) mit Malus übernommen werden. Kreisliga-Realität. Lieber ein Slot leer als wild verschoben.</li>
         <li><b>🎯 Insider-Ratings:</b> Für einzelne eigene Spieler kann die Sportliche Leitung das Daten-Rating überschreiben (z.B. starke Verteidiger, die in reinen Tordaten unsichtbar sind). Das ist im Profil offen ausgewiesen. Inkl. des reinen Modellwerts. Ebenso transparent: intern als „nicht verfügbar“ markierte Spieler (z.B. bewusst nur noch 2. Mannschaft) fliegen aus Bank &amp; Vorschlägen.</li>
         <li><b>🕵️ Digital-Scout / Wechsel-Index (NEU):</b> Eigenes Rating 0–100 für die <b>Wechselbereitschaft</b> jedes externen Spielers, berechnet aus öffentlichen Signalen: Zweitvertretung (+14), wenig Spielzeit (+12), tiefere Liga (+8 bis +13), Nähe (bis +10), Tabellenkeller (+8), Ex-SV/BSC (+15), Jugend-Übergang (+15); dagegen: höhere Liga (−18), Verein spielt oben (−10), Torschützenkönig (−12), Distanz (bis −14), unverzichtbar im Team (−7), verletzt (−8). Die <b>Transfer-Chance</b> (55 % MScore + 45 % Wechsel-Index) sortiert alle Ersatz- und Transferlisten: stark UND realistisch schlägt stark-aber-unerreichbar.</li>
         <li><b>Elf der Woche / Spieler des Spieltags (FuPa):</b> Nominierungen geben +2 MScore-Punkte je Nennung (max. +6) und erscheinen im Profil. Die zugehörige „Elf der Saison“ wird als Vergleichskarte in der Aufstellung gezeigt. <i>FuPa blockiert automatisierte Abrufe. Diese Daten werden manuell eingepflegt und mit Quelle verlinkt; solange keine vorliegen, ist der Bonus für alle 0.</i></li>
@@ -4074,9 +4122,9 @@ a.kbtn{text-decoration:none;display:inline-block}
 
 
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
-<script>window.SVBC_CFG={"url": "https://lvaukuzgcwgqipxwzabo.supabase.co", "anon": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2YXVrdXpnY3dncWlweHd6YWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNTYwMTcsImV4cCI6MjEwNTczMjAxN30.jYZF8q8-SyCaWykM0wwcK58EzfTbO2VASKz1NIv1xbo", "build": "beta-0.23.1", "dataBytes": 3053230};</script>
-<script src="vendor/supabase.js?v=beta-0.23.1"></script>
-<script src="icons.js?v=beta-0.23.1"></script>
-<script src="boot.js?v=beta-0.23.1"></script>
+<script>window.SVBC_CFG={"url": "https://lvaukuzgcwgqipxwzabo.supabase.co", "anon": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2YXVrdXpnY3dncWlweHd6YWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNTYwMTcsImV4cCI6MjEwNTczMjAxN30.jYZF8q8-SyCaWykM0wwcK58EzfTbO2VASKz1NIv1xbo", "build": "beta-0.24", "dataBytes": 3053230};</script>
+<script src="vendor/supabase.js?v=beta-0.24"></script>
+<script src="icons.js?v=beta-0.24"></script>
+<script src="boot.js?v=beta-0.24"></script>
 </body>
 </html>

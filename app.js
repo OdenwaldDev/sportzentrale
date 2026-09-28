@@ -2101,7 +2101,7 @@ function openSlotPicker(i,depth){
 }
 
 /* ===== App-Modus: installierbar, offline-fest, aktualisiert sich selbst ===== */
-const APP_BUILD='beta-0.23.1', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
+const APP_BUILD='beta-0.24', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
 let _appPrompt=null, _appNew=null, _obT=null;
 function appStandalone(){ try{ return !!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
 function appPlatform(){
@@ -2489,7 +2489,7 @@ async function svAdminRender(reload){
   const draft=P._draft||{name:'',email:'',role:'planer'};
   P.innerHTML=`
   <div class="card">
-    <div class="adm-head"><div><h3 style="margin:0">Person einladen</h3><p style="margin:6px 0 0;font-size:13.5px">Du bekommst einen persönlichen Link. Den schickst du per WhatsApp oder Mail. Wer ihn öffnet, legt sein Passwort fest und ist drin.${ADM?'':' Als Vorstand kannst du Kaderplaner, Trainer und Gäste einladen. Rollen ändern, sperren und löschen macht der Admin.'}</p></div></div>
+    <div class="adm-head"><div><h3 style="margin:0">Person einladen</h3><p style="margin:6px 0 0;font-size:13.5px">Du bekommst einen persönlichen Link. Den schickst du per WhatsApp oder Mail. Wer ihn öffnet, legt sein Passwort fest und ist drin.${ADM?'':' Als Vorstand kannst du Kaderplaner, Trainer, Jugendtrainer und Gäste einladen. Rollen ändern, sperren und löschen macht der Admin.'}</p></div></div>
     <form class="invite" id="svInv" autocomplete="off">
       <div><label for="svInvName">Name</label><input id="svInvName" class="search" placeholder="z.B. Erwin Müller" value="${svEsc(draft.name)}" required></div>
       <div><label for="svInvMail">E-Mail</label><input id="svInvMail" class="search" type="email" placeholder="name@beispiel.de" value="${svEsc(draft.email)}" required></div>
@@ -4141,7 +4141,7 @@ function trChatOpen(){
     <div class="trc-log" id="trcLog"></div>
     <div class="trc-sug" id="trcSug"></div>
     <div class="trc-att" id="trcAtt"></div>
-    <form class="trc-in" id="trcForm"><textarea id="trcTxt" rows="1" placeholder="z.B. „Seltenreich und Garotti waren heute nicht da, Simon hat eine Zerrung“"></textarea>
+    <form class="trc-in" id="trcForm"><textarea id="trcTxt" rows="1" placeholder="z.B. „Max und Tim waren heute nicht da, Tom hat eine Zerrung“"></textarea>
       <input type="file" id="trcFile" accept="image/*,.txt,.csv,.xlsx,.xlsm" multiple hidden>
       <button type="button" class="iconbtn trc-clip" id="trcClip" title="Screenshot oder Datei (z.B. WhatsApp-Export)">📎</button>
       <button type="button" class="iconbtn trc-mic" id="trcMic" title="Sprechen">🎙️</button><button type="submit" class="btn" id="trcGo">Senden</button></form></div>`);
@@ -15795,6 +15795,198 @@ function svkiSponsor(id){
   return r; }; }
 
 /* =====================================================================
+   Sportzentrale Beta 0.24 · Organisation
+   - Verein → „Vorstand & Ziele“: wer macht was, Bereiche mit Aufgaben und Helfern, Gremien, Grundsätze, Ziele 2030
+   - Nutzerverwaltung → Mannschaften: vorgemerkte Trainer mit „Einladen“ (Name, Mannschaft und Funktion sind schon eingetragen)
+   - Mannschaften → Abstimmung: Elterninfo zum Datenschutz zum Kopieren, Löschen der Eltern-Angaben je Kind
+   Alle Namen kommen aus der Datenbank, nichts davon steht im Code.
+   ===================================================================== */
+const ORG={rows:[],loaded:false,busy:false,q:'',open:null};
+const ORG_ELTERN=`Kurz zum Datenschutz bei unseren Zu- und Absagen:
+• Auf der Seite steht nur der Vorname und der erste Buchstabe des Nachnamens eures Kindes. Gespeichert wird nur, ob es kommt, und auf Wunsch ein kurzer Grund (krank, verletzt, Urlaub, Schule, privat).
+• Keine Telefonnummern, keine E-Mail-Adressen, keine Fotos, kein Konto, keine Werbung.
+• Sehen können das nur die Trainer und Betreuer der Mannschaft und der Vorstand. Nichts wird an andere weitergegeben.
+• Das Handy merkt sich, welches Kind eures ist, damit es oben steht. Das bleibt nur auf eurem Gerät.
+• Antworten werden nach 180 Tagen automatisch gelöscht. Auf Wunsch löschen wir sie sofort, sagt einfach dem Trainer Bescheid.
+Wer nicht mitmachen möchte, sagt wie bisher direkt beim Trainer zu oder ab.`;
+
+async function orgLoad(force){
+  if(ORG.busy||(ORG.loaded&&!force))return; ORG.busy=true;
+  try{ const {data,error}=await SVB.sb.from('organigramm').select('id,art,titel,verantwortlich,stellv,aufgaben,helfer,notiz,app_tab,sicht,erreicht,sort').order('sort'); if(error)throw error; ORG.rows=data||[]; }
+  catch(e){ console.warn('Organigramm',e); ORG.rows=[]; }
+  ORG.loaded=true; ORG.busy=false;
+  try{ if(document.querySelector('#panel-verein.active')&&VR.view==='org')vrRender(); }catch(e){}
+}
+const orgIni=n=>String(n||'').replace(/\(.*?\)/g,'').trim().split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'?';
+const orgName=s=>String(s||'').replace(/\s*\(.*?\)\s*/g,' ').trim();
+function orgArt(a){ return ORG.rows.filter(r=>r.art===a).sort((x,y)=>x.sort-y.sort); }
+/* Alle Aufgaben einer Person über alle Bereiche */
+function orgPerson(q){
+  const s=q.trim().toLowerCase(); if(s.length<2)return [];
+  const M=new Map(), add=(name,was)=>{ const n=orgName(name); if(!n||n==='vakant'||!n.toLowerCase().includes(s))return; if(!M.has(n))M.set(n,[]); M.get(n).push(was); };
+  ORG.rows.forEach(r=>{
+    if(r.verantwortlich)add(r.verantwortlich, r.art==='leitung'?r.titel:r.titel+' (verantwortlich)');
+    if(r.stellv)String(r.stellv).split(',').forEach(n=>add(n,r.titel+' (Stellvertretung)'));
+    (r.helfer||[]).forEach(h=>add(h.name,r.titel+(h.rolle?': '+h.rolle:'')));
+  });
+  return [...M.entries()].sort((a,b)=>b[1].length-a[1].length||a[0].localeCompare(b[0],'de'));
+}
+function orgBereichHtml(r){
+  const open=ORG.open===r.id, H=r.helfer||[], edit=canManage();
+  const appOk=r.app_tab&&(typeof svTabAllowed!=='function'||svTabAllowed(r.app_tab));
+  return `<div class="org-b${open?' open':''}" data-orgb="${svEsc(r.id)}">
+    <button type="button" class="org-bh" data-orgt="${svEsc(r.id)}" aria-expanded="${open}"><span class="org-bt">${svEsc(r.titel)}</span>
+      <span class="org-bv"><span class="org-av">${svEsc(orgIni(r.verantwortlich))}</span><span><b>${svEsc(r.verantwortlich||'offen')}</b>${r.stellv?`<small>Stellv. ${svEsc(r.stellv)}</small>`:''}</span></span>
+      <span class="org-bm">${H.length?`${SVI('users')} ${H.length}`:''}${(r.aufgaben||[]).length?` · ${(r.aufgaben||[]).length} Aufgaben`:''}<i>${SVI('chev')}</i></span></button>
+    ${open?`<div class="org-bd">
+      ${(r.aufgaben||[]).length?`<ul class="org-ul">${r.aufgaben.map(a=>`<li>${svEsc(a)}</li>`).join('')}</ul>`:''}
+      ${r.notiz?`<p class="org-note">${svEsc(r.notiz)}</p>`:''}
+      ${H.length?`<div class="org-hl">${H.map(h=>`<span class="org-h"><b>${svEsc(h.name)}</b>${h.rolle?`<i>${svEsc(h.rolle)}</i>`:''}</span>`).join('')}</div>`:''}
+      <div class="btnrow">${appOk?`<button type="button" class="btn sm" data-orggo="${svEsc(r.app_tab)}">${SVI('chev')} In der App öffnen</button>`:''}${edit?`<button type="button" class="btn sm ghost" data-orged="${svEsc(r.id)}">Bearbeiten</button>`:''}</div>
+    </div>`:''}</div>`;
+}
+function orgZielHtml(L,t){
+  const n=L.filter(z=>z.erreicht).length, edit=canManage();
+  return `<div class="org-zg"><div class="org-zh"><b>${t}</b><span>${n} von ${L.length}</span></div><div class="org-zbar"><i style="width:${L.length?Math.round(n/L.length*100):0}%"></i></div>
+    ${L.map(z=>`<button type="button" class="org-z${z.erreicht?' ok':''}" data-orgz="${svEsc(z.id)}" ${edit?'':'disabled'} aria-pressed="${z.erreicht}"><span class="org-zc">${z.erreicht?SVI('check'):''}</span><span>${svEsc(z.titel)}</span></button>`).join('')}</div>`;
+}
+function vrViewOrg(B){
+  if(!ORG.loaded){ B.innerHTML='<div class="card"><div class="empty">Lade Organisation …</div></div>'; orgLoad(); return; }
+  if(!ORG.rows.length){ B.innerHTML=`<div class="card"><div class="empty">Noch kein Organigramm hinterlegt.</div></div>`; return; }
+  const lei=orgArt('leitung'), ber=orgArt('bereich'), gre=orgArt('gremium'), pri=orgArt('prinzip'), zv=orgArt('ziel_verein'), zs=orgArt('ziel_sport');
+  const hits=orgPerson(ORG.q);
+  B.innerHTML=`<div class="card org-top">
+      <div class="org-search">${SVI('search')}<input id="orgQ" type="search" placeholder="Wer macht was? Namen eingeben" value="${svEsc(ORG.q)}" autocomplete="off" enterkeyhint="search"></div>
+      <div id="orgHits">${orgHitsHtml(hits)}</div>
+      <div class="org-lei">${lei.filter(r=>r.verantwortlich).map(r=>`<div class="org-p"><span class="org-av lg">${svEsc(orgIni(r.verantwortlich))}</span><div><b>${svEsc(r.verantwortlich)}</b><small>${svEsc(r.titel)}</small></div></div>`).join('')}</div>
+      ${lei.filter(r=>!r.verantwortlich&&(r.helfer||[]).length).map(r=>`<p class="note small">${svEsc(r.titel)}: ${r.helfer.map(h=>svEsc(h.name)).join(', ')}</p>`).join('')}
+    </div>
+    <h3 class="org-sec">${SVI('layers')} Bereiche</h3>
+    <div class="org-grid">${ber.map(orgBereichHtml).join('')}</div>
+    ${zv.length||zs.length?`<h3 class="org-sec">${SVI('target')} Ziele bis Juni 2030 <small>daran lassen wir uns messen</small></h3><div class="card org-ziele">${orgZielHtml(zv,'Verein')}${orgZielHtml(zs,'Sport')}</div>`:''}
+    ${gre.length?`<h3 class="org-sec">${SVI('clock')} Treffen und Kommunikation</h3><div class="card">${gre.map(g=>`<div class="org-g"><b>${svEsc(g.titel)}</b>${(g.aufgaben||[]).length?`<span>${g.aufgaben.map(svEsc).join(' · ')}</span>`:''}${g.notiz?`<p class="note">${svEsc(g.notiz)}</p>`:''}</div>`).join('')}</div>`:''}
+    ${pri.length?`<h3 class="org-sec">${SVI('shield')} Grundsätze</h3><div class="card">${pri.map(p=>p.sicht==='kader'?`<details class="org-g"><summary><b>${svEsc(p.titel)}</b> <span class="pill">nur Kaderplanung</span></summary>${(p.aufgaben||[]).length?`<ul class="org-ul">${p.aufgaben.map(a=>`<li>${svEsc(a)}</li>`).join('')}</ul>`:''}${p.notiz?`<p class="note">${svEsc(p.notiz)}</p>`:''}</details>`:`<div class="org-pr">${SVI('check')}<span>${svEsc(p.titel)}</span></div>`).join('')}</div>`:''}`;
+  const q=B.querySelector('#orgQ'); q.oninput=()=>{ ORG.q=q.value; B.querySelector('#orgHits').innerHTML=orgHitsHtml(orgPerson(ORG.q)); };
+  B.querySelectorAll('[data-orgt]').forEach(b=>b.onclick=()=>{ ORG.open=ORG.open===b.dataset.orgt?null:b.dataset.orgt; vrViewOrg(B); const el=B.querySelector(`[data-orgb="${ORG.open}"]`); if(el&&el.scrollIntoView)el.scrollIntoView({block:'nearest',behavior:'smooth'}); });
+  B.querySelectorAll('[data-orggo]').forEach(b=>b.onclick=()=>goTab(b.dataset.orggo));
+  B.querySelectorAll('[data-orged]').forEach(b=>b.onclick=()=>orgEdit(b.dataset.orged));
+  B.querySelectorAll('[data-orgz]').forEach(b=>b.onclick=async()=>{ const z=ORG.rows.find(r=>r.id===b.dataset.orgz); if(!z)return; const neu=!z.erreicht; z.erreicht=neu; vrViewOrg(B);
+    const {error}=await SVB.sb.rpc('organigramm_save',{p:{id:z.id,erreicht:neu}}); if(error){ z.erreicht=!neu; vrViewOrg(B); kToast('⚠️ '+error.message); } else kToast(neu?'✓ Ziel erreicht':'Wieder offen'); });
+}
+function orgHitsHtml(hits){
+  if(!ORG.q.trim())return '';
+  if(!hits.length)return '<p class="note small">Niemand gefunden.</p>';
+  return `<div class="org-hits">${hits.slice(0,6).map(([n,L])=>`<div class="org-hit"><span class="org-av">${svEsc(orgIni(n))}</span><div><b>${svEsc(n)}</b><small>${L.map(svEsc).join(' · ')}</small></div></div>`).join('')}</div>`;
+}
+function orgEdit(id){
+  const r=ORG.rows.find(x=>x.id===id); if(!r||!canManage())return;
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">${svEsc(r.titel)}</h2><div class="msub">Änderungen sehen alle Mitglieder unter Verein, Vorstand und Ziele.</div></div></div>
+    <div class="editgrid" style="grid-template-columns:1fr 1fr">
+      <div class="field"><label for="orgV">Verantwortlich</label><input id="orgV" value="${svEsc(r.verantwortlich||'')}"></div>
+      <div class="field"><label for="orgS">Stellvertretung</label><input id="orgS" value="${svEsc(r.stellv||'')}"></div>
+      <div class="field" style="grid-column:1/-1"><label for="orgA">Aufgaben, eine pro Zeile</label><textarea id="orgA" rows="5">${svEsc((r.aufgaben||[]).join('\n'))}</textarea></div>
+      <div class="field" style="grid-column:1/-1"><label for="orgH">Helfer, eine Person pro Zeile, Rolle nach Komma</label><textarea id="orgH" rows="6" placeholder="Vorname Nachname, Aufgabe">${svEsc((r.helfer||[]).map(h=>h.name+(h.rolle?', '+h.rolle:'')).join('\n'))}</textarea></div>
+      <div class="field" style="grid-column:1/-1"><label for="orgN">Notiz</label><textarea id="orgN" rows="3">${svEsc(r.notiz||'')}</textarea></div>
+    </div>
+    <div class="btnrow sbact"><button class="btn" id="orgOk">Speichern</button><button class="btn ghost" id="orgNo">Abbrechen</button></div>`);
+  M.querySelector('#orgNo').onclick=()=>closeOverlay();
+  M.querySelector('#orgOk').onclick=async ev=>{ const b=ev.currentTarget; b.disabled=true;
+    const lines=v=>v.split('\n').map(s=>s.trim()).filter(Boolean);
+    const p={id,verantwortlich:M.querySelector('#orgV').value,stellv:M.querySelector('#orgS').value,aufgaben:lines(M.querySelector('#orgA').value),
+      helfer:lines(M.querySelector('#orgH').value).map(l=>{ const i=l.indexOf(','); return i<0?{name:l,rolle:''}:{name:l.slice(0,i).trim(),rolle:l.slice(i+1).trim()}; }),notiz:M.querySelector('#orgN').value};
+    const {error}=await SVB.sb.rpc('organigramm_save',{p}); b.disabled=false;
+    if(error){ kToast('⚠️ '+error.message); return; }
+    kToast('✓ Gespeichert'); closeOverlay(); await orgLoad(true); };
+}
+/* In „Verein“ einhängen: eigener Reiter, für alle Mitglieder */
+SV_PAGES.verein=['Verein','Rankings, Helfer & Veranstaltungen, Allzeit-Statistik, Vorstand und Ziele'];
+{ const _vr=vrRender; vrRender=function(){
+    const want=VR.view==='org';
+    if(want)VR.view='allzeit';
+    const r=_vr.apply(this,arguments);
+    if(want)VR.view='org';
+    const P=document.getElementById('panel-verein'); if(!P)return r;
+    const tabs=P.querySelector('.trtabs'); if(tabs&&!tabs.querySelector('[data-vrv="org"]')){
+      const b=document.createElement('button'); b.dataset.vrv='org'; b.textContent='Vorstand & Ziele'; tabs.appendChild(b);
+      b.onclick=()=>{ VR.view='org'; vrRender(); }; }
+    if(want){ const ta=P.querySelector('.tract'); if(ta)ta.hidden=true; tabs.querySelectorAll('[data-vrv]').forEach(x=>x.classList.toggle('on',x.dataset.vrv==='org')); const B=document.getElementById('vrBody'); if(B)vrViewOrg(B); }
+    return r; }; }
+
+/* ---------- Nutzerverwaltung: vorgemerkte Trainer ---------- */
+let ORG_VM=[];
+async function orgVmLoad(){ const {data,error}=await SVB.sb.from('mannschaft_vormerkung').select('id,mannschaft,name,funktion,notiz').order('created_at'); if(error){ console.warn('Vormerkung',error); ORG_VM=[]; return; } ORG_VM=data||[]; }
+{ const _tc=svrTeamsCard; svrTeamsCard=async function(){
+    const r=await _tc.apply(this,arguments);
+    try{ await orgVmLoad(); orgVmRender(); }catch(e){ console.warn('Vormerkung',e); }
+    return r; }; }
+function orgVmRender(){
+  const c=document.getElementById('svrTeamsCard'); if(!c)return;
+  c.querySelectorAll('.svr-team').forEach(t=>{
+    const add=t.querySelector('[data-svradd]'); if(!add)return; const mid=add.dataset.svradd;
+    const L=ORG_VM.filter(v=>v.mannschaft===mid); let box=t.querySelector('.org-vm'); if(box)box.remove();
+    box=document.createElement('div'); box.className='org-vm';
+    box.innerHTML=`${L.map(v=>`<span class="org-vmi" title="${svEsc(v.notiz||'')}"><i>vorgemerkt · ${svEsc(SVR_FUNK[v.funktion]||v.funktion)}</i>${svEsc(v.name)}<button type="button" class="btn sm" data-vminv="${svEsc(v.id)}">Einladen</button><button type="button" class="org-vmx" data-vmx="${svEsc(v.id)}" aria-label="Vormerkung entfernen" title="Entfernen">✕</button></span>`).join('')}
+      <button type="button" class="svr-add" data-vmadd="${svEsc(mid)}">${SVI('plus')} Vormerken</button>`;
+    t.querySelector('.svr-tp').appendChild(box);
+  });
+  c.querySelectorAll('[data-vminv]').forEach(b=>b.onclick=()=>orgVmInvite(b.dataset.vminv));
+  c.querySelectorAll('[data-vmx]').forEach(b=>b.onclick=async()=>{ if(b.dataset.sure!=='1'){ b.dataset.sure='1'; b.textContent='Sicher?'; b.classList.add('sure'); return; }
+    const {error}=await SVB.sb.rpc('vormerkung_delete',{p_id:b.dataset.vmx}); if(error){ kToast('⚠️ '+error.message); return; } kToast('Vormerkung entfernt'); await orgVmLoad(); orgVmRender(); });
+  c.querySelectorAll('[data-vmadd]').forEach(b=>b.onclick=()=>orgVmAdd(b.dataset.vmadd));
+}
+function orgVmAdd(mid){
+  const m=SVR.mann.find(x=>x.id===mid)||{};
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">${svEsc(m.name||'')}: Person vormerken</h2><div class="msub">Für Trainer oder Betreuer, die noch keinen Zugang haben. Die E-Mail-Adresse trägst du erst beim Einladen ein.</div></div></div>
+    <div class="editgrid" style="grid-template-columns:1fr 1fr"><div class="field"><label for="vmN">Name</label><input id="vmN" placeholder="Vorname Nachname" autocomplete="off"></div>
+    <div class="field"><label for="vmF">Funktion</label><select id="vmF">${Object.entries(SVR_FUNK).map(([k,t])=>`<option value="${k}">${svEsc(t)}</option>`).join('')}</select></div></div>
+    <div class="btnrow sbact"><button class="btn" id="vmOk">Vormerken</button><button class="btn ghost" id="vmNo">Abbrechen</button></div>`);
+  M.querySelector('#vmNo').onclick=()=>closeOverlay(); const n=M.querySelector('#vmN'); n.focus();
+  M.querySelector('#vmOk').onclick=async()=>{ if(!n.value.trim()){ n.focus(); return; }
+    const {error}=await SVB.sb.rpc('vormerkung_save',{p:{mannschaft:mid,name:n.value.trim(),funktion:M.querySelector('#vmF').value}}); if(error){ kToast('⚠️ '+error.message); return; }
+    kToast('✓ Vorgemerkt'); closeOverlay(); await orgVmLoad(); orgVmRender(); };
+}
+/* Einladen: Formular oben ausfüllen, nur noch die E-Mail fehlt */
+function orgVmInvite(id){
+  const v=ORG_VM.find(x=>x.id===id); const f=document.getElementById('svInv'); if(!v||!f)return;
+  const nm=f.querySelector('#svInvName'), rs=f.querySelector('#svInvRole'), tm=f.querySelector('#svInvTeam'), fk=f.querySelector('#svInvFunk'), ml=f.querySelector('#svInvMail');
+  const art=(SVR.mann.find(m=>m.id===v.mannschaft)||{}).art;
+  nm.value=/^[A-ZÄÖÜ][a-zäöü]{0,2}\.\s/.test(v.name)?'':v.name;   // abgekürzte Vornamen (z.B. „St. Knapp“) nicht übernehmen, damit der volle Name eingetragen wird
+  if(!nm.value)nm.placeholder=v.name+' (vollen Namen eintragen)';
+  const want=art==='jugend'?'jugend':'trainer'; if([...rs.options].some(o=>o.value===want))rs.value=want; rs.dispatchEvent(new Event('change'));
+  if(tm)tm.value=v.mannschaft; if(fk)fk.value=v.funktion;
+  [nm,rs,ml].forEach(x=>x.dispatchEvent(new Event('input')));
+  ORG._vm=v.id;
+  f.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>{ (nm.value?ml:nm).focus({preventScroll:true}); },350);
+  kToast(nm.value?'Nur noch die E-Mail eintragen':'Vollen Namen und E-Mail eintragen');
+}
+{ const _adm2=SVB.admin; SVB.admin=async function(action,payload){
+    const r=await _adm2.apply(this,arguments);
+    if(action==='invite'&&ORG._vm&&r&&r.user_id){ const id=ORG._vm; ORG._vm=null; try{ await SVB.sb.rpc('vormerkung_delete',{p_id:id}); }catch(e){} }
+    return r; }; }
+
+/* ---------- Mannschaften: Elterninfo und Löschen ---------- */
+{ const _ab=svtAbstimmung; svtAbstimmung=async function(B){
+    const r=await _ab.apply(this,arguments);
+    try{ const m=svtM(SVT.team); if(m&&m.abstimmung&&!B.querySelector('#orgEl')){
+      const c=document.createElement('div'); c.className='card'; c.id='orgEl';
+      c.innerHTML=`<h3 class="trh">${SVI('shield')} Datenschutz für die Eltern</h3>
+        <p class="note">Schick diesen Text einmal mit dem Link in die Gruppe. Dann weiß jeder, was gespeichert wird und was nicht.</p>
+        <details class="org-g"><summary><b>Text ansehen</b></summary><p class="org-eltern">${svEsc(ORG_ELTERN).replace(/\n/g,'<br>')}</p></details>
+        <div class="btnrow"><button class="btn ghost" id="orgElC" type="button">${SVI('copy')} Text kopieren</button><a class="btn ghost" href="https://wa.me/?text=${encodeURIComponent(ORG_ELTERN)}" target="_blank" rel="noopener">${SVI('chat')} In die Gruppe</a></div>
+        <p class="note small">Will jemand, dass die Angaben seines Kindes sofort weg sind: im Kader das Kind antippen, dann „Eltern-Angaben löschen“.</p>`;
+      const first=B.querySelector('.card'); if(first)first.after(c); else B.appendChild(c);
+      c.querySelector('#orgElC').onclick=()=>kCopy(ORG_ELTERN); } }catch(e){ console.warn('Elterninfo',e); }
+    return r; }; }
+{ const _sm=svtSpielerModal; svtSpielerModal=function(sid){
+    const r=_sm.apply(this,arguments);
+    try{ const row=document.querySelector('#modal #svtRaus'); if(row&&!document.getElementById('orgRmDel')){
+      const b=document.createElement('button'); b.type='button'; b.className='btn sm ghost'; b.id='orgRmDel'; b.textContent='Eltern-Angaben löschen';
+      row.after(b);
+      b.onclick=async()=>{ if(b.dataset.sure!=='1'){ b.dataset.sure='1'; b.textContent='Alle Zu- und Absagen löschen?'; b.classList.add('sure'); return; }
+        try{ const n=await svtRpc('team_rueckmeldung_loeschen',{p_spieler:sid}); kToast('✓ '+(n||0)+' Angaben gelöscht'); b.remove(); await svtReload(); }catch(e){ svtErr(e); } }; } }catch(e){ console.warn(e); }
+    return r; }; }
+
+/* =====================================================================
    SV/BSC Scout · Runde 20: „Was ist neu“: Update-Fenster & Patch-Historie
    - Nach jedem Update ein Pop-up: das Wichtigste in Kürze → „OK“ oder „Mehr erfahren“ (ganze Historie)
    - Jederzeit erreichbar: Seitenleiste / „Mehr“ / Mein Konto → „Was ist neu“
@@ -15803,6 +15995,14 @@ function svkiSponsor(id){
    Sichtbarkeit je Punkt: r:'team' (ohne Gäste) · r:'scout' · r:'admin' · ohne r = alle
    ===================================================================== */
 const SV_PATCHES=[
+  {id:'0.24',v:'0.24',datum:'2026-09-28',titel:'Vorstand und Ziele, SOMA, Datenschutz für Eltern',kurz:'Unter Verein steht jetzt, wer was macht: Bereiche mit Verantwortlichen, Aufgaben und Helfern, Treffen, Grundsätze und die Ziele bis 2030. Dazu SOMA als eigene Mannschaft, vorgemerkte Trainer zum Einladen und ein Datenschutztext für die Eltern.',
+   punkte:[
+    {ic:'🧭',t:'Vorstand und Ziele',d:'Verein → Vorstand & Ziele: Namen eintippen und sehen, wer wofür zuständig ist. Jeder Bereich zeigt Aufgaben, Helfer und springt direkt in den passenden Teil der App. Die Ziele bis Juni 2030 hakt der Vorstand ab, sobald sie erreicht sind.',go:'verein'},
+    {ic:'🔑',t:'Passwort vergessen',d:'Du bekommst jetzt einen Code per E-Mail, gibst ihn ein und legst direkt ein neues Passwort fest. Kein Link mehr nötig.'},
+    {ic:'🧒',t:'Trainer vorgemerkt',d:'Unter Verwaltung → Mannschaften stehen die Trainer aus der Ausrüstungsliste schon drin. „Einladen“ füllt das Formular aus, es fehlt nur noch die E-Mail.',r:'admin',go:'admin'},
+    {ic:'🛡️',t:'Datenschutz für Eltern',d:'In der Abstimmung gibt es einen fertigen Text für die Eltern-Gruppe. Antworten werden nach 180 Tagen automatisch gelöscht, auf Wunsch sofort über „Eltern-Angaben löschen“ beim Kind.',r:'team',go:'teams'},
+    {ic:'⚽',t:'SOMA',d:'SOMA hat jetzt einen eigenen Mannschaftsbereich wie die Zweite und die Jugend.',r:'team',go:'teams'}
+   ]},
   {id:'0.23',v:'0.23',datum:'2026-09-28',titel:'Rechte je Person, Zweite und Jugend, Wischen überall',kurz:'Jede Person bekommt genau die Bereiche, die sie braucht. Zweite und alle Jugendmannschaften haben einen eigenen Teambereich mit Kader, Terminen, Aufstellung, Statistik, Entwicklung und Abstimmung per Gruppenlink. Listen lassen sich wischen.',
    punkte:[
     {ic:'🔐',t:'Bereiche je Person',d:'Unter Verwaltung schaltet der Admin je Person Bereiche und Unterbereiche an oder aus, zum Beispiel Scouting aus, Kontaktdaten aus, eine Jugendmannschaft dazu. Was von der Rolle abweicht, ist markiert. Neue Bereiche bekommen automatisch nur Admin und Vorstand.',r:'admin',go:'admin'},

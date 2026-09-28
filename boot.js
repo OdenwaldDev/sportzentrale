@@ -94,7 +94,7 @@ function viewLogin(note,kind){
   document.getElementById('gCodeBtn').onclick=()=>viewCode(em.value.trim());
   document.getElementById('gForgot').onclick=()=>viewForgot(em.value.trim());
 }
-function viewCode(email,sent){
+function viewCode(email,sent,reset){
   card.innerHTML=`<h2>${sent?'Code eingeben':'Anmelden mit Code'}</h2>
     <p class="sub">${sent?'Wir haben dir einen Code an <b style="color:#dbe3f0">'+esc(email)+'</b> geschickt.':'Du bekommst einen Einmal-Code per E-Mail. Ganz ohne Passwort.'}</p>
     <form class="g-form" id="gCodeF">
@@ -111,27 +111,35 @@ function viewCode(email,sent){
   document.getElementById('gCodeF').onsubmit=async e=>{
     e.preventDefault(); const b=document.getElementById('gGo'); msg(m,'',''); busy(b,true);
     try{
-      if(!sent){ const em=f.value.trim(); const {error}=await sb.auth.signInWithOtp({email:em,options:{shouldCreateUser:false}}); if(error)throw error; ls.set('svbcLastEmail',em); viewCode(em,true); }
-      else{ const {error}=await sb.auth.verifyOtp({email,token:f.value.replace(/\D/g,''),type:'email'}); if(error)throw error; await enter({}); }
+      if(!sent){ const em=f.value.trim(); const {error}=await sb.auth.signInWithOtp({email:em,options:{shouldCreateUser:false}}); if(error)throw error; ls.set('svbcLastEmail',em); viewCode(em,true,reset); }
+      else{ const {error}=await sb.auth.verifyOtp({email,token:f.value.replace(/\D/g,''),type:'email'}); if(error)throw error; await enter(reset?{mode:'recovery'}:{}); }
     }catch(err){ busy(b,false); msg(m,'err',errText(err)); }
   };
 }
 function viewForgot(email){
+  /* Neues Passwort per Code: funktioniert unabhängig von Weiterleitungs-Einstellungen, weil die App den Code selbst prüft */
   card.innerHTML=`<h2>Passwort vergessen?</h2>
-    <p class="sub">Kein Problem. Du hast zwei Wege:</p>
+    <p class="sub">Kein Problem. Wir schicken dir einen Code per E-Mail, danach legst du ein neues Passwort fest.</p>
     <form class="g-form" id="gFg">
       <div class="g-msg" id="gMsg"></div>
-      <div class="g-field"><label for="gEmail">E-Mail</label><div class="g-in"><input id="gEmail" type="email" autocomplete="username" required value="${esc(email||'')}"></div></div>
-      <button class="g-btn" id="gGo" type="submit">${I('mail')} Link zum Zurücksetzen senden</button>
-      <div class="g-msg info show">Schneller geht's oft direkt: Dein Admin kann dir in der Nutzerverwaltung jederzeit einen neuen Anmelde-Link erstellen.</div>
+      <div class="g-field"><label for="gEmail">E-Mail</label><div class="g-in"><input id="gEmail" type="email" autocomplete="username" inputmode="email" required value="${esc(email||'')}"></div></div>
+      <button class="g-btn" id="gGo" type="submit">${I('mail')} Code senden</button>
+      <button class="g-link" type="button" id="gFgLink">Lieber einen Link per E-Mail</button>
+      <div class="g-msg info show">Klappt beides nicht? Dein Admin kann dir in der Nutzerverwaltung jederzeit einen neuen Anmelde-Link erstellen.</div>
       <button class="g-link" type="button" id="gBack">← Zurück zur Anmeldung</button>
     </form>`;
   showCard();
-  const m=document.getElementById('gMsg');
+  const m=document.getElementById('gMsg'), em=document.getElementById('gEmail');
   document.getElementById('gBack').onclick=()=>viewLogin();
   document.getElementById('gFg').onsubmit=async e=>{
-    e.preventDefault(); const b=document.getElementById('gGo'); busy(b,true);
-    try{ const {error}=await sb.auth.resetPasswordForEmail(document.getElementById('gEmail').value.trim(),{redirectTo:location.origin+location.pathname}); if(error)throw error;
+    e.preventDefault(); const b=document.getElementById('gGo'); msg(m,'',''); busy(b,true);
+    try{ const v=em.value.trim(); const {error}=await sb.auth.signInWithOtp({email:v,options:{shouldCreateUser:false}}); if(error)throw error;
+      ls.set('svbcLastEmail',v); viewCode(v,true,true); }
+    catch(err){ busy(b,false); msg(m,'err',errText(err)); }
+  };
+  document.getElementById('gFgLink').onclick=async ev=>{
+    const b=ev.currentTarget; if(!em.value.trim()||!em.checkValidity()){ em.reportValidity(); return; } busy(b,true,'Senden …');
+    try{ const {error}=await sb.auth.resetPasswordForEmail(em.value.trim(),{redirectTo:location.origin+location.pathname}); if(error)throw error;
       busy(b,false); msg(m,'ok','Wenn die Adresse freigeschaltet ist, ist die E-Mail unterwegs. Bitte auch im Spam-Ordner nachsehen.'); }
     catch(err){ busy(b,false); msg(m,'err',errText(err)); }
   };
@@ -167,10 +175,9 @@ function viewSetPassword(mode,prof){
       await loadAndStart(); }
     catch(err){ busy(b,false); msg(m,'err',errText(err));
       if(/session missing|not authenticated|JWT/i.test(String(err&&err.message))&&prof&&prof.email&&!document.getElementById('gNewLink')){   // Selbsthilfe: neuen Link per E-Mail
-        m.insertAdjacentHTML('afterend',`<div class="g-msg show" id="gNewLinkBox">Kein Problem: Hol dir einfach einen frischen Link per E-Mail an ${esc(prof.email)} · darüber legst du dann dein Passwort fest.<br><button type="button" class="g-btn alt" id="gNewLink" style="margin-top:10px">${I('mail')} Neuen Link per E-Mail</button></div>`);
+        m.insertAdjacentHTML('afterend',`<div class="g-msg show" id="gNewLinkBox">Kein Problem: Hol dir einfach einen Code per E-Mail an ${esc(prof.email)}, danach legst du dein Passwort fest.<br><button type="button" class="g-btn alt" id="gNewLink" style="margin-top:10px">${I('mail')} Code per E-Mail</button></div>`);
         document.getElementById('gNewLink').onclick=async ev=>{ const nb=ev.currentTarget; busy(nb,true,'Senden …');
-          try{ const {error}=await sb.auth.resetPasswordForEmail(prof.email,{redirectTo:location.origin+location.pathname}); if(error)throw error; busy(nb,false); nb.remove();
-            msg(m,'ok','Der Link ist unterwegs, bitte im Postfach (auch im Spam-Ordner) nachsehen und von dort öffnen.'); }
+          try{ const {error}=await sb.auth.signInWithOtp({email:prof.email,options:{shouldCreateUser:false}}); if(error)throw error; viewCode(prof.email,true,true); }
           catch(e2){ busy(nb,false); msg(m,'err',errText(e2)); } }; } }
   };
 }
