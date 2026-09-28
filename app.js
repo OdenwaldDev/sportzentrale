@@ -2101,7 +2101,7 @@ function openSlotPicker(i,depth){
 }
 
 /* ===== App-Modus: installierbar, offline-fest, aktualisiert sich selbst ===== */
-const APP_BUILD='beta-0.24', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
+const APP_BUILD='beta-0.25', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
 let _appPrompt=null, _appNew=null, _obT=null;
 function appStandalone(){ try{ return !!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
 function appPlatform(){
@@ -5082,8 +5082,13 @@ function svUseOpen(){ goTab('admin'); setTimeout(()=>{ const c=document.getEleme
 const SVC={crest:new Map(),crestLoaded:false,photos:new Map(),photosLoaded:false};
 const scNorm=s=>TRC.N(String(s||'')).replace(/[^a-z0-9]/g,'');
 function scCrestId(club){ if(!club)return null; const k=scNorm(club); return SVC.crest.get(k)||SVC.crest.get(k.replace(/(iii|ii|2|3)$/,''))||null; }
-function scCrest(club,cls){ const id=scCrestId(club), ini=`<span class="crest cx">${svEsc(initials(club||'?'))}</span>`;
-  return `<span class="crestw ${cls||''}">${ini}${id?`<img class="crest" src="https://www.fussball.de/export.media/-/action/getLogo/format/3/id/${encodeURIComponent(id)}" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()">`:''}</span>`; }
+/* Wappen: eigenes Logo aus der App, Gegner als transparente, hochgerechnete Datei (wappen/<id>.webp).
+   Fehlt die Datei, kommt das Original von fussball.de auf einer weißen Plakette, nie als weißes Quadrat. */
+function scCrestErr(img){ const id=img.dataset.fid; if(id&&!img.dataset.raw){ img.dataset.raw='1'; img.classList.add('raw'); img.src='https://www.fussball.de/export.media/-/action/getLogo/format/2/id/'+encodeURIComponent(id); return; } img.remove(); }
+function scCrest(club,cls){ const k=scNorm(club);
+  if(/^svbscmoerlenbach/.test(k))return `<span class="crestw own ok ${cls||''}"><img class="crest" src="logo.png" alt=""></span>`;
+  const id=scCrestId(club), ini=`<span class="crest cx">${svEsc(initials(club||'?'))}</span>`;
+  return `<span class="crestw ${cls||''}">${ini}${id?`<img class="crest" src="wappen/${encodeURIComponent(id)}.webp" data-fid="${svEsc(id)}" alt="" referrerpolicy="no-referrer" loading="lazy" onload="this.parentNode.classList.add('ok')" onerror="scCrestErr(this)">`:''}</span>`; }
 async function scLoadCrests(){
   if(SVC.crestLoaded||!canScout())return; SVC.crestLoaded=true;
   try{ const {data,error}=await SVB.sb.from('table_snaps').select('club_key,logo,stand').not('logo','is',null).order('stand',{ascending:false}).limit(600); if(error)throw error;
@@ -15987,6 +15992,323 @@ function orgVmInvite(id){
     return r; }; }
 
 /* =====================================================================
+   Sportzentrale Beta 0.25 · Termine (Kalender für alle)
+   - Spiele der Ersten, Zweiten, SOMA und Jugend, Veranstaltungen, Geburtstage (nur Erwachsene)
+   - Filter unten: jeder wählt selbst, was er sieht. Standard: Erste, Zweite, Veranstaltungen
+     (Jugendtrainer: ihre Mannschaften und Veranstaltungen). Wird pro Person gemerkt.
+   - Liste und Monat, Tippen öffnet Details mit „In den Kalender“ und „Teilen“
+   - Abo: persönliches Kalender-Abo, öffentlicher Spielplan zum Teilen, .ics-Datei
+   - Veranstaltungen anlegen und ändern: Admin, Vorstand und freigeschaltete Personen
+   ===================================================================== */
+const KAL={items:[],von:null,bis:null,loaded:false,busy:false,f:null,view:'liste',monat:null,tag:null,flags:{},t:0,wap:false};
+const KAL_FARBE={h1:'#3b7bff',h2:'#14b8a6',soma:'#a855f7',event:'#f59e0b',geb:'#ec4899',jugend:'#22c55e'};
+const KAL_EART={kerwe:['🎪','Kerwe'],weihnachten:['🎄','Advent & Weihnachten'],heimspiel:['🏟️','Heimspiel-Dienst'],arbeitseinsatz:['🛠️','Arbeitseinsatz'],turnier:['🏆','Turnier'],
+  saisonfeier:['🎉','Saisonfeier'],mannschaft:['🍻','Mannschaft'],jugend:['⚽','Jugend'],sonstiges:['📌','Sonstiges']};
+const KAL_WT=['So','Mo','Di','Mi','Do','Fr','Sa'], KAL_MON=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const KAL_HEIM='Weschnitztalstadion, Mörlenbach';
+
+SVR_TAB.kalender='termine';
+SV_TBL.kalender=['cal','Termine'];
+Object.assign(SV_PAGES,{kalender:['Termine','Spiele, Veranstaltungen und Geburtstage. Unten wählst du, was du siehst']});
+SV_TABBAR.jugend=['home','teams','kalender'];
+if(SV_TABBAR.viewer&&!SV_TABBAR.viewer.includes('kalender'))SV_TABBAR.viewer=['home','kalender','verein','scout'];
+{ const _ta=svTabAllowed; svTabAllowed=function(t){ if(t==='kalender'){ const d=svDarf('termine'); return d!==false; } return _ta.apply(this,arguments); }; }
+function kalPanel(){ let P=document.getElementById('panel-kalender'); if(P)return P;
+  const ref=document.getElementById('panel-home')||document.querySelector('.panel'); if(!ref)return null;
+  P=document.createElement('section'); P.className='panel'; P.id='panel-kalender'; ref.parentNode.insertBefore(P,ref.nextSibling); return P; }
+{ const _gt=goTab; goTab=function(tab){ if(tab==='kalender')kalPanel(); const r=_gt.apply(this,arguments); try{ document.body.classList.toggle('kal-an',svCurTab()==='kalender'); if(svCurTab()==='kalender')kalRender(); }catch(e){ console.warn('Termine',e); } return r; }; }
+
+/* ---------- Hilfen ---------- */
+const kalHeute=()=>{ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const kalAdd=(s,n)=>{ const d=new Date(s+'T12:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const kalDiff=(a,b)=>Math.round((new Date(a+'T12:00:00')-new Date(b+'T12:00:00'))/86400000);
+const kalWt=s=>KAL_WT[new Date(s+'T12:00:00').getDay()];
+const kalDM=s=>{ const [y,m,d]=s.split('-'); return d+'.'+m+'.'; };
+const kalLang=s=>{ const x=new Date(s+'T12:00:00'); return KAL_WT[x.getDay()]+'., '+kalDM(s)+(x.getFullYear()!==new Date().getFullYear()?x.getFullYear():''); };
+function kalRel(s){ const n=kalDiff(s,kalHeute()); return n===0?'Heute':n===1?'Morgen':n===-1?'Gestern':n>1&&n<7?'in '+n+' Tagen':null; }
+function kalKey(){ return 'svKalF-'+((window.__SVBC_USER||{}).id||(typeof SVU!=='undefined'&&SVU.id)||''); }
+function kalTeam(m){ return (SVR.mann||[]).find(x=>x.id===m)||{}; }
+function kalTeamName(m){ return m==='h1'?'Erste':m==='h2'?'Zweite':m==='soma'?'SOMA':(kalTeam(m).kurz||String(m).toUpperCase()); }
+function kalWir(m){ return m==='h1'?'SV/BSC Mörlenbach':m==='h2'?'SV/BSC Mörlenbach II':'SV/BSC '+kalTeamName(m); }
+function kalFarbe(i){ if(i.k==='event'){ const c=kalCats(i); return c[0]==='event'?KAL_FARBE.event:(KAL_FARBE[c[0]]||KAL_FARBE.jugend); } if(i.k==='geb')return KAL_FARBE.geb; return KAL_FARBE[i.m]||KAL_FARBE.jugend; }
+/* Kategorie für den Filter: Spiele nach Mannschaft, Termine nur für Mannschaften bei diesen Mannschaften, sonst „Veranstaltungen“ */
+function kalCats(i){ if(i.k==='spiel')return [i.m]; if(i.k==='geb')return ['geb'];
+  const S=i.sicht||['alle']; return S.length&&S.every(x=>x.startsWith('team:'))?S.map(x=>x.slice(5)):['event']; }
+function kalDarfEdit(){ return !!KAL.flags.bearbeiten; }
+function kalDarfAnlegen(){ return !!KAL.flags.bearbeiten||(KAL.flags.teams||[]).length>0; }
+const KAL_GRP={alle:'Alle Mitglieder',vorstand:'Vorstand',sponsoring:'Sponsoring-Team',trainerteam:'Trainerteam'};
+function kalSichtText(S){ if(!S||S.includes('alle'))return ''; return S.map(x=>x.startsWith('team:')?kalTeamName(x.slice(5)):(KAL_GRP[x]||x)).join(', '); }
+
+/* Filter: gemerkt je Person, sonst sinnvoller Standard nach Rolle */
+function kalFilter(){
+  if(KAL.f)return KAL.f;
+  let s=null; try{ s=JSON.parse(localStorage.getItem(kalKey())||'null'); }catch(e){}
+  if(Array.isArray(s)){ KAL.f=new Set(s); return KAL.f; }
+  const eigene=(SVR.funk||[]).map(f=>f.mannschaft);
+  const std=svRole()==='jugend'?[...eigene,'event']:['h1','h2','event','geb',...eigene];
+  const neu=new Set(std); if(SVR.loaded)KAL.f=neu; return neu;   // Standard erst merken, wenn die Rechte geladen sind
+}
+function kalFilterSave(){ try{ localStorage.setItem(kalKey(),JSON.stringify([...KAL.f])); }catch(e){} }
+function kalChips(){
+  const T=(SVR.mann||[]).filter(m=>m.id).map(m=>({k:m.id,t:kalTeamName(m.id),c:KAL_FARBE[m.id]||KAL_FARBE.jugend}));
+  if(!T.some(x=>x.k==='h1'))T.unshift({k:'h1',t:'Erste',c:KAL_FARBE.h1});
+  const L=[...T.filter(x=>['h1','h2'].includes(x.k)),{k:'event',t:'Veranstaltungen',c:KAL_FARBE.event}];
+  if(KAL.flags.geb)L.push({k:'geb',t:'Geburtstage',c:KAL_FARBE.geb});
+  return L.concat(T.filter(x=>!['h1','h2'].includes(x.k)));
+}
+function kalSichtbar(){ const f=kalFilter(); return KAL.items.filter(i=>kalCats(i).some(c=>f.has(c))); }
+
+/* ---------- Laden ---------- */
+async function kalLoad(von,bis,force){
+  const h=kalHeute(); von=von||kalAdd(h,-45); bis=bis||kalAdd(h,330);
+  if(!force&&KAL.loaded&&KAL.von<=von&&KAL.bis>=bis&&Date.now()-KAL.t<120000)return;
+  if(KAL.busy)return; KAL.busy=true;
+  if(KAL.loaded&&!force){ von=von<KAL.von?von:KAL.von; bis=bis>KAL.bis?bis:KAL.bis; }
+  try{
+    const {data,error}=await SVB.sb.rpc('kalender',{p_von:von,p_bis:bis}); if(error)throw error;
+    KAL.items=data.items||[]; KAL.von=von; KAL.bis=bis; KAL.flags={bearbeiten:data.bearbeiten,helfer:data.helfer,geb:data.geb,teams:data.teams||[]}; KAL.loaded=true; KAL.t=Date.now();
+    if(!KAL.wap){ KAL.wap=true; try{ const w=await SVB.sb.rpc('wappen_liste'); if(w.data)Object.entries(w.data).forEach(([k,v])=>{ if(!SVC.crest.has(k))SVC.crest.set(k,v); }); }catch(e){} }
+  }catch(e){ console.warn('Termine',e); KAL.err=String(e.message||e); }
+  KAL.busy=false;
+  try{ if(svCurTab()==='kalender')kalRender(); if(svCurTab()==='home')kalHome(); }catch(e){}
+}
+
+/* ---------- Darstellung ---------- */
+function kalSpielZeile(i,gross){
+  const wir=kalWir(i.m), heim=i.heim!==false, a=heim?wir:i.gegner, b=heim?i.gegner:wir;
+  const erg=i.erg?(heim?i.erg:i.erg.split(':').reverse().join(':')):'';
+  const [w,g]=i.erg?i.erg.split(':').map(Number):[null,null], res=i.erg?(w>g?'s':w===g?'u':'n'):'';
+  if(!gross){   // Liste: zwei Zeilen untereinander, Uhrzeit oder Ergebnis rechts. Passt auch bei langen Namen aufs Handy
+    const [ea,eb]=erg?erg.split(':'):['',''];
+    return `<div class="kal-sp2"><span class="kal-t">${scCrest(a)}<b>${svEsc(a)}</b>${erg?`<em class="kal-e1 ${res}">${svEsc(ea)}</em>`:''}</span><span class="kal-t">${scCrest(b)}<b>${svEsc(b)}</b>${erg?`<em class="kal-e1 ${res}">${svEsc(eb)}</em>`:''}</span></div>`;
+  }
+  return `<div class="kal-sp${gross?' xl':''}"><span class="kal-t">${scCrest(a,gross?'xl':'')}<b>${svEsc(a)}</b></span>
+    ${erg?`<em class="kal-erg ${res}">${svEsc(erg)}</em>`:`<em class="kal-vs">${i.z?svEsc(i.z):'vs'}</em>`}
+    <span class="kal-t r">${scCrest(b,gross?'xl':'')}<b>${svEsc(b)}</b></span></div>`;
+}
+function kalItemHtml(i){
+  const c=kalFarbe(i), tag=i.k==='spiel'?kalTeamName(i.m):i.k==='event'?(KAL_EART[i.a]||KAL_EART.sonstiges)[1]:'Geburtstag';
+  let body='';
+  if(i.k==='spiel'){
+    body=kalSpielZeile(i)+`<div class="kal-meta">${[i.z?i.z+' Uhr':'',i.liga,i.heim===true?'Heimspiel':i.heim===false?'Auswärts':''].filter(Boolean).map(svEsc).join(' · ')}</div>`;
+  }else if(i.k==='event'){
+    const e=KAL_EART[i.a]||KAL_EART.sonstiges;
+    body=`<div class="kal-ev"><span class="kal-emo">${e[0]}</span><b>${svEsc(i.t)}</b></div>
+      <div class="kal-meta">${kalSichtText(i.sicht)?`<span class="kal-lock">🔒 ${svEsc(kalSichtText(i.sicht))}</span>`:''}${[i.bis&&i.bis!==i.d?'bis '+kalWt(i.bis)+'., '+kalDM(i.bis):'',i.z?i.z+' Uhr':'',i.ort].filter(Boolean).map(svEsc).join(' · ')}${KAL.flags.helfer&&i.hz?` · ${SVI('users')} ${i.hz}`:''}</div>`;
+  }else body=`<div class="kal-ev"><span class="kal-emo">🎂</span><b>${svEsc(i.t)}</b><span class="kal-alter">wird ${svEsc(i.alter)}</span></div>`;
+  return `<button type="button" class="kal-it${i.d<kalHeute()?' vorbei':''}" data-kid="${svEsc(i.id)}" style="--c:${c}"><i class="kal-bar"></i><div class="kal-b">${body}</div><span class="kal-tag">${svEsc(tag)}</span></button>`;
+}
+function kalListe(L){
+  const h=kalHeute(); let out='', mon='', tag='', heute=false;
+  L.forEach(i=>{
+    const m=i.d.slice(0,7);
+    if(m!==mon){ mon=m; out+=`<h3 class="kal-mon">${KAL_MON[+m.slice(5)-1]} ${m.slice(0,4)}</h3>`; }
+    if(!heute&&i.d>=h){ heute=true; out+=`<div class="kal-jetzt" id="kalJetzt"><span>${i.d===h?'Heute':'Als Nächstes'}</span></div>`; }
+    if(i.d!==tag){ tag=i.d; const r=kalRel(i.d); out+=`<div class="kal-tagk${i.d===h?' heute':''}"><b>${kalDM(i.d).slice(0,2)}</b><span>${kalWt(i.d)}</span>${r?`<em>${r}</em>`:''}</div>`; }
+    out+=kalItemHtml(i);
+  });
+  if(!heute)out+=`<div class="kal-jetzt" id="kalJetzt"><span>Heute</span></div><p class="note kal-leer">Danach steht in deiner Auswahl noch nichts an.</p>`;
+  return out;
+}
+function kalMonat(L){
+  const m=KAL.monat||kalHeute().slice(0,7), [y,mo]=m.split('-').map(Number), erster=new Date(y,mo-1,1), start=(erster.getDay()+6)%7, tage=new Date(y,mo,0).getDate();
+  const nach={}; L.forEach(i=>{ let d=i.d; const bis=i.bis&&i.bis>i.d?i.bis:i.d; while(d<=bis){ (nach[d]=nach[d]||[]).push(i); d=kalAdd(d,1); } });
+  const h=kalHeute(), sel=KAL.tag&&KAL.tag.startsWith(m)?KAL.tag:(h.startsWith(m)?h:null);
+  let g=''; for(let k=0;k<start;k++)g+='<span class="kal-d leer"></span>';
+  for(let d=1;d<=tage;d++){ const s=`${m}-${String(d).padStart(2,'0')}`, I=nach[s]||[];
+    g+=`<button type="button" class="kal-d${s===h?' heute':''}${s===sel?' sel':''}${I.length?' voll':''}" data-kd="${s}"><b>${d}</b><span>${I.slice(0,4).map(i=>`<i style="--c:${kalFarbe(i)}"></i>`).join('')}</span></button>`; }
+  const T=sel?(nach[sel]||[]):[];
+  return `<div class="card kal-mcard"><div class="kal-mh"><button type="button" class="iconbtn" data-km="-1" aria-label="Vormonat">‹</button><b>${KAL_MON[mo-1]} ${y}</b><button type="button" class="iconbtn" data-km="1" aria-label="Nächster Monat">›</button></div>
+    <div class="kal-grid">${['Mo','Di','Mi','Do','Fr','Sa','So'].map(w=>`<span class="kal-wt">${w}</span>`).join('')}${g}</div></div>
+    ${sel?`<h3 class="kal-mon">${kalLang(sel)}</h3>${T.length?T.map(kalItemHtml).join(''):'<p class="note">An diesem Tag steht nichts an.</p>'}`:''}`;
+}
+function kalRender(){
+  const P=kalPanel(); if(!P)return;
+  if(!KAL.loaded){ P.innerHTML='<div class="card"><div class="empty">Lade Termine …</div></div>'; kalLoad(); return; }
+  const f=kalFilter(), L=kalSichtbar(), chips=kalChips(), adm=svRole()==='admin';
+  P.innerHTML=`<div class="trtop kal-top"><div class="trtabs"><button class="${KAL.view==='liste'?'on':''}" data-kv="liste">Liste</button><button class="${KAL.view==='monat'?'on':''}" data-kv="monat">Monat</button></div>
+      <div class="tract"><button class="btn ghost" id="kalAbo" type="button">${SVI('cal')} In meinen Kalender</button>${kalDarfAnlegen()?`<button class="btn" id="kalNeu" type="button">${SVI('plus')} Termin</button>`:''}${adm?`<button class="btn ghost" id="kalGeb" type="button" title="Geburtstage einfügen">🎂</button>`:''}</div></div>
+    ${KAL.err&&!KAL.items.length?`<div class="card"><div class="empty">Termine konnten nicht geladen werden.</div></div>`:''}
+    <div id="kalBody">${KAL.view==='monat'?kalMonat(L):`${KAL.von>'2013-07-01'?`<button type="button" class="btn ghost sm kal-frueher" id="kalFrueher">${SVI('clock')} Frühere Termine laden</button>`:''}${L.length?kalListe(L):'<div class="card"><div class="empty">Unten auswählen, was du sehen willst.</div></div>'}`}</div>
+    <div class="kal-fbar" role="group" aria-label="Was angezeigt wird"><div class="kal-fin"><button type="button" class="kal-chip alle${chips.every(c=>f.has(c.k))?' on':''}" data-kfa style="--c:#94a3b8"><i></i>Alle</button>${chips.map(c=>`<button type="button" class="kal-chip${f.has(c.k)?' on':''}" data-kf="${svEsc(c.k)}" style="--c:${c.c}" aria-pressed="${f.has(c.k)}"><i></i>${svEsc(c.t)}</button>`).join('')}</div></div>`;
+  P.querySelectorAll('[data-kv]').forEach(b=>b.onclick=()=>{ KAL.view=b.dataset.kv; kalRender(); });
+  P.querySelectorAll('[data-kf]').forEach(b=>b.onclick=()=>{ const k=b.dataset.kf; f.has(k)?f.delete(k):f.add(k); kalFilterSave(); const y=window.scrollY; kalRender(); window.scrollTo(0,y); });
+  const fa=P.querySelector('[data-kfa]'); if(fa)fa.onclick=()=>{ const alle=chips.every(c=>f.has(c.k)); if(alle){ KAL.f=null; try{ localStorage.removeItem(kalKey()); }catch(e){} kalFilter(); } else chips.forEach(c=>f.add(c.k)); if(!alle)kalFilterSave(); const y=window.scrollY; kalRender(); window.scrollTo(0,y); };
+  P.querySelectorAll('[data-kid]').forEach(b=>b.onclick=()=>kalDetail(b.dataset.kid));
+  P.querySelectorAll('[data-kd]').forEach(b=>b.onclick=()=>{ KAL.tag=b.dataset.kd; kalRender(); });
+  P.querySelectorAll('[data-km]').forEach(b=>b.onclick=async()=>{ const [y,m]=(KAL.monat||kalHeute().slice(0,7)).split('-').map(Number), d=new Date(y,m-1+(+b.dataset.km),1);
+    KAL.monat=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); KAL.tag=null; const v=KAL.monat+'-01', e=kalAdd(KAL.monat+'-28',5);
+    if(v<KAL.von||e>KAL.bis)await kalLoad(v<KAL.von?v:null,e>KAL.bis?e:null); kalRender(); });
+  const fr=P.querySelector('#kalFrueher'); if(fr)fr.onclick=async()=>{ fr.disabled=true; const v=kalAdd(KAL.von,-365); await kalLoad(v<'2013-07-01'?'2013-07-01':v,null); };
+  P.querySelector('#kalAbo').onclick=()=>kalAboModal();
+  const nb=P.querySelector('#kalNeu'); if(nb)nb.onclick=()=>kalEventForm(null);
+  const gb=P.querySelector('#kalGeb'); if(gb)gb.onclick=()=>kalGebImport();
+  if(KAL.view==='liste'&&!KAL.gescrollt){ KAL.gescrollt=true; const j=P.querySelector('#kalJetzt'); if(j&&j.getBoundingClientRect().top>window.innerHeight*.6)setTimeout(()=>j.scrollIntoView({block:'start'}),50); }
+}
+
+/* ---------- Details, Teilen, einzelner Kalendereintrag ---------- */
+function kalItem(id){ return KAL.items.find(i=>String(i.id)===String(id)); }
+function kalShareText(i){
+  const r=kalRel(i.d), wann=(r&&!/^in /.test(r)?r:kalWt(i.d)+'., '+kalDM(i.d))+(i.z?' um '+i.z+' Uhr':'');
+  if(i.k==='spiel'){
+    const heim=i.heim!==false;
+    return `⚽ ${wann}: ${kalWir(i.m)} ${heim?'empfängt':'spielt bei'} ${i.gegner}${i.liga?' ('+i.liga+')':''}.\n${heim?'📍 '+(i.ort||KAL_HEIM):'📍 Auswärts, fahrt mit!'}\nKommt vorbei und unterstützt uns! 💙🧡`;
+  }
+  if(i.k==='event'){ const e=KAL_EART[i.a]||KAL_EART.sonstiges; return `${e[0]} ${i.t}\n🗓️ ${wann}${i.bis&&i.bis!==i.d?' bis '+kalWt(i.bis)+'., '+kalDM(i.bis):''}${i.ort?'\n📍 '+i.ort:''}${i.info?'\n'+i.info:''}\nSV/BSC Mörlenbach freut sich auf euch! 💙🧡`; }
+  return `🎂 Alles Gute, ${i.t}!`;
+}
+async function kalTeilen(i){
+  const text=kalShareText(i);
+  if(navigator.share){ try{ await navigator.share({text}); return; }catch(e){ if(e&&e.name==='AbortError')return; } }
+  kCopy(text);
+}
+function kalDetail(id){
+  const i=kalItem(id); if(!i)return; const vorbei=i.d<kalHeute(), c=kalFarbe(i);
+  let kopf='', info='';
+  if(i.k==='spiel'){
+    kopf=`<div class="kal-dh" style="--c:${c}"><span class="kal-tag">${svEsc(kalTeamName(i.m))}</span><small>${svEsc(i.liga||'')}</small></div>${kalSpielZeile(i,true)}`;
+    info=`<div class="kal-info"><div>${SVI('cal')}<span>${svEsc(kalLang(i.d))}${i.z?' · '+svEsc(i.z)+' Uhr':''}${kalRel(i.d)?' · <b>'+svEsc(kalRel(i.d))+'</b>':''}</span></div>
+      <div>${SVI('target')}<span>${svEsc(i.ort||(i.heim===true?KAL_HEIM:i.heim===false?'Auswärts bei '+i.gegner:'Ort offen'))}</span></div></div>`;
+  }else if(i.k==='event'){
+    const e=KAL_EART[i.a]||KAL_EART.sonstiges;
+    kopf=`<div class="kal-dh" style="--c:${c}"><span class="kal-tag">${svEsc(e[1])}</span>${kalSichtText(i.sicht)?`<small>🔒 nur für ${svEsc(kalSichtText(i.sicht))}</small>`:!i.pub?'<small>nicht im Fan-Spielplan</small>':''}</div><h2 class="kal-dt">${e[0]} ${svEsc(i.t)}</h2>`;
+    info=`<div class="kal-info"><div>${SVI('cal')}<span>${svEsc(kalLang(i.d))}${i.bis&&i.bis!==i.d?' bis '+svEsc(kalLang(i.bis)):''}${i.z?' · '+svEsc(i.z)+' Uhr':''}</span></div>${i.ort?`<div>${SVI('target')}<span>${svEsc(i.ort)}</span></div>`:''}</div>
+      ${i.info?`<p class="kal-txt">${svEsc(i.info)}</p>`:''}${i.n?`<details class="kal-intern"><summary>Interne Notiz</summary><p>${svEsc(i.n)}</p></details>`:''}
+      ${KAL.flags.helfer&&i.hz?`<p class="note">${SVI('users')} ${i.hz} Helfer eingetragen${i.hz_offen?`, davon ${i.hz_offen} nur zugesagt`:''}. Details unter Verein → Helfer & Events.</p>`:''}`;
+  }else{
+    kopf=`<div class="kal-dh" style="--c:${c}"><span class="kal-tag">Geburtstag</span></div><h2 class="kal-dt">🎂 ${svEsc(i.t)}</h2>`;
+    info=`<div class="kal-info"><div>${SVI('cal')}<span>${svEsc(kalLang(i.d))} · wird ${svEsc(i.alter)}</span></div></div>`;
+  }
+  const M=svModal(`<div class="kal-det">${kopf}${info}
+    <div class="btnrow kal-akt">${i.k!=='geb'?`<button class="btn" id="kalShare" type="button">${SVI('share')} Teilen</button>`:''}<button class="btn ghost" id="kalIcs" type="button">${SVI('cal')} In den Kalender</button>
+      ${i.k==='event'&&KAL.flags.helfer&&vorbei&&i.hz_offen?`<button class="btn ghost" id="kalBest" type="button">${SVI('check')} Zugesagte als geholfen</button>`:''}
+      ${i.k==='event'&&i.ed?`<button class="btn ghost" id="kalEd" type="button">Bearbeiten</button>`:''}</div></div>`);
+  const sh=M.querySelector('#kalShare'); if(sh)sh.onclick=()=>kalTeilen(i);
+  M.querySelector('#kalIcs').onclick=()=>kalIcsDatei([i],(i.k==='spiel'?'spiel':'termin')+'-'+i.d);
+  const ed=M.querySelector('#kalEd'); if(ed)ed.onclick=()=>kalEventForm(i);
+  const be=M.querySelector('#kalBest'); if(be)be.onclick=async()=>{ const {data,error}=await SVB.sb.rpc('event_helfer_bestaetigen',{p_id:i.id}); if(error){ kToast('⚠️ '+error.message); return; } kToast('✓ '+(data||0)+' als geholfen bestätigt'); closeOverlay(); kalLoad(null,null,true); };
+}
+
+/* ---------- ICS ---------- */
+const KAL_VTZ=['BEGIN:VTIMEZONE','TZID:Europe/Berlin','BEGIN:DAYLIGHT','TZOFFSETFROM:+0100','TZOFFSETTO:+0200','TZNAME:CEST','DTSTART:19700329T020000','RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU','END:DAYLIGHT',
+  'BEGIN:STANDARD','TZOFFSETFROM:+0200','TZOFFSETTO:+0100','TZNAME:CET','DTSTART:19701025T030000','RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU','END:STANDARD','END:VTIMEZONE'];
+function kalIcsText(L){
+  const esc=s=>String(s==null?'':s).replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/([,;])/g,'\\$1');
+  const ymd=d=>d.replace(/-/g,''), hm=z=>z.replace(':','')+'00';
+  const ende=(d,z,min)=>{ const [h,m]=z.split(':').map(Number), t=h*60+m+min, dd=kalAdd(d,Math.floor(t/1440)), r=t%1440; return ymd(dd)+'T'+String(Math.floor(r/60)).padStart(2,'0')+String(r%60).padStart(2,'0')+'00'; };
+  const now=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+/,'');
+  const out=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//SV-BSC Moerlenbach//Sportzentrale//DE','CALSCALE:GREGORIAN','METHOD:PUBLISH',...KAL_VTZ];
+  L.forEach(i=>{
+    out.push('BEGIN:VEVENT','UID:'+String(i.id).replace(/[^\w:.-]/g,'')+'@svbsc.kaderwerk.pro','DTSTAMP:'+now);
+    if(i.k==='spiel'){ const heim=i.heim!==false, wir=kalWir(i.m);
+      out.push('SUMMARY:'+esc('⚽ '+(heim?wir+' gegen '+i.gegner:i.gegner+' gegen '+wir)+(i.erg?' '+(heim?i.erg:i.erg.split(':').reverse().join(':')):'')));
+      if(i.z)out.push('DTSTART;TZID=Europe/Berlin:'+ymd(i.d)+'T'+hm(i.z),'DTEND;TZID=Europe/Berlin:'+ende(i.d,i.z,['h1','h2','soma'].includes(i.m)?110:90));
+      else out.push('DTSTART;VALUE=DATE:'+ymd(i.d),'DTEND;VALUE=DATE:'+ymd(kalAdd(i.d,1)));
+      const ort=i.ort||(i.heim===true?KAL_HEIM:i.heim===false?'Auswärts bei '+i.gegner:''); if(ort)out.push('LOCATION:'+esc(ort));
+      out.push('DESCRIPTION:'+esc([i.liga,heim?'Heimspiel':'Auswärtsspiel','Kommt vorbei und unterstützt uns!'].filter(Boolean).join('\n')));
+    }else if(i.k==='event'){ const e=KAL_EART[i.a]||KAL_EART.sonstiges;
+      out.push('SUMMARY:'+esc(e[0]+' '+i.t));
+      if(i.z)out.push('DTSTART;TZID=Europe/Berlin:'+ymd(i.d)+'T'+hm(i.z),'DTEND;TZID=Europe/Berlin:'+ende(i.bis||i.d,i.z,180));
+      else out.push('DTSTART;VALUE=DATE:'+ymd(i.d),'DTEND;VALUE=DATE:'+ymd(kalAdd(i.bis||i.d,1)));
+      if(i.ort)out.push('LOCATION:'+esc(i.ort)); if(i.info)out.push('DESCRIPTION:'+esc(i.info));
+    }else out.push('SUMMARY:'+esc('🎂 '+i.t+' ('+i.alter+')'),'DTSTART;VALUE=DATE:'+ymd(i.d),'DTEND;VALUE=DATE:'+ymd(kalAdd(i.d,1)),'TRANSP:TRANSPARENT');
+    out.push('END:VEVENT');
+  });
+  out.push('END:VCALENDAR'); return out.join('\r\n')+'\r\n';
+}
+function kalIcsDatei(L,name){
+  const b=new Blob([kalIcsText(L)],{type:'text/calendar;charset=utf-8'}), u=URL.createObjectURL(b), a=document.createElement('a');
+  a.href=u; a.download='svbsc-'+name+'.ics'; document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(u); },2000);
+  kToast('📅 Kalenderdatei erstellt. Öffnen und „Hinzufügen“ tippen.');
+}
+function kalFeedUrl(q){ const base=(window.SVBC_CFG||{}).url||''; return base+'/functions/v1/kalender?'+q; }
+async function kalAboModal(){
+  const f=[...kalFilter()], M=svModal(`<div class="mhead"><div><h2 style="margin:0">In meinen Kalender</h2><div class="msub">Einmal abonnieren, dann stehen neue und geänderte Termine automatisch in deinem Handy-Kalender.</div></div></div>
+    <div class="kal-abo"><div class="kal-ab"><b>${SVI('cal')} Meine Auswahl abonnieren</b><p class="note">Genau das, was du unten im Filter gewählt hast (${f.map(k=>svEsc(k==='event'?'Veranstaltungen':k==='geb'?'Geburtstage':kalTeamName(k))).join(', ')||'nichts'}). Aktualisiert sich von selbst.</p>
+        <div class="btnrow"><a class="btn" id="kalWeb" href="#">iPhone und Mac: abonnieren</a><button class="btn ghost" id="kalLink" type="button">${SVI('copy')} Link für Google Kalender</button></div>
+        <details class="kal-how"><summary>So geht's bei Android und Google</summary><p>Link kopieren, am Computer calendar.google.com öffnen, links bei „Weitere Kalender“ auf Plus, dann „Per URL“ und den Link einfügen. Danach erscheint alles auch auf dem Handy.</p></details></div>
+      <div class="kal-ab"><b>${SVI('share')} Spielplan für Fans teilen</b><p class="note">Erste, Zweite und öffentliche Veranstaltungen. Ohne Anmeldung, ideal für Familie, Freunde und die WhatsApp-Gruppe.</p>
+        <div class="btnrow"><button class="btn ghost" id="kalPubWa" type="button">${SVI('chat')} Per WhatsApp teilen</button><button class="btn ghost" id="kalPubCp" type="button">${SVI('copy')} Link kopieren</button></div></div>
+      <div class="kal-ab"><b>${SVI('download')} Als Datei</b><p class="note">Alle Termine deiner Auswahl der nächsten 12 Monate als .ics-Datei. Aktualisiert sich nicht von selbst.</p>
+        <div class="btnrow"><button class="btn ghost" id="kalDatei" type="button">Datei erstellen</button></div></div></div>`);
+  let url=null;
+  const holen=async()=>{ if(url)return url; const {data,error}=await SVB.sb.rpc('kalender_abo_link',{p_filter:f}); if(error){ kToast('⚠️ '+error.message); return null; } url=kalFeedUrl('t='+data); return url; };
+  M.querySelector('#kalWeb').onclick=async e=>{ e.preventDefault(); const u=await holen(); if(u)location.href=u.replace(/^https?:/,'webcal:'); };
+  M.querySelector('#kalLink').onclick=async()=>{ const u=await holen(); if(u)kCopy(u); };
+  const pub=kalFeedUrl('m=h1,h2,event'), pubTxt=`⚽ Alle Spiele und Termine vom SV/BSC Mörlenbach direkt im Handy-Kalender. Einmal antippen und abonnieren:\n${pub.replace(/^https?:/,'webcal:')}\n\nFür Google Kalender diesen Link nutzen: ${pub}`;
+  M.querySelector('#kalPubWa').onclick=()=>window.open('https://wa.me/?text='+encodeURIComponent(pubTxt),'_blank','noopener');
+  M.querySelector('#kalPubCp').onclick=()=>kCopy(pub);
+  M.querySelector('#kalDatei').onclick=()=>{ const h=kalHeute(), L=kalSichtbar().filter(i=>i.d>=h&&i.d<=kalAdd(h,366)); if(!L.length){ kToast('In deiner Auswahl steht nichts an'); return; } kalIcsDatei(L,'termine'); };
+}
+
+/* ---------- Veranstaltung anlegen / ändern ---------- */
+function kalEventForm(i){
+  if(!kalDarfAnlegen())return; const red=kalDarfEdit(), teams=KAL.flags.teams||[];
+  const e=i||{d:kalHeute(),a:red?'sonstiges':'mannschaft',pub:true,sicht:red?['alle']:teams.slice(0,1).map(t=>'team:'+t)};
+  const sel=new Set(e.sicht||['alle']);
+  const T=(SVR.mann||[]).filter(m=>teams.includes(m.id));
+  const gruppen=[red?['',[['alle','Alle Mitglieder']]]:null, red?['Vorstand und Organisation',[['vorstand','Vorstand'],['sponsoring','Sponsoring-Team'],['trainerteam','Trainerteam']]]:null,
+    ['Senioren',T.filter(m=>m.art!=='jugend').map(m=>['team:'+m.id,kalTeamName(m.id)])],['Jugend',T.filter(m=>m.art==='jugend').map(m=>['team:'+m.id,kalTeamName(m.id)])]].filter(g=>g&&g[1].length);
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">${i?'Termin ändern':'Neuer Termin'}</h2><div class="msub">${red?'Du bestimmst, wer den Termin sieht. Vorstand und Admin sehen immer alles.':'Du planst für deine Mannschaft. Den Termin sehen die Mannschaft, der Vorstand und die Bereichsleitung.'}</div></div></div>
+    <form id="kalF" class="editgrid" style="grid-template-columns:1fr 1fr">
+      <div class="field" style="grid-column:1/-1"><label for="kfT">Titel</label><input id="kfT" required maxlength="120" value="${svEsc(e.t||'')}" placeholder="${red?'z.B. Jahreshauptversammlung':'z.B. Mannschaftsabend'}"></div>
+      <div class="field" style="grid-column:1/-1"><label>Wer sieht das?</label><div class="kal-sicht" id="kfS">${gruppen.map(([t,L])=>`${t?`<small>${svEsc(t)}</small>`:''}<div>${L.map(([k,l])=>`<button type="button" class="kal-chip${sel.has(k)?' on':''}" data-ks="${svEsc(k)}" style="--c:${k==='alle'?KAL_FARBE.event:k.startsWith('team:')?(KAL_FARBE[k.slice(5)]||KAL_FARBE.jugend):'#94a3b8'}"><i></i>${svEsc(l)}</button>`).join('')}</div>`).join('')}</div></div>
+      <div class="field"><label for="kfA">Art</label><select id="kfA">${Object.entries(KAL_EART).map(([k,v])=>`<option value="${k}"${k===e.a?' selected':''}>${v[0]} ${svEsc(v[1])}</option>`).join('')}</select></div>
+      <div class="field"><label for="kfZ">Uhrzeit</label><input id="kfZ" type="time" value="${svEsc(e.z||'')}"></div>
+      <div class="field"><label for="kfD">Datum</label><input id="kfD" type="date" required value="${svEsc(e.d)}"></div>
+      <div class="field"><label for="kfB">Bis (mehrere Tage)</label><input id="kfB" type="date" value="${svEsc(e.bis||'')}"></div>
+      <div class="field" style="grid-column:1/-1"><label for="kfO">Ort</label><input id="kfO" maxlength="120" value="${svEsc(e.ort||'')}" placeholder="z.B. Bürgerhaus Mörlenbach"></div>
+      <div class="field" style="grid-column:1/-1"><label for="kfI">Beschreibung</label><textarea id="kfI" rows="3" maxlength="600" placeholder="Was erwartet die Leute?">${svEsc(e.info||'')}</textarea></div>
+      <div class="field" style="grid-column:1/-1"><label for="kfN">Interne Notiz (Trainerteam und Vorstand)</label><textarea id="kfN" rows="2">${svEsc(e.n||'')}</textarea></div>
+      ${red?`<label class="kal-sw" style="grid-column:1/-1" id="kfPL"><input type="checkbox" id="kfP"${e.pub!==false?' checked':''}> Auch im Spielplan für Fans (nur bei „Alle Mitglieder“)</label>`:''}
+      <div class="btnrow sbact" style="grid-column:1/-1"><button class="btn" type="submit">Speichern</button><button class="btn ghost" type="button" id="kfX">Abbrechen</button>${i?`<button class="btn ghost kal-del" type="button" id="kfDel">Löschen</button>`:''}</div>
+    </form>`);
+  const S=M.querySelector('#kfS'), pl=M.querySelector('#kfPL');
+  const zeig=()=>{ S.querySelectorAll('[data-ks]').forEach(b=>{ b.classList.toggle('on',sel.has(b.dataset.ks)); }); if(pl){ const an=sel.has('alle'); pl.classList.toggle('aus',!an); M.querySelector('#kfP').disabled=!an; } };
+  S.querySelectorAll('[data-ks]').forEach(b=>b.onclick=()=>{ const k=b.dataset.ks;
+    if(k==='alle'){ sel.clear(); sel.add('alle'); } else { sel.delete('alle'); sel.has(k)?sel.delete(k):sel.add(k); if(!sel.size)sel.add(red?'alle':k); } zeig(); });
+  zeig();
+  M.querySelector('#kfX').onclick=()=>closeOverlay();
+  const del=M.querySelector('#kfDel'); if(del)del.onclick=async()=>{ if(del.dataset.sure!=='1'){ del.dataset.sure='1'; del.textContent='Wirklich löschen?'; del.classList.add('sure'); return; }
+    const {error}=await SVB.sb.rpc('event_delete',{p_id:i.id}); if(error){ kToast('⚠️ '+error.message); return; } kToast('Gelöscht'); closeOverlay(); kalLoad(null,null,true); };
+  M.querySelector('#kalF').onsubmit=async ev=>{ ev.preventDefault(); const b=M.querySelector('button[type=submit]'); b.disabled=true;
+    const v=id=>M.querySelector(id).value.trim(), bis=v('#kfB');
+    const p={id:i?i.id:null,titel:v('#kfT'),art:v('#kfA'),datum:v('#kfD'),ende:bis&&bis>v('#kfD')?bis:'',zeit:v('#kfZ'),ort:v('#kfO'),info:v('#kfI'),notiz:v('#kfN'),
+      sicht:[...sel],oeffentlich:red?(M.querySelector('#kfP').checked&&sel.has('alle')):false};
+    const {error}=await SVB.sb.rpc('event_save',{p}); b.disabled=false;
+    if(error){ kToast('⚠️ '+error.message); return; }
+    kToast('✓ Gespeichert'); closeOverlay(); kalLoad(null,null,true); };
+}
+/* Geburtstage aus einer Liste (Admin): „Name; TT.MM.JJJJ“ je Zeile */
+function kalGebImport(){
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">Geburtstage einfügen</h2><div class="msub">Eine Person pro Zeile: Name, dann Datum (z.B. „Max Muster; 03.05.1994“). Aus Excel einfach die zwei Spalten kopieren. Unter 18 wird nie angezeigt.</div></div></div>
+    <textarea id="kgT" rows="10" style="width:100%" placeholder="Max Muster; 03.05.1994"></textarea><p class="note" id="kgN"></p>
+    <div class="btnrow sbact"><button class="btn" id="kgOk" type="button">Übernehmen</button><button class="btn ghost" id="kgX" type="button">Abbrechen</button></div>`);
+  const T=M.querySelector('#kgT'), N=M.querySelector('#kgN');
+  const lesen=()=>T.value.split('\n').map(l=>{ const m=l.match(/^\s*(.+?)[;,\t]+\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*$/)||l.match(/^\s*(.+?)[;,\t]+\s*(\d{4})-(\d{2})-(\d{2})\s*$/); if(!m)return null;
+    const iso=m[2].length===4?`${m[2]}-${m[3]}-${m[4]}`:`${m[4]}-${m[3].padStart(2,'0')}-${m[2].padStart(2,'0')}`; return {name:m[1].trim(),datum:iso,quelle:'Liste'}; }).filter(Boolean);
+  T.oninput=()=>{ N.textContent=lesen().length+' erkannt'; };
+  M.querySelector('#kgX').onclick=()=>closeOverlay();
+  M.querySelector('#kgOk').onclick=async()=>{ const L=lesen(); if(!L.length){ N.textContent='Keine Zeile erkannt'; return; }
+    const {data,error}=await SVB.sb.rpc('geburtstage_import',{p:L}); if(error){ kToast('⚠️ '+error.message); return; } kToast('✓ '+(data||0)+' Geburtstage übernommen'); closeOverlay(); kalLoad(null,null,true); };
+}
+
+/* ---------- Übersicht: nächste Termine ---------- */
+function kalHome(){
+  const home=document.getElementById('panel-home'); if(!home||!svTabAllowed('kalender'))return;
+  let box=document.getElementById('kalHome');
+  if(!KAL.loaded){ kalLoad(); return; }
+  const h=kalHeute(), L=kalSichtbar().filter(i=>(i.bis||i.d)>=h).slice(0,4);
+  if(!box){ box=document.createElement('div'); box.id='kalHome'; box.className='card kal-home'; const m=document.getElementById('svrMeine')||document.getElementById('svCockpit'); if(m)m.after(box); else home.prepend(box); }
+  box.innerHTML=`<div class="kal-hh"><h3 class="trh">${SVI('cal')} Nächste Termine</h3><button type="button" class="btn ghost sm" id="kalAlle">Alle Termine ${SVI('chev')}</button></div>
+    ${L.length?L.map(i=>`<div class="kal-hrow">${kalRel(i.d)?`<em class="kal-rel">${svEsc(kalRel(i.d))}</em>`:`<em class="kal-rel">${svEsc(kalWt(i.d)+'., '+kalDM(i.d))}</em>`}${kalItemHtml(i)}</div>`).join(''):'<p class="note">In deiner Auswahl steht gerade nichts an.</p>'}`;
+  box.querySelector('#kalAlle').onclick=()=>goTab('kalender');
+  box.querySelectorAll('[data-kid]').forEach(b=>b.onclick=()=>kalDetail(b.dataset.kid));
+}
+{ const _rh=renderHome; renderHome=function(){ const r=_rh.apply(this,arguments); try{ kalHome(); }catch(e){ console.warn('Termine',e); } return r; }; }
+{ const _l=svrApply; svrApply=function(){ const r=_l.apply(this,arguments); try{ if(svCurTab()==='home')kalHome(); }catch(e){} return r; }; }
+
+/* =====================================================================
    SV/BSC Scout · Runde 20: „Was ist neu“: Update-Fenster & Patch-Historie
    - Nach jedem Update ein Pop-up: das Wichtigste in Kürze → „OK“ oder „Mehr erfahren“ (ganze Historie)
    - Jederzeit erreichbar: Seitenleiste / „Mehr“ / Mein Konto → „Was ist neu“
@@ -15995,6 +16317,14 @@ function orgVmInvite(id){
    Sichtbarkeit je Punkt: r:'team' (ohne Gäste) · r:'scout' · r:'admin' · ohne r = alle
    ===================================================================== */
 const SV_PATCHES=[
+  {id:'0.25',v:'0.25',datum:'2026-09-28',titel:'Termine für alle, Wappen gestochen scharf',kurz:'Ein Kalender mit allen Spielen der Ersten, Zweiten, SOMA und Jugend, allen Veranstaltungen und Geburtstagen. Unten wählst du, was du siehst. Mit einem Tipp in deinen Handy-Kalender oder an Freunde geteilt.',
+   punkte:[
+    {ic:'📅',t:'Termine für alle',d:'Neu unter „Termine“: Spiele, Veranstaltungen und Geburtstage in Liste oder Monat. Unten tippst du an, was du sehen willst, zum Beispiel deine Jugendmannschaft. Die App merkt sich das.',go:'kalender'},
+    {ic:'🔔',t:'Im Handy-Kalender',d:'„In meinen Kalender“ abonniert deine Auswahl. Neue oder verlegte Spiele landen dann von selbst in deinem Kalender. Jeder Termin geht auch einzeln als Datei.',go:'kalender'},
+    {ic:'📣',t:'Teilen für mehr Zuschauer',d:'Bei jedem Spiel und jeder Veranstaltung auf „Teilen“ tippen: fertiger Text für WhatsApp, Instagram oder Facebook. Der Spielplan für Fans lässt sich ohne Anmeldung abonnieren.',go:'kalender'},
+    {ic:'🛡️',t:'Wappen gestochen scharf',d:'Alle Vereinswappen sind jetzt transparent und hochgerechnet, unser eigenes Logo erscheint in voller Qualität.'},
+    {ic:'🎪',t:'Veranstaltungen seit 2022',d:'Kerwe, Adventsmarkt, Abschlussfahrten und mehr aus dem Drive übernommen, mit Helferplänen. Anlegen und ändern dürfen Admin, Vorstand und freigeschaltete Personen.',r:'team'}
+   ]},
   {id:'0.24',v:'0.24',datum:'2026-09-28',titel:'Vorstand und Ziele, SOMA, Datenschutz für Eltern',kurz:'Unter Verein steht jetzt, wer was macht: Bereiche mit Verantwortlichen, Aufgaben und Helfern, Treffen, Grundsätze und die Ziele bis 2030. Dazu SOMA als eigene Mannschaft, vorgemerkte Trainer zum Einladen und ein Datenschutztext für die Eltern.',
    punkte:[
     {ic:'🧭',t:'Vorstand und Ziele',d:'Verein → Vorstand & Ziele: Namen eintippen und sehen, wer wofür zuständig ist. Jeder Bereich zeigt Aufgaben, Helfer und springt direkt in den passenden Teil der App. Die Ziele bis Juni 2030 hakt der Vorstand ab, sobald sie erreicht sind.',go:'verein'},
