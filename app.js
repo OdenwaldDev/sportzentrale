@@ -1,3 +1,4 @@
+window.VEREIN=Object.freeze({"id":"svbsc","marke":"Kaderwerk","texte":{"name":"SV/BSC Mörlenbach","kurz":"SV/BSC","ort":"Mörlenbach","ort_adjektiv":"Mörlenbacher","ort_ascii":"Moerlenbach","schluessel":"moerlenbach","fde_schluessel":"svbscmoerlenbach","website":"sv-moerlenbach.de","vereinsfarben":"Blau-Weiß","kabine_host":"svbsc.albertklee.de","kasse_host":"mannschaftskasse.albertklee.de","app_url":"https://radioodenwald.github.io/svbc-scout/","mail":"svbsc@albertklee.de","mail_alt":"sportzentrale@albertklee.de","fupa_slug":"svbsc-moerlenbach"},"farben":{"brand":"#2f6bff","brand2":"#5b9bff"},"mannschaften":[{"sub":"A","name":"1. Mannschaft","fde":"svbscmoerlenbach"},{"sub":"D2","name":"2. Mannschaft","fde":"svbscmoerlenbachii"}],"personen":{"planer":["Dome","Nico","Ervin"],"planer_start":["Dome","Nico"]},"sportplatz":{"lat":49.5989,"lon":8.7353,"name":"Weschnitztalstadion"},"patch_ab":null});
 /* ================= DATEN ================= */
 const DATA = window.__SVBC_DATA;
 const LIGA_W = {GL:1.55, KOL:1.25, A:1.00, B:0.78, C:0.60, D:0.42};
@@ -400,7 +401,7 @@ window.addEventListener('beforeinstallprompt',e=>{
    CRM['__meta'] = {pl:[zusätzliche Planer], kv:Prüfwert des Team-Schlüssels}. Sync feldweise (siehe crmMerge). */
 const KAND_DUE_DAYS=21;
 const META_ID='__meta';
-const PLANNERS_DEFAULT=['Dome','Nico'];
+const PLANNERS_DEFAULT=(((window.VEREIN||{}).personen||{}).planer_start||[]).slice();
 const WPROB={1:{t:'gering',c:'#8fa3c7'},2:{t:'mittel',c:'#ffd60a'},3:{t:'hoch',c:'#ffb347'},4:{t:'sehr hoch',c:'#5fe09b'}};
 const KPOS=['TW','IV','AV','ZM','OM','Flügel','ST'];
 let kandFP='',kandDue=false,kandQ='',kandPanel='',kandAddQ='',kandKeyMsg='',kandDigestContacts=false,kandDigestCache=[],kandPlDraft='',kandKeyDraft='';
@@ -2100,7 +2101,7 @@ function openSlotPicker(i,depth){
 }
 
 /* ===== App-Modus: installierbar, offline-fest, aktualisiert sich selbst ===== */
-const APP_BUILD='beta-0.21', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
+const APP_BUILD='beta-0.22', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
 let _appPrompt=null, _appNew=null, _obT=null;
 function appStandalone(){ try{ return !!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
 function appPlatform(){
@@ -2706,7 +2707,7 @@ Object.assign(SV_FIELD,{ps:'Position',ps2:'Nebenposition',ph:'Position',gb:'Gebu
 
 /* ---------- Wer bin ich in der Spalte „Verantwortlich“? (gleiche Regeln wie der Erinnerungs-Dienst) ---------- */
 const SV_ALIAS={dome:['dominik','dome'],nico:['nico','nicolas','nicola'],ervin:['ervin','erwin'],tobi:['tobias','tobi'],lukas:['lukas','luke']};
-const SV_PLANNERS=['Dome','Nico','Ervin'];
+const SV_PLANNERS=(((window.VEREIN||{}).personen||{}).planer||[]).slice();   // Kaderplaner des Vereins (verein/<id>.json)
 let SV_TEAM=[];
 function svK(s){ return String(s||'').toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,''); }
 function svKeysOf(u){ if(u&&u.pl_name)return [svK(u.pl_name)]; const nm=String((u&&u.name)||'').trim(), first=svK(nm.split(/\s+/)[0]), full=svK(nm);
@@ -7120,7 +7121,7 @@ const SV4_EYE_TW={def:'Torwartspiel',sch:'Abschlag',dri:'Fußarbeit'};
 const SV4_EYE_W={ST:{tem:.2,sch:.35,pas:.1,dri:.2,def:0,phy:.15},'Flügel':{tem:.3,sch:.2,pas:.15,dri:.25,def:0,phy:.1},OM:{tem:.15,sch:.2,pas:.3,dri:.25,def:0,phy:.1},
   ZM:{tem:.1,sch:.1,pas:.3,dri:.15,def:.2,phy:.15},IV:{tem:.15,sch:0,pas:.15,dri:.05,def:.45,phy:.2},AV:{tem:.25,sch:.05,pas:.2,dri:.1,def:.3,phy:.1},TW:{tem:.1,sch:.05,pas:.15,dri:.05,def:.45,phy:.2}};
 const SV4_LVL={GL:100,KOL:85,A:70,B:55,C:40,D:27};
-const SV4_PLATZ={lat:49.5989,lon:8.7353};   // Sportplatz Mörlenbach (Weschnitztalstadion)
+const SV4_PLATZ=(window.VEREIN||{}).sportplatz||{lat:49.5989,lon:8.7353};   // Sportplatz des Vereins (verein/<id>.json)
 
 /* ---------- Saisons ---------- */
 function sv4S(){ return String((DATA&&DATA.season)||'2627'); }
@@ -8009,7 +8010,8 @@ function kd4Status(p,s,team){
   if(r&&r.zukunft==='ziel')return 'ziel';
   if(!t)return 'weg';
   if(s!==sv4S()&&sv4Team(p,prev)!==team&&t===team)return 'neu';
-  return (sv4SS(p.id,sv4SAdd(s,1))||{}).zukunft||'bleibt';
+  const nx=s===sv4S()&&typeof sv60Target==='function'?sv60Target(s):sv4SAdd(s,1);   /* 0.22: nächste Halbserie */
+  return (sv4SS(p.id,nx)||{}).zukunft||'bleibt';
 }
 function kd4Pos(p,s){ const r=sv4SS(p.id,s); return (r&&r.pos)||p.pos||'ZM'; }
 function kd4Ovr(p){ try{ return Math.round(scores(p).total); }catch(e){ return 0; } }
@@ -8156,7 +8158,7 @@ function kd4Wire(P){
 }
 function kd4ZukMenu(btn,pid){
   document.querySelectorAll('.zm4').forEach(x=>x.remove());
-  const p=sv4P(pid), s=kd4S(), cur=sv4S()===s; const target=cur?sv4SAdd(s,1):s;
+  const p=sv4P(pid), s=kd4S(), cur=sv4S()===s; const target=cur?(typeof sv60Target==='function'?sv60Target(s):sv4SAdd(s,1)):s;   /* 0.22: „jetzt“ plant die nächste Halbserie */
   const opts=cur?['bleibt','unsicher','geht','karriereende',KD4.team==='1'?'runter':'hoch']:['bleibt','neu','unsicher','geht','karriereende','ziel'];
   const m=document.createElement('div'); m.className='zm4';
   m.innerHTML=`<b>${sv4Esc(svFirst(p.name))} · ${cur?'Zukunft '+sv4SL(target):sv4SL(target)}</b>${opts.map(k=>`<button type="button" data-z="${k}" class="${SV4_ZUK[k][1]}">${SV4_ZUK[k][0]}</button>`).join('')}<button type="button" data-z="gespr" class="mut">💬 Gespräch festhalten</button>`;
@@ -8206,7 +8208,7 @@ function kd4GesprEditor(pid,gid){
       <div class="field w"><label>Entscheidung für ${sv4SL(sv4SAdd(sv4S(),1))}</label><input id="g4e" maxlength="600" value="${sv4Esc(g?g.entscheidung||'':'')}"></div>
       <div class="field"><label>Nächstes Gespräch</label><input type="date" id="g4n" value="${sv4Esc(g?g.naechstes_am||'':'')}"></div>
     </div>
-    <label class="jutog"><input type="checkbox" id="g4sync" checked> Zukunft im Kaderplan ${sv4SL(sv4SAdd(sv4S(),1))} übernehmen</label>
+    <label class="jutog"><input type="checkbox" id="g4sync" checked> Zukunft im Kaderplan ${sv4SL(typeof svmPerioden==="function"?svmPerioden()[1]:sv4SAdd(sv4S(),1))} übernehmen</label>
     <div class="btnrow" style="margin-top:12px"><button class="btn" id="g4save">${SVI('check')} Speichern</button>${g?`<button class="btn ghost" id="g4del">${SVI('trash')} Löschen</button>`:''}<button class="btn ghost" id="g4x">Abbrechen</button></div>
     <p class="note small">🔒 Nur fürs Team (Trainer, Kaderplanung, Vorstand) sichtbar.</p>`);
   const back=()=>{ if(fromProfile)openModal(pid); else { closeOverlay(); } try{ if(svCurTab()==='kader')kd4Render(); if(svCurTab()==='gespr')kd4Gespr(); }catch(e){} };
@@ -8216,7 +8218,7 @@ function kd4GesprEditor(pid,gid){
     b.disabled=true;
     try{ let r; if(g){ r=await SVB.sb.from('gespraeche').update(row).eq('id',g.id).select().single(); } else r=await SVB.sb.from('gespraeche').insert(row).select().single();
       if(r.error)throw new Error(r.error.message); SV4.gs=[r.data].concat(SV4.gs.filter(x=>x.id!==r.data.id)).sort((a,b)=>b.datum.localeCompare(a.datum));
-      if(row.zukunft&&row.zukunft!=='offen'&&M.querySelector('#g4sync').checked){ const nx=sv4SAdd(sv4S(),1); await sv4SSSet(pid,nx,{zukunft:row.zukunft,team:row.zukunft==='geht'||row.zukunft==='karriereende'?null:sv4Team(p,nx)||sv4Team(p)}); }
+      if(row.zukunft&&row.zukunft!=='offen'&&M.querySelector('#g4sync').checked){ const nx=typeof svmPerioden==='function'?svmPerioden()[1]:sv4SAdd(sv4S(),1); /* 0.22: nächste Halbserie */ await sv4SSSet(pid,nx,{zukunft:row.zukunft,team:row.zukunft==='geht'||row.zukunft==='karriereende'?null:sv4Team(p,nx)||sv4Team(p)}); }
       kToast('✓ Gespräch gespeichert'); back(); }catch(x){ kToast('⚠️ '+x.message); b.disabled=false; } };
   const d=M.querySelector('#g4del'); if(d)d.onclick=async()=>{ if(!d.classList.contains('sure')){ d.classList.add('sure'); d.textContent='Wirklich löschen?'; return; }
     const {error}=await SVB.sb.from('gespraeche').delete().eq('id',g.id); if(error)return kToast('⚠️ '+error.message); SV4.gs=SV4.gs.filter(x=>x.id!==g.id); kToast('Gelöscht'); back(); };
@@ -11084,7 +11086,8 @@ if(typeof SV50_INFO!=='undefined'&&SV50_INFO['kabine:abst']){ SV50_INFO['kabine:
    Sportzentrale Beta 0.9 · MScore 4: Spielstärke wie bei FIFA
    Der Wert beschreibt, wie gut ein Spieler ist, nicht in welcher Liga er gerade spielt.
    1. Jede Saison (24/25, 25/26, laufende) ist ein Beleg: Liga-Niveau plus Rolle, Leistung im Vergleich
-      zu Spielern derselben Liga und Position, Mannschaft, Ausnahmeleistung, FuPa-MVP und Elf der Woche.
+      zu Spielern derselben Liga und desselben Mannschaftsteils, Ausnahmeleistung, FuPa-MVP und Elf der Woche.
+      Seit 0.22: laufende Saison plus drei Spielzeiten davor, der Tabellenplatz der Mannschaft zählt nicht mehr.
    2. Belege werden auf heute gealtert (Alterskurve je Position) und nach Spielen und Aktualität gewichtet.
    3. Deckeneffekt: Wer in einer tieferen Liga als zuvor vorne mitspielt, kann dort nach oben nichts mehr
       beweisen. Solche Saisons ziehen ihn kaum nach unten. Wer dort nur Ergänzung ist, zählt voll.
@@ -11177,10 +11180,10 @@ function sv94Eval(p,s,grp,mvp){
   let pct=null, raw=null;
   if(grp==='def')pct=sv94Def(s.club,s.sk,s.liga);
   else { const sp=Math.max(1,n); raw=(s.tore||0)/sp+(s.ast>0?0.5*s.ast/sp:0); pct=n>0?sv94Pct(lv+'|'+grp,raw):null; }
-  let lei=pct==null?0.5:pct; if(grp==='mid')lei=0.55*lei+0.45*t;
+  let lei=pct==null?0.5:pct;   // 0.22: Tabellenplatz der Mannschaft zählt nicht mehr
   let prod=(lei-0.5)*12*(n/(n+4));
   if(grp==='def'){ prod*=0.5+0.5*Math.min(1,q/0.75); if(s.tore>0)prod+=Math.min(3,s.tore*0.8); }
-  const team=(t-0.5)*(grp==='def'?3:6);
+  const team=0;   // 0.22: Baustein „Mannschaft“ entfällt
   const gpg=(s.tore||0)/Math.max(1,n);
   const dom=grp!=='def'&&gpg>1&&n>=6?Math.min(30,(gpg-1)*13):0;
   let mvpOff=0; if(mvp!=null){ mvpOff=(mvp-60)/40*8; role*=0.5; prod*=0.5; }
@@ -11192,7 +11195,7 @@ function sv94Eval(p,s,grp,mvp){
 
 /* ---------- MScore 4 ---------- */
 function sv94Score(p,r,opt){
-  opt=opt||{}; const grp=SV94_GRUPPE(p.pos);
+  opt=opt||{}; const grp=typeof svmGrp==='function'?svmGrp(p):SV94_GRUPPE(p.pos);   // 0.22: Gruppe aus dem Mannschaftsteil
   const M=opt.mvp!==undefined?(opt.mvp==null?null:{v:opt.mvp}):(typeof mvpOf==='function'?mvpOf(p):null), mvp=M?M.v:null;
   const S=sv94Seasons(p,r); const mvpK=S.some(s=>s.k==='cur')?'cur':'base';
   const ev=S.map(s=>sv94Eval(p,s,grp,s.k===mvpK?mvp:null)).filter(Boolean);
@@ -11208,7 +11211,8 @@ function sv94Score(p,r,opt){
   const eye=r&&r.eye!=null?r.eye:null, en=eye!=null&&r.eyeE?r.eyeE.n:0, We=eye==null?0:en>=3?2:en===2?1.5:1;
   const Wall=Wd+Wp+We, base=((P==null?0:P*Wd)+prior*Wp+(eye==null?0:eye*We))/Wall;
   const adj=[]; let T=base;
-  try{ const N=typeof sv70TrainerNoten==='function'?sv70TrainerNoten(p):null; if(N&&N.avg!=null){ const b=sv94C((3-N.avg)*2.5,-5,5); if(Math.abs(b)>=0.5){ T+=b; adj.push(['trainer','Trainernoten',b,`Ø ${sv94N(N.avg,1)} aus ${N.n} Noten`]); } } }catch(e){}
+  // 0.22: Trainings- und Spielleistung (Eindruck Positiv, Neutral, Negativ) nur für eigene Spieler
+  try{ const Q=typeof svmEindruecke==='function'?svmEindruecke(p):null; if(Q)[['trn','Trainingsleistung',Q.trn,2.5],['spl','Spielleistung',Q.spl,2]].forEach(([k,t,x,f])=>{ if(!x||x.avg==null)return; const b=sv94C((3-x.avg)*f*Math.min(1,x.n/6),-5,5); if(Math.abs(b)>=0.3){ T+=b; adj.push([k,t,b,`${x.n} Eindrücke: ${x.pos} positiv, ${x.neu} neutral, ${x.neg} negativ`]); } }); }catch(e){}
   const reg=ev.filter(s=>s.n>=12&&s.q>=0.5&&!s.qEst); let ex=0; const exT=[];
   if(reg.length>=2){ ex+=Math.min(1.6,0.8*(reg.length-1)); exT.push(`${reg.length} Saisons als Stammkraft`); }
   if(p.alter!=null&&p.alter>=26&&p.alter<=33&&reg.length){ ex+=1; exT.push('im besten Fußballeralter, Routine'); }
@@ -11260,13 +11264,17 @@ function sv94Jugend(p,r){
   o.alt=r.total; o.total=S.total; o.m4=S; o.mvp=S.mvp; o.mvpAdj=0;
   o.share=Math.round(m.q*100); o.prod=Math.round(m.lei*100); o.ctx=Math.round(m.t*100);
   const pctTxt=m.pct!=null?`besser als ${Math.round(m.pct*100)} % der ${SV94_GRUPPE_T[S.grp]} in der ${sv94LN(m.lv)}`:'zu wenig Vergleichsdaten, neutral';
+  const mtT=typeof svmMt==='function'&&p.pos?SVM_MT[svmMt(p)]:null, Q=typeof svmEindruecke==='function'?svmEindruecke(p):null;
+  const qv=x=>x&&x.avg!=null?Math.round(sv94C(50+(3-x.avg)*25,0,100)):null;
+  const ew=S.ev.map(s=>`${s.y} ${Math.round(s.anteil*100)} %`).join(', ');
   o.comps=[
-    {k:'level',t:'Einsatz',v:o.share,w:0,art:'auto',basis:m.qEst?'Einsatzquote geschätzt':`Einsatzquote ${o.share} % in ${m.y}`,warum:'Stammspieler liegen am Niveau ihrer Liga, Ergänzungsspieler darunter.'},
-    {k:'prod',t:S.grp==='def'?'Leistung hinten':'Leistung',v:o.prod,w:0,art:'auto',basis:(S.grp==='def'?'Gegentore der Mannschaft im Verhältnis zur Liga, ':`${sv94N(m.raw||0,2)} Tore je Spiel (Vorlagen halb), `)+pctTxt,warum:'Verglichen wird nur mit Spielern derselben Liga und Position.'},
-    {k:'ctx',t:'Mannschaft',v:o.ctx,w:0,art:'auto',basis:m.rank!=null?`Tabellenplatz ${m.rank} von ${m.tc||'?'}`:'keine Tabelle, neutral',warum:'Wer in einer Spitzenmannschaft spielt, setzt sich gegen starke Konkurrenz durch.'},
+    {k:'level',t:'Einsatz',v:o.share,w:0,art:'auto',basis:m.qEst?'Einsatzquote geschätzt':`Einsatzquote ${o.share} % in ${m.y}. Saisons zählen: ${ew}`,warum:'Laufende Saison und die drei Spielzeiten davor, jüngere zählen mehr. Stammspieler liegen am Niveau ihrer Liga, Ergänzungsspieler darunter.'},
+    {k:'prod',t:'Leistung'+(mtT?' ('+mtT+')':''),v:o.prod,w:0,art:'auto',basis:(S.grp==='def'?'Gegentore der Mannschaft im Verhältnis zur Liga, ':`${sv94N(m.raw||0,2)} Tore je Spiel (Vorlagen halb), `)+pctTxt,warum:'Verglichen wird nur mit Spielern derselben Liga und desselben Mannschaftsteils, über dieselben vier Spielzeiten wie beim Einsatz.'},
     {k:'pot',t:'Potenzial',v:S.pot==null?r.pot:Math.round(S.pot),w:0,art:'auto',basis:p.alter!=null?`Alter ${p.alter}, erwarteter Höchstwert`:'Alter unbekannt',warum:'Was mit normaler Entwicklung bis Mitte 20 noch drin ist.'},
-    {k:'trend',t:'Form',v:r.trend,w:0,art:'auto',basis:r.tratio!=null?'Quote aktuell im Vergleich zur Vorsaison':'noch kein Vergleich möglich',warum:'Steckt über die Gewichtung der Saisons schon im Wert.'},
     {k:'scout',t:'Eye-Test',v:r.eye==null?null:Math.round(r.eye),w:0,art:'manuell',basis:r.eyeE?`Ø aus ${r.eyeE.n} Bewertung${r.eyeE.n>1?'en':''}`:'noch kein Eye-Test',warum:'Eigene Messung auf derselben Skala, zählt bei mehreren Planern stärker.'}];
+  if(p.own&&!p.isJugend&&(typeof mnIsIntern!=='function'||mnIsIntern(p)))o.comps.push(
+    {k:'trn',t:'Trainingsleistung',v:qv(Q&&Q.trn),w:0,art:'manuell',basis:Q&&Q.trn&&Q.trn.n?`${Q.trn.n} Eindrücke im Training: ${Q.trn.pos} positiv, ${Q.trn.neu} neutral, ${Q.trn.neg} negativ`:'noch keine Eindrücke aus dem Training',warum:'Eindruck des Trainers je Einheit. Zählt ab drei echten Bewertungen, angenommene Werte zählen nicht.'},
+    {k:'spl',t:'Spielleistung',v:qv(Q&&Q.spl),w:0,art:'manuell',basis:Q&&Q.spl&&Q.spl.n?`${Q.spl.n} Eindrücke im Spiel: ${Q.spl.pos} positiv, ${Q.spl.neu} neutral, ${Q.spl.neg} negativ`:'noch keine Eindrücke aus Spielen',warum:'Eindruck des Trainers je Spiel, nur wenn er gespielt hat.'});
   o.sum=100;
   const known={liga:true,level:!m.qEst,prod:m.pct!=null&&m.n>=6,scout:r.eye!=null,mvp:S.mvp!=null};
   const wk={liga:20,level:20,prod:25,scout:20,mvp:15}; let a=0,k=0; Object.keys(wk).forEach(x=>{ a+=wk[x]; if(known[x])k+=wk[x]; });
@@ -11278,7 +11286,7 @@ if(typeof SV4_CL!=='undefined')Object.assign(SV4_CL,{liga:'Liga',level:'Einsatz'
 
 /* ---------- Profil: so entsteht die Spielstärke ---------- */
 function sv94SeasonHtml(s){
-  const teile=[`Liga-Niveau ${s.L}`,`Rolle ${sv94Pm(s.role)}`,`Leistung ${sv94Pm(s.prod)}`,`Mannschaft ${sv94Pm(s.team)}`];
+  const teile=[`Liga-Niveau ${s.L}`,`Rolle ${sv94Pm(s.role)}`,`Leistung ${sv94Pm(s.prod)}`];
   if(s.dom)teile.push(`Ausnahmeleistung ${sv94Pm(s.dom)}`); if(s.mvp!=null)teile.push(`MVP ${s.mvp}: ${sv94Pm(s.mvpOff)}`); if(s.sds)teile.push(`Elf der Woche ${sv94Pm(s.sds)}`);
   const kopf=[s.n?`${s.n}${s.app?' von '+s.app.G:''} Spiele${s.qEst?' (geschätzt)':''}`:'keine Einsätze bekannt', s.app&&s.app.min!=null?`${s.app.min.toLocaleString('de-DE')} Min.`:null, `${s.tore||0} Tore`, s.ast?`${s.ast} Vorlagen`:null, s.rank!=null?`Platz ${s.rank}`:null, s.app?'aus euren Spielen':null].filter(Boolean).join(', ');
   return `<div class="m94-s${s.decke?' decke':''}"><div class="m94-sh"><b>${svEsc(s.y)} · ${svEsc(sv94LN(s.lv))}</b><span>${svEsc(kopf)}</span></div>
@@ -13461,6 +13469,1008 @@ window.addEventListener('hashchange',e=>{ let h=''; try{ h=new URL(e.newURL).has
 setTimeout(svzPruefen,50);
 
 /* =====================================================================
+   Sportzentrale Beta 0.22 · Mannschaft und Spielerprofil (Änderungswünsche aus dem Trainerteam)
+   Teil A: Erklärungen zu Spalten und Kennzahlen, Tab „Kennzahlen“, Suchfelder, Fotos in der Spielerliste,
+           „2. POS“, Saison-Album raus aus Spiele, Verletzung mit vier Angaben, Massenpflege-Reihenfolge ohne „Schwacher Fuß“,
+           Spielerprofil ohne Umdrehen, ohne Hinweisblöcke, ohne „Gespräch“ und ohne „Ins Blickfeld“ bei eigenen Spielern
+   ===================================================================== */
+
+/* ---------- 1.1 Kennzahlen und Spalten: eine zentrale Beschreibung ---------- */
+// g = Bereich, l = Spaltenköpfe, unter denen die Kennzahl in Tabellen steht, k = kurz (beim Überfahren), d = ausführlich (Tab „Kennzahlen“)
+const SVM_KPI=[
+  {g:'Spielerübersicht',l:['Spieler'],t:'Spieler',k:'Name des Spielers. Antippen öffnet das Profil.',d:'Alle internen Spieler: 1. und 2. Mannschaft, A-Jugend und „Keine Mannschaft, aber Pass“. Die Zahl am Namen zeigt, wie viele Angaben noch fehlen.'},
+  {g:'Spielerübersicht',l:['Pos'],t:'Position',k:'Hauptposition des Spielers.',d:'Die Position, auf der er am häufigsten spielt. Gepflegt in der Massenpflege unter „Position“. Daraus ergibt sich auch der Mannschaftsteil.'},
+  {g:'Spielerübersicht',l:['2. POS'],t:'2. Position',k:'Weitere Positionen, die er spielen kann.',d:'Nebenpositionen, auf denen er schon gespielt hat oder die er sicher kann. Hilft bei Ausfällen und in der Aufstellung.'},
+  {g:'Spielerübersicht',l:['Mannschaftsteil','Teil'],t:'Mannschaftsteil',k:'Torwart, Abwehr, Mittelfeld oder Sturm, passend zur Hauptposition.',d:'Grobe Einteilung wie bei FuPa. Folgt immer der Hauptposition und bestimmt, welche Leistungswerte im MScore zählen (Tore vorne, Gegentore hinten).'},
+  {g:'Spielerübersicht',l:['Mannschaft'],t:'Mannschaft',k:'Stammmannschaft in dieser Saison (I, II, A), dahinter eine Zweitmannschaft.',d:'Aus der Kaderplanung der laufenden Saison. „Keine Mannschaft, aber Pass“: hat einen Spielerpass, spielt aber nicht regelmäßig. „Extern“: spielt inzwischen woanders.'},
+  {g:'Spielerübersicht',l:['Alter'],t:'Alter',k:'Alter in Jahren, „~“ = geschätzt.',d:'Aus dem Geburtsdatum. Ohne Geburtsdatum stammt das Alter aus FuPa oder einer Schätzung und ist mit „~“ markiert.'},
+  {g:'Spielerübersicht',l:['Geburtsdatum'],t:'Geburtsdatum',k:'Geburtsdatum, wenn gepflegt.',d:'Nur für interne Spieler, gepflegt in der Massenpflege.'},
+  {g:'Spielerübersicht',l:['Fuß'],t:'Starker Fuß',k:'Rechts, Links oder Beidfüßig.',d:'Der stärkere Fuß. Gepflegt in der Massenpflege unter „Starker Fuß“.'},
+  {g:'Spielerübersicht',l:['Größe'],t:'Größe',k:'Körpergröße in cm.',d:'Gepflegt in der Massenpflege.'},
+  {g:'Spielerübersicht',l:['Gewicht'],t:'Gewicht',k:'Körpergewicht in kg.',d:'Gepflegt in der Massenpflege.'},
+  {g:'Training',l:['Beteiligung'],t:'Trainingsbeteiligung',k:'Anteil der Trainings dieser Saison, bei denen er da war.',d:'Da geteilt durch alle Trainings seit Saisonstart. Verletzt, krank und „in der Zweiten“ zählen nicht dagegen. Die kleine Zahl zeigt, wie viele Trainings erfasst sind.'},
+  {g:'Training',l:['4 Wochen'],t:'Beteiligung 4 Wochen',k:'Trainingsbeteiligung der letzten vier Wochen.',d:'Wie „Beteiligung“, aber nur die letzten 28 Tage. Zeigt, ob jemand gerade nachlässt oder anzieht.'},
+  {g:'Training',l:['Ø Eindruck','Ø Note'],t:'Eindruck im Training',k:'Wie oft positiv, neutral oder negativ im Training.',d:'Der Trainer bewertet jeden Spieler im Training mit Positiv, Neutral oder Negativ. Gezeigt wird der Schnitt der echten Bewertungen dieser Saison, ohne automatisch gesetzte Werte.'},
+  {g:'Training',l:['Letzte Noten','Letzte Eindrücke'],t:'Letzte Eindrücke',k:'Die letzten Bewertungen im Training, neueste links.',d:'Zeigt den Verlauf der letzten Einheiten.'},
+  {g:'Training',l:['Ohne Grund'],t:'Ohne Grund gefehlt',k:'Wie oft er ohne Abmeldung oder Grund gefehlt hat.',d:'Unentschuldigtes Fehlen in dieser Saison. Zählt voll gegen die Beteiligung.'},
+  {g:'Training',l:['Zuletzt da'],t:'Zuletzt da',k:'Datum des letzten Trainings, bei dem er da war.',d:'Hilft, lange Abwesenheiten schnell zu sehen.'},
+  {g:'Training',l:['Status'],t:'Status',k:'Verfügbar, verletzt oder abwesend.',d:'Heutiger Stand aus Verletzungen und Abwesenheiten.'},
+  {g:'Spiele',l:['Einsätze'],t:'Einsätze',k:'Spiele mit Einsatz: Startelf plus Einwechslungen.',d:'Zählt alle Pflichtspiele der laufenden Saison, in denen er gespielt hat. In Klammern die Startelf-Einsätze.'},
+  {g:'Spiele',l:['Startelf','S11'],t:'Startelf',k:'Spiele, in denen er von Beginn an gespielt hat.',d:'Aus dem Eintrag in der App, sonst aus dem FuPa-Spielbericht, sonst aus fussball.de.'},
+  {g:'Spiele',l:['Einw.','Eingewechselt'],t:'Eingewechselt',k:'Spiele, in denen er eingewechselt wurde.',d:'Aus dem Eintrag in der App, sonst aus dem Spielbericht.'},
+  {g:'Spiele',l:['Kader'],t:'Kader',k:'Im Aufgebot, aber nicht eingesetzt (Bank).',d:'Stand im Spielberichtsbogen, kam aber nicht zum Einsatz. In der Einsatztabelle zählt „Kader %“, in wie vielen Spielen er insgesamt im Aufgebot war.'},
+  {g:'Spiele',l:['Kader %'],t:'Kaderquote',k:'Anteil der Spiele, in denen er im Aufgebot war.',d:'Startelf, Einwechslung oder Bank geteilt durch alle Spiele der Saison.'},
+  {g:'Spiele',l:['Zugeschaut'],t:'Zugeschaut',k:'War beim Spiel, aber nicht im Aufgebot.',d:'Spieler, die nicht im Kader standen, bekommen zunächst „Zugeschaut“, bis der Trainer etwas anderes einträgt.'},
+  {g:'Spiele',l:['Nicht da'],t:'Nicht da',k:'War beim Spiel nicht dabei, mit Grund wenn bekannt.',d:'Urlaub, Arbeit, verletzt und so weiter. Der Grund steht klein darunter.'},
+  {g:'Spiele',l:['Min.','Minuten'],t:'Minuten',k:'Gespielte Minuten, „~“ = nicht für jedes Spiel erfasst.',d:'Aus dem Spielbericht oder dem Eintrag in der App. Fehlen für einzelne Spiele Minuten, steht ein „~“ dahinter.'},
+  {g:'Spiele',l:['Tore'],t:'Tore',k:'Tore in dieser Saison.',d:'Pflichtspiele der laufenden Saison.'},
+  {g:'Spiele',l:['Vorl.','Vorlagen'],t:'Vorlagen',k:'Torvorlagen in dieser Saison.',d:'Soweit im Spielbericht oder in der App erfasst.'},
+  {g:'Spiele',l:['T / V'],t:'Tore / Vorlagen',k:'Tore und Vorlagen dieser Saison.',d:'Erst die Tore, dann die Vorlagen.'},
+  {g:'Spiele',l:['Scorer'],t:'Scorerpunkte',k:'Tore plus Vorlagen.',d:'Einfacher Offensivwert.'},
+  {g:'Spiele',l:['Min./Scorer'],t:'Minuten je Scorerpunkt',k:'Wie viele Minuten er im Schnitt für einen Scorerpunkt braucht.',d:'Kleiner ist besser. Nur, wo Minuten erfasst sind.'},
+  {g:'Spiele',l:['Ø Eindruck Spiel'],t:'Eindruck im Spiel',k:'Wie oft positiv, neutral oder negativ im Spiel.',d:'Bewertung des Trainers nach dem Spiel: Positiv, Neutral oder Negativ, mit Notiz.'},
+  {g:'Bewertung',l:['MScore'],t:'MScore',k:'Gesamtbewertung von 0 bis 99.',d:'Setzt sich zusammen aus Einsatz, Leistung, Potenzial und Eye-Test, bei eigenen Spielern zusätzlich Trainingsleistung und Spielleistung. Die laufende Saison und die letzten drei vollen Jahre zählen, je älter, desto weniger.'},
+  {g:'Bewertung',l:['EIN','Einsatz'],t:'Einsatz',k:'Wie viel und wie hoch er spielt.',d:'Liga-Niveau und Einsatzquote (Minuten oder Einsätze je Spiel der Mannschaft). Gezählt werden die laufende Saison und die drei Spielzeiten davor, jüngere mehr als ältere. Der Tabellenplatz der Mannschaft zählt nicht.'},
+  {g:'Bewertung',l:['LEI','Leistung'],t:'Leistung',k:'Was er im Spiel beiträgt, je nach Mannschaftsteil.',d:'Im Sturm und Mittelfeld Tore und halbe Vorlagen je Spiel, verglichen mit Spielern derselben Liga und desselben Mannschaftsteils. In Abwehr und Tor die Gegentore der Mannschaft im Verhältnis zur Liga, gewichtet mit seiner Einsatzzeit. Gleiche Zeitgewichtung wie beim Einsatz.'},
+  {g:'Bewertung',l:['POT','Potenzial'],t:'Potenzial',k:'Wie viel Luft nach oben er hat.',d:'Aus Alter und Leistungsniveau. Junge Spieler mit guten Werten haben mehr Potenzial.'},
+  {g:'Bewertung',l:['EYE','Eye-Test'],t:'Eye-Test',k:'Wie ihn die Beobachter sehen, 1 bis 10 je Kategorie.',d:'Feldspieler: Tempo, Schuss, Pass, Dribbling, Defensive, Physis. Torhüter: Hechten, Ballsicherheit, Abschlag, Stellungsspiel, Reflexe. Der Schnitt aller Bewerter zählt.'},
+  {g:'Bewertung',l:['TRN','Trainingsleistung'],t:'Trainingsleistung',k:'Nur eigene Spieler: Eindruck des Trainers aus dem Training.',d:'Die Bewertungen Positiv, Neutral, Negativ aus dem Training dieser Saison. Zählt ab drei echten Bewertungen, angenommene Werte zählen nicht.'},
+  {g:'Bewertung',l:['SPL','Spielleistung'],t:'Spielleistung',k:'Nur eigene Spieler: Eindruck des Trainers aus den Spielen.',d:'Die Bewertungen Positiv, Neutral, Negativ nach den Spielen dieser Saison, nur wenn er gespielt hat. Zählt ab drei echten Bewertungen.'},
+  {g:'Bewertung',l:['Treue','Vereinstreue'],t:'Vereinstreue',k:'Bronze, Silber oder Gold für Jahre und Spiele im Verein.',d:'Aus Pflichtspielen und Jahren im Verein. Drei Stufen: Bronze, Silber, Gold.'},
+  {g:'Bewertung',l:['Datenbasis'],t:'Datenbasis',k:'Wie sicher der MScore ist, in Prozent.',d:'Je mehr Spiele, Minuten und Bewertungen vorliegen, desto höher. Bei wenig Daten ist der MScore nur eine grobe Einschätzung.'},
+  {g:'Planung',l:['Nächste Saison','Zukunft'],t:'Zukunft',k:'Geplant für die nächsten Saisonhälften.',d:'Bleibt, unsicher, geht, rauf oder runter. Gepflegt unter Kaderplanung und Gespräche.'},
+  {g:'Kontakt',l:['Handy'],t:'Handy',k:'Handynummer, antippen öffnet WhatsApp.',d:'Nur für erwachsene Spieler gespeichert.'},
+  {g:'Kontakt',l:['E-Mail'],t:'E-Mail',k:'E-Mail-Adresse.',d:'Nur für erwachsene Spieler gespeichert.'},
+  {g:'Kontakt',l:['Lücken'],t:'Lücken',k:'Welche Angaben noch fehlen.',d:'Zum Beispiel Geburtsdatum, Fuß oder Handynummer.'},
+  {g:'Bewertung',l:['PlayStyles'],t:'PlayStyles',k:'Besondere Stärken des Spielers, mit „+“ = herausragend.',d:'Einheitliche Beschreibung der Fähigkeiten nach Kategorien: Torwart, Körperlich, Ballkontrolle, Defensive, Pass, Abschluss.'}
+];
+const SVM_QUELLEN=[
+  ['Training',['Eintrag des Trainers in der App (live oder danach)','Anwesenheitsliste (Excel-Import)','Abstimmung per Link (Zu- oder Absage)','Standardannahme (zum Beispiel „da“, wenn nichts anderes bekannt ist)'],
+    'Widerspricht die Anwesenheitsliste einem Eintrag in der App, gilt der App-Eintrag. Der Widerspruch steht im Info-i der Einheit, dort lässt sich die Angabe aus der Liste mit einem Tipp übernehmen.'],
+  ['Spiele',['Eintrag in der App','FuPa (Datei oder Spielplan)','Spielbericht von fussball.de','Annahme: wer nicht im Kader stand, hat zugeschaut'],
+    'FuPa und fussball.de füllen Startelf, Einwechslungen, Tore und Minuten automatisch. Ein Eintrag in der App wird nie überschrieben.'],
+  ['Statistiken',['Einzelwerte je Spiel oder Training nach den Regeln oben','Saisonsummen aus Listen, wenn keine Einzelwerte da sind'],
+    'Summen werden immer aus den Einzelwerten gerechnet. Gibt es nur eine Saisonsumme (zum Beispiel aus einer PDF-Liste), steht das dabei.']
+];
+const svmNorm=s=>String(s||'').replace(/[▲▼↑↓*]/g,'').replace(/\(\d+\)/g,'').replace(/\s+/g,' ').trim();
+const SVM_KPI_BY=new Map(); SVM_KPI.forEach(x=>x.l.forEach(l=>{ if(!SVM_KPI_BY.has(l))SVM_KPI_BY.set(l,x); }));
+function svmTipps(root){
+  (root||document).querySelectorAll('th').forEach(th=>{ const n=svmNorm(th.textContent); if(th.dataset.kpi===n)return;
+    const x=SVM_KPI_BY.get(n); th.dataset.kpi=n; if(!x){ th.classList.remove('kpi-th'); return; }
+    th.title=x.k; th.classList.add('kpi-th'); const b=th.querySelector('button'); if(b)b.title=x.k; });
+}
+{ let t=null; const mo=new MutationObserver(()=>{ clearTimeout(t); t=setTimeout(()=>{ try{ svmTipps(document); const pf=document.querySelector('#modal .pf4'); if(pf)svmNoFlip(pf); }catch(e){} },80); });
+  const start=()=>{ const m=document.querySelector('main')||document.body; if(m)mo.observe(m,{childList:true,subtree:true}); const md=document.getElementById('modal'); if(md)mo.observe(md,{childList:true,subtree:true}); svmTipps(document); };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start); else start(); }
+
+/* ---------- Tab „Kennzahlen“ unter Wissen ---------- */
+SV4_HUB.wissen.tabs.push(['kpi','Kennzahlen']); SV4_OF.kpi='wissen';
+Object.assign(SV_PAGES,{kpi:['Wissen','Kennzahlen und Spalten: was jede Zahl bedeutet und woher sie kommt']});
+function svmKpiPanel(){ let P=document.getElementById('panel-kpi'); if(P)return P;
+  const ref=document.getElementById('panel-play'); if(!ref)return null; P=document.createElement('section'); P.className='panel'; P.id='panel-kpi'; ref.parentNode.insertBefore(P,ref.nextSibling); return P; }
+function svmKpiRender(){ const P=svmKpiPanel(); if(!P)return; const G=[...new Set(SVM_KPI.map(x=>x.g))];
+  P.innerHTML=`<div class="card svm-kpi"><h3 class="trh">${SVI('book')} Kennzahlen und Spalten <small>${SVM_KPI.length} Begriffe</small></h3>
+      <p class="note">Jede Spalte in den Tabellen erklärt sich kurz, wenn du mit der Maus darüber fährst. Hier steht alles ausführlich an einem Ort.</p>
+      <input type="search" class="svm-such" id="svmKq" placeholder="Begriff suchen, z.B. Beteiligung">
+      <div id="svmKl">${G.map(g=>`<div class="svm-kg" data-g="${svEsc(g)}"><h4>${svEsc(g)}</h4>${SVM_KPI.filter(x=>x.g===g).map(x=>`<details class="svm-k" data-q="${svEsc((x.t+' '+x.l.join(' ')+' '+x.k).toLowerCase())}"><summary><b>${svEsc(x.t)}</b>${x.l[0]!==x.t?`<code>${svEsc(x.l.join(' · '))}</code>`:''}<span>${svEsc(x.k)}</span></summary><p>${svEsc(x.d)}</p></details>`).join('')}</div>`).join('')}</div></div>
+    <div class="card svm-kpi"><h3 class="trh">${SVI('db')} Datenquellen und Vorrang</h3>
+      <p class="note">Liegen zu einer Einheit, einem Spiel oder einer Statistik mehrere Quellen vor, gilt diese Reihenfolge. Das Info-i an Training, Spielen und Statistiken zeigt, was im Einzelfall verwendet wurde, was fehlt und wo sich Quellen widersprechen.</p>
+      ${SVM_QUELLEN.map(([t,L,w])=>`<div class="svm-q"><h4>${svEsc(t)}</h4><ol>${L.map(x=>`<li>${svEsc(x)}</li>`).join('')}</ol><p class="note small">${svEsc(w)}</p></div>`).join('')}</div>`;
+  const q=P.querySelector('#svmKq'); q.oninput=()=>{ const s=q.value.trim().toLowerCase(); P.querySelectorAll('.svm-k').forEach(d=>{ const on=!s||d.dataset.q.includes(s); d.hidden=!on; if(s&&on)d.open=true; });
+    P.querySelectorAll('.svm-kg').forEach(g=>g.hidden=!g.querySelector('.svm-k:not([hidden])')); };
+}
+{ const _gtM=goTab; goTab=function(tab){ if(tab==='kpi')svmKpiPanel(); const r=_gtM.apply(this,arguments); try{ if(svCurTab()==='kpi')svmKpiRender(); }catch(e){ console.warn('Kennzahlen',e); } return r; }; }
+
+/* ---------- 2.1 Spielerliste: Fotos, „2. POS“ ---------- */
+if(SV50_COLS.pos2)SV50_COLS.pos2.t='2. POS';
+{ const _vp22=mnViewPlayers; mnViewPlayers=function(B){ const r=_vp22.apply(this,arguments);
+  try{ B.querySelectorAll('tr[data-svp] td.nm50').forEach(td=>{ if(td.querySelector('.svm-av'))return; const p=trP(td.parentNode.dataset.svp); if(!p)return;
+      td.insertAdjacentHTML('afterbegin',`<span class="svm-av">${avaHtml(p)}</span>`); td.classList.add('svm-nm'); });
+    B.querySelectorAll('#sp50q').forEach(i=>i.classList.add('svm-such')); svmTipps(B); }catch(e){ console.warn('Spielerliste 0.22',e); }
+  return r; }; }
+trViewPlayers=mnViewPlayers;
+
+/* ---------- 4.5 Saison-Album nicht mehr unter Spiele ---------- */
+{ const _vg22=trViewGames; trViewGames=function(B){ const r=_vg22.apply(this,arguments); try{ B.querySelectorAll('.a41').forEach(x=>x.remove()); }catch(e){} return r; }; }
+
+/* ---------- 5. Verletzung: Spieler, Notiz, seit wann, voraussichtlich zurück ---------- */
+trInjuryEditor=function(id,pid){
+  const i0=id?TR.st.injuries.find(x=>x.id===id):null;
+  const notiz0=i0?((i0.n&&i0.dg&&!i0.n.startsWith(i0.dg))?i0.dg+(i0.n?'\n'+i0.n:''):(i0.n||i0.dg||'')):'';
+  const st=i0?{id:i0.id,player_id:i0.p,notiz:notiz0,beginn:i0.b,prognose:i0.pr||''}:{player_id:pid||'',notiz:'',beginn:trToday(),prognose:''};
+  const sq=trSquad(); if(st.player_id&&!sq.some(p=>p.id===st.player_id)&&trP(st.player_id))sq.unshift(trP(st.player_id));
+  svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('shield')}</div><div><h2 style="margin:0">${i0?'Verletzung bearbeiten':'Verletzung eintragen'}</h2><div class="msub">Nur das Nötigste. Sichtbar nur fürs Trainerteam.</div></div></div>
+    <div class="editgrid svm-inj" style="margin-top:14px">
+      <div class="field" style="grid-column:1/-1"><label>Spieler</label><select id="ijP"><option value="">– wählen –</option>${sq.map(p=>`<option value="${svEsc(p.id)}"${st.player_id===p.id?' selected':''}>${svEsc(p.name)}</option>`).join('')}</select></div>
+      <div class="field" style="grid-column:1/-1"><label>Notiz</label><textarea id="ijN" maxlength="1000" rows="3" placeholder="z.B. Zerrung Oberschenkel links, Physio zweimal pro Woche">${svEsc(st.notiz)}</textarea></div>
+      <div class="field"><label>Seit</label><input type="date" id="ijB" value="${svEsc(st.beginn)}"></div>
+      <div class="field"><label>Voraussichtlich zurück</label><input type="date" id="ijPr" value="${svEsc(st.prognose)}"><div class="trquick">${[1,2,3,4,6,8].map(w=>`<button type="button" data-w="${w}">+${w} W</button>`).join('')}</div></div>
+    </div>
+    <div class="btnrow sbact"><button class="btn" id="ijSave">Speichern</button><button class="btn ghost" id="ijCancel">Abbrechen</button>${i0?'<button class="btn ghost" id="ijDel" style="margin-left:auto;color:#fca5a5">Löschen</button>':''}</div>`);
+  const $i=x=>document.getElementById(x);
+  document.querySelectorAll('.svm-inj [data-w]').forEach(b=>b.onclick=()=>{ $i('ijPr').value=TRC.addDays($i('ijB').value||trToday(),+b.dataset.w*7); });
+  $i('ijCancel').onclick=()=>closeOverlay();
+  if($i('ijDel'))$i('ijDel').onclick=async e=>{ const b=e.currentTarget; if(!b.classList.contains('sure')){ b.classList.add('sure'); b.textContent='Wirklich löschen?'; return; } try{ await trDeleteInjury(i0.id); closeOverlay(); kToast('Gelöscht'); }catch(x){ kToast('⚠️ '+x.message); } };
+  $i('ijSave').onclick=async()=>{
+    const n=$i('ijN').value.trim(), erste=n.split('\n')[0].trim();
+    const v={id:st.id,player_id:$i('ijP').value,diagnose:(erste||'Verletzung').slice(0,200),art:i0?i0.art||null:null,koerperteil:i0?i0.kt||null:null,beginn:$i('ijB').value,prognose:$i('ijPr').value||null,zurueck:i0?i0.z||null:null,notiz:n.includes('\n')?n.slice(n.indexOf('\n')+1).trim()||null:null};
+    if(!v.player_id||!v.beginn)return kToast('Bitte Spieler und „Seit“ angeben');
+    if(v.prognose&&v.prognose<v.beginn)return kToast('„Voraussichtlich zurück“ liegt vor „Seit“');
+    try{ await trSaveInjury(v); closeOverlay(); kToast('✓ Verletzung von '+trShort(v.player_id)+' gespeichert'); }catch(e){ kToast('⚠️ '+e.message); } };
+};
+
+/* ---------- 7.1 / 7.4 Massenpflege: Mannschaft und Position zuerst, ohne „Schwacher Fuß“ ---------- */
+{ const ord=['team','pos','fuss','eye','skills','kontakt','geb','groesse','gewicht'];
+  MN_AREAS.sort((a,b)=>{ const i=ord.indexOf(a.k), j=ord.indexOf(b.k); return (i<0?99:i)-(j<0?99:j); });
+  if(MN_A.fuss){ MN_A.fuss.orig=p=>({fu:p.fuss||''}); MN_A.fuss.ctl=(p,v,ok)=>`<div class="sbseg mn-seg">${['Rechts','Links','Beidfüßig'].map(x=>`<button type="button" data-set="fu:${x}" class="${v.fu===x?'on':''}" ${ok?'':'disabled'}>${x}</button>`).join('')}</div>`;
+    MN_A.fuss.set=(v,k,x)=>{ if(k==='fu')v.fu=v.fu===x?'':x; }; }
+  const g=MN_COLGRP.find(x=>x[0]==='Spielerdaten'); if(g)g[1]=g[1].filter(c=>c!=='wf');
+  if(MN.area==='fuss'||!MN.area)MN.area='team'; }
+{ const _pf22=mnViewPflege; mnViewPflege=function(B){ const r=_pf22.apply(this,arguments); try{ B.querySelectorAll('#mpq').forEach(i=>i.classList.add('svm-such')); }catch(e){} return r; }; MN_VIEWS.pflege=mnViewPflege; }
+
+/* ---------- 8.2 Spielerprofil: kein Umdrehen, keine Hinweisblöcke, kein „Gespräch“, kein „Ins Blickfeld“ bei eigenen ---------- */
+// Karte dreht sich nicht mehr: jede Karte bekommt „fut-noflip“ (so prüft es svcards.js), dazu eine CSS-Sperre
+function svmNoFlip(root){ (root||document).querySelectorAll('.fut:not(.fut-noflip):not([data-go])').forEach(c=>{ c.classList.add('fut-noflip'); c.classList.remove('flip'); }); }
+{ const _om22=openModal; openModal=function(id){ const r=_om22.apply(this,arguments);
+  try{ const M=document.getElementById('modal'), p=trP(id); if(M&&M.querySelector('.pf4')){
+      M.querySelectorAll('.pf4-hints').forEach(x=>x.remove());
+      M.querySelectorAll('[data-pf4="gespr"]').forEach(x=>x.remove());
+      if(p&&typeof mnIsIntern==='function'&&mnIsIntern(p))M.querySelectorAll('.pf4-act [data-bf]').forEach(x=>x.remove());
+      svmNoFlip(M.querySelector('.pf4')); } }catch(e){ console.warn('Profil 0.22',e); }
+  return r; }; }
+
+/* =====================================================================
+   Sportzentrale Beta 0.22 · Teil B (Änderungswünsche aus dem Trainerteam)
+   2.2  Mannschaft: „Keine Mannschaft, aber Pass“ statt „Umfeld“, neu „Extern“, Prüffälle aus FuPa
+   3.1  Training: Eindruck Positiv, Neutral, Negativ je Einheit und Spieler, ohne Position, ohne „Details“
+   1.2/3.2  Info-i je Einheit: Quellen, Vorrang, was fehlt, Widersprüche (Anwesenheitsliste gegen App)
+   4.1–4.4  Spiele: Vergangene, Bevorstehende, Statistik; Quelle und Lücken je Spiel; neue Spielbewertung;
+            eine gemeinsame Statistik aus App, FuPa und fussball.de mit festen Vorrang-Regeln
+   ===================================================================== */
+const SVM={liste:0,listeStat:null,plan:null,planTry:0,planBusy:false};
+const svmN=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+function svmIstWir(name){ try{ const T=(window.VEREIN&&VEREIN.texte)||{}, n=svmN(name); if(!n)return false;
+    if(T.name&&n===svmN(T.name))return true; return !!(T.ort&&T.kurz&&n.includes(svmN(T.ort))&&n.includes(svmN(T.kurz))); }catch(e){ return false; } }
+function svmTag(d){ try{ return new Date(d+'T12:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'}); }catch(e){ return d; } }
+
+/* ---------- Eindruck: Positiv, Neutral, Negativ (intern weiter als Note 2, 3, 5 gespeichert) ---------- */
+const SVM_EI={p:{t:'Positiv',n:2,i:'+'},o:{t:'Neutral',n:3,i:'○'},m:{t:'Negativ',n:5,i:'−'}};
+function svmEiK(n){ if(n==null||n===''||isNaN(+n))return null; n=+n; return n<=2.4?'p':n>=4.5?'m':'o'; }
+function svmEiChip(n,extra){ const k=svmEiK(n); if(!k)return ''; const e=SVM_EI[k]; return `<i class="svm-ei ${k}" title="Eindruck ${e.t}${extra?' · '+svEsc(extra):''}">${e.i}</i>`; }
+function svmEiBtns(cur,attr,ann){ return `<div class="svm-eib">${['p','o','m'].map(k=>`<button type="button" data-${attr}="${k}" class="${k}${cur===k?' on'+(ann?' ann':''):''}" title="${SVM_EI[k].t}">${SVM_EI[k].i}<span> ${SVM_EI[k].t}</span></button>`).join('')}</div>`; }
+if(typeof SV50_COLS!=='undefined'&&SV50_COLS.note){ SV50_COLS.note.t='Ø Eindruck';
+  SV50_COLS.note.h=(p,s)=>s.note!=null?`${svmEiChip(s.note)} <small>${SVM_EI[svmEiK(s.note)].t} · ${s.noteN}×</small>`:s.noteAll!=null?'<small title="Nur angenommen, noch keine echte Bewertung">neutral · Annahme</small>':'–'; }
+
+/* =====================================================================
+   2.2 Mannschaft: Mit Pass ohne Mannschaft, Extern
+   ===================================================================== */
+MN_TEAM.U='Keine Mannschaft, aber Pass'; MN_TEAM.X='Extern'; MN_TK.U='P'; MN_TK.X='X';
+if(typeof SV4_TEAM!=='undefined'){ SV4_TEAM.U='Keine Mannschaft, aber Pass'; SV4_TEAM.X='Extern'; }
+if(MN_F&&MN_F.team){ const u=MN_F.team.find(x=>x[0]==='U'); if(u)u[1]='Mit Pass, ohne Mannschaft'; }
+function svmExtern(p){ try{ if(!p||typeof sv4SS!=='function')return false; const r=sv4SS(p.id,sv4S()); return !!(r&&r.team==='X'); }catch(e){ return false; } }
+{ const _t22=sv4Team; sv4Team=function(p,s){ const t=_t22.apply(this,arguments); return t==='X'?null:t; }; }
+{ const _i22=mnIsIntern; mnIsIntern=function(p){ if(svmExtern(p))return false; return _i22.apply(this,arguments); }; }
+{ const _sq22=trSquad; trSquad=function(){ const L=_sq22.apply(this,arguments); try{ return L.filter(p=>!svmExtern(p)); }catch(e){ return L; } }; }
+if(SV50_INFO['training:players'])SV50_INFO['training:players'].w='Alle internen Spieler in einer Liste: 1. und 2. Mannschaft, A-Jugend und Spieler mit Pass ohne feste Mannschaft. Wer als „Extern“ markiert ist, steht hier nicht mehr.';
+if(MN_A.team){
+  MN_A.team.orig=p=>({t:svmExtern(p)?'X':(mnTeam(p)||''),t2:svmExtern(p)?'':(mnTeam2(p)||'')});
+  MN_A.team.ctl=(p,v,ok)=>`<label class="mn-lbl"><span>Mannschaft</span><select data-f="t" ${ok?'':'disabled'}>${v.t?'':'<option value="">–</option>'}${['1','2','A','U','X'].map(t=>`<option value="${t}"${v.t===t?' selected':''}>${MN_TEAM[t]}</option>`).join('')}</select></label>
+    ${v.t==='X'?'<small class="note svm-xh">Extern: zählt nicht mehr zum Kader und taucht in Training und Listen nicht mehr auf. Die App prüft weiter mit FuPa, ob er wieder bei uns spielt.</small>'
+      :`<label class="mn-lbl"><span>Zweitmannschaft</span><select data-f="t2" ${ok?'':'disabled'}><option value="">keine</option>${['1','2','A','U'].filter(t=>t!==v.t).map(t=>`<option value="${t}"${v.t2===t?' selected':''}>${MN_TEAM[t]}</option>`).join('')}</select></label>`}`;
+  MN_A.team.read=(k,val,v)=>{ if(k==='t'&&(v.t2===val||val==='X'))v.t2=''; return val; };
+}
+
+// Prüffälle: laut FuPa woanders im Kader, in dieser Saison in keinem FuPa-Kader, oder als extern markiert und wieder bei uns
+function svmPrueffaelle(){
+  if(typeof KLAW==='undefined'||!KLAW.geladen||typeof klaSk!=='function')return [];
+  const cur=klaSk('cur'), vor=klaVor(cur), out=[];
+  players.forEach(p=>{ if(p.isJugend)return; const C=(typeof crmOf==='function'?crmOf(p):CRM[p.id])||{}, K=(KLAW.by[p.id]||{})[cur], KV=(KLAW.by[p.id]||{})[vor];
+    const basis=K?(K.basis||[]):[], wir=basis.some(r=>svmIstWir(r.verein||r.mannschaft)), fremd=basis.filter(r=>!svmIstWir(r.verein||r.mannschaft)).map(r=>r.verein||r.mannschaft).filter(Boolean);
+    const ok=C.xok&&C.xok===cur;
+    if(svmExtern(p)){ if(K&&wir&&K.kaderBelegt)out.push({p,k:'zurueck',t:'Als extern markiert, steht laut FuPa aber wieder in unserem Kader',K}); return; }
+    if(!mnIsIntern(p)||ok)return;
+    if(K&&K.kaderBelegt&&!wir&&fremd.length)out.push({p,k:'fremd',t:'Laut FuPa diese Saison im Kader von '+[...new Set(fremd)].join(' / '),K});
+    else if(!K&&KV&&KV.belegt)out.push({p,k:'fehlt',t:'Letzte Saison bei FuPa geführt, diese Saison in keinem FuPa-Kader',K:KV}); });
+  return out;
+}
+function svmPrueffCard(){
+  const L=svmPrueffaelle(); if(!L.length)return '';
+  return `<div class="card svm-pf"><h3 class="trh">${SVI('radar')} Prüffälle aus FuPa <small>${L.length}</small></h3>
+    <p class="note small">FuPa führt die Kader aller Vereine. Wo das nicht zu unserer Zuordnung passt, steht der Spieler hier. Nichts wird automatisch geändert.</p>
+    ${L.map(x=>`<div class="svm-pfr" data-pf="${svEsc(x.p.id)}"><div><b data-svp="${svEsc(x.p.id)}">${svEsc(x.p.name)}</b><small>${svEsc(x.t)}${x.K&&x.K.geprueft?' · geprüft '+svEsc(TRC.fmt(String(x.K.geprueft).slice(0,10))):''}</small></div>
+      <div class="btnrow">${x.k==='zurueck'?`<button type="button" class="btn sm" data-pfa="intern">Wieder intern</button>`:`<button type="button" class="btn sm" data-pfa="extern">Als extern markieren</button><button type="button" class="btn ghost sm" data-pfa="ok">Passt so</button>`}${x.K&&x.K.url?`<a class="btn ghost sm" href="${svEsc(x.K.url)}" target="_blank" rel="noopener">FuPa</a>`:''}</div></div>`).join('')}</div>`;
+}
+function svmPrueffWire(B){
+  B.querySelectorAll('.svm-pf [data-svp]').forEach(x=>x.onclick=()=>openModal(x.dataset.svp));
+  B.querySelectorAll('.svm-pf [data-pfa]').forEach(b=>b.onclick=async()=>{ const pid=b.closest('[data-pf]').dataset.pf, p=trP(pid), a=b.dataset.pfa; if(!p)return; b.disabled=true;
+    try{ if(a==='ok'){ crmSet(pid,{xok:klaSk('cur')}); try{ crmApply(); }catch(e){} kToast('✓ '+p.name+' bleibt, wie er ist'); }
+      else if(a==='extern'){ await sv4SSSet(pid,sv4S(),{team:'X',team2:null}); kToast('✓ '+p.name+' ist jetzt extern'); }
+      else { const t=sv4Team0(p)||'1'; await sv4SSSet(pid,sv4S(),{team:t==='X'?'1':t}); kToast('✓ '+p.name+' ist wieder intern'); }
+      trRender(); }catch(e){ b.disabled=false; kToast('⚠️ '+e.message); } });
+}
+// Massenpflege: Filter „Mit Pass“ und „Extern“, Prüffälle oben im Bereich Mannschaft
+{ const _pf22b=MN_VIEWS.pflege; MN_VIEWS.pflege=mnViewPflege=function(B){
+  let hI=null, hT=null;
+  if(MN.team==='X'){ hI=mnIntern; hT=mnTeam; mnIntern=()=>players.filter(p=>!p.isJugend&&svmExtern(p)).sort((a,b)=>a.name.localeCompare(b.name,'de')); mnTeam=p=>svmExtern(p)?'X':hT(p); }
+  let r; try{ r=_pf22b.apply(this,arguments); }finally{ if(hI){ mnIntern=hI; mnTeam=hT; } }
+  try{
+    const ch=B.querySelector('.mp-f .chips4'); if(ch){ const u=ch.querySelector('[data-mpt="U"]'); if(u)u.textContent='Mit Pass';
+      if(!ch.querySelector('[data-mpt="X"]')){ const nx=ch.querySelector('[data-mpt="-"]'); const nb=document.createElement('button'); nb.type='button'; nb.dataset.mpt='X'; nb.textContent='Extern'; if(MN.team==='X')nb.className='on';
+        nb.onclick=()=>{ MN.team='X'; trRender(); }; (nx||ch.lastElementChild).after(nb); } }
+    B.querySelectorAll('.mp18 > p.note.small').forEach(x=>{ if(/^Stammmannschaft und Zweitmannschaft/.test(x.textContent))x.textContent='Mannschaft und Zweitmannschaft der laufenden Saison. „Keine Mannschaft, aber Pass“: hat einen Spielerpass, spielt aber nicht regelmäßig. „Extern“: spielt nicht mehr bei uns, die App prüft ihn weiter mit FuPa.'; });
+    if(MN.team==='X'){ const n=B.querySelector('.mp18 > p.note.small:last-of-type'); if(n&&/internen Spielern/.test(n.textContent))n.textContent=B.querySelectorAll('.mp-r').length+' Spieler als extern markiert. Unter „Mannschaft“ lässt sich das zurücknehmen.'; }
+    if(MN.area==='team'&&!B.querySelector('.svm-pf')){ const h=svmPrueffCard(); if(h){ B.querySelector('.mp18').insertAdjacentHTML('beforebegin',h); svmPrueffWire(B); } }
+  }catch(e){ console.warn('Massenpflege 0.22 B',e); }
+  return r; }; }
+
+/* =====================================================================
+   3.1 Training erfassen: Eindruck statt Noten, ohne Position, ohne „Details“
+   ===================================================================== */
+function svmTrainQuick(datum,sid,ki){
+  const s0=sid?TR.st.sessions.find(s=>s.id===sid):trSessionOn(datum||trToday(),'training');
+  const st={datum:s0?s0.d:(datum||trToday()),no:s0&&s0.no!=null?s0.no:null,ns:s0?s0.ns:null,n:s0?s0.n||'':'',rows:{},orig:new Set(),open:null,ki:!!ki};
+  const fill=()=>{
+    st.rows={}; st.orig=new Set();
+    const cur=trSessionOn(st.datum,'training'), D=sv50Defaults(st.datum); st.poll=D.poll;
+    const have=new Map(((cur&&cur.a)||[]).map(a=>[a[0],a]));
+    new Set([...trSquad().map(p=>p.id),...have.keys()]).forEach(id=>{
+      const a=have.get(id);
+      if(a){ st.orig.add(id); st.rows[id]={status:a[1],grund:a[2],notiz:a[5]||'',note:a[8],note_src:a[9]||null,status_src:a[10]||'manuell',saved:true}; }
+      else if(D.rows[id])st.rows[id]=Object.assign({notiz:''},D.rows[id]); });
+    if(cur){ st.no=cur.no!=null?cur.no:st.no; st.ns=cur.ns||st.ns; st.n=cur.n||st.n; }
+  };
+  fill();
+  if(ki){ const i=ki.input||ki; if(i.datum&&i.datum!==st.datum){ st.datum=i.datum; fill(); }
+    (i.spieler||[]).forEach(x=>{ if(!x.player_id||!trP(x.player_id))return; const r=st.rows[x.player_id]=st.rows[x.player_id]||{notiz:''};
+      if(x.status){ r.status=x.status; r.status_src='ki'; r.grund=x.status==='weg'?(x.grund||r.grund||'ohne'):null; }
+      if(x.note){ r.note=SVM_EI[svmEiK(x.note)].n; r.note_src='ki'; } else if(r.status!=='weg'&&r.note==null){ r.note=3; r.note_src='default'; }
+      if(x.notiz)r.notiz=x.notiz; if(x.motivation)r.motivation=x.motivation; if(x.fitness)r.fitness=x.fitness; });
+    if(i.note){ st.no=SVM_EI[svmEiK(i.note)].n; st.ns='ki'; } if(i.notiz&&!st.n)st.n=i.notiz; }
+  svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('activity')}</div><div><h2 style="margin:0">Training ${s0?'bearbeiten':'erfassen'} <button type="button" class="svm-i" id="q50i" title="Woher kommen die Angaben?">i</button></h2><div class="msub">Anwesenheit und Eindruck: Positiv, Neutral oder Negativ. Die Herkunft jeder Angabe steht daneben.</div></div></div><div id="q50"></div>`);
+  document.getElementById('q50i').onclick=()=>svmQuelleTraining(st.datum);
+  const draw=()=>{
+    const E=document.getElementById('q50'); if(!E)return;
+    const pi=p=>{ const i=TR_POS.indexOf(p.pos); return i<0?99:i; };
+    const list=Object.keys(st.rows).map(trP).filter(Boolean).sort((a,b)=>(pi(a)-pi(b))||a.name.localeCompare(b.name,'de'));
+    const c={da:0,spaet:0,weg:0}; list.forEach(p=>{ const r=st.rows[p.id]; if(r.status)c[r.status]++; });
+    const ann=list.filter(p=>{ const r=st.rows[p.id]; return r.status_src==='default'||(r.status!=='weg'&&r.note_src==='default'); }).length;
+    const gk=svmEiK(st.no);
+    E.innerHTML=`<div class="q50-top"><div class="field"><label>Datum</label><input type="date" id="q50d" value="${svEsc(st.datum)}" max="${TRC.addDays(trToday(),14)}"></div>
+        <div class="q50-ges"><span>Eindruck der Einheit ${st.ns?sv50Src(st.ns):''}</span>${svmEiBtns(gk,'ges',st.ns==='default')}</div></div>
+      <div class="field q50-note"><label>Notiz zur Einheit</label><input id="q50n" maxlength="2000" value="${svEsc(st.n)}" placeholder="z.B. laufintensiv, gute Stimmung, Standards geübt"></div>
+      <div class="q50-info">${st.poll?`${SVI('check')} Anwesenheit aus der Abstimmung „${svEsc(st.poll.titel||'Training')}“ übernommen.`:'Keine Abstimmung für diesen Tag, deshalb gelten erst einmal alle als da.'} ${ann?`<b>${ann} Annahmen</b> sind gelb markiert, tippe nur an, was anders war.`:''}</div>
+      <div class="q50-sum"><span><b>${c.da+c.spaet}</b> da</span><span class="${c.weg?'bad':''}"><b>${c.weg}</b> fehlen</span>
+        <button type="button" class="btn ghost sm" data-all3>Alle Annahmen bestätigen</button></div>
+      <div class="q50l">${list.map(p=>{ const r=st.rows[p.id], o=st.open===p.id, weg=r.status==='weg', annS=r.status_src==='default', annN=!weg&&r.note_src==='default';
+        return `<div class="q50r${weg?' weg':''}${annS||annN?' ann':''}" data-q50="${svEsc(p.id)}">
+          <div class="q50-h"><span class="q50-n" data-q50open><b>${svEsc(p.name)}</b><em>${trInjury(p.id)?'🩹 ':''}${sv50Src(r.status_src)}</em></span>
+            <div class="trseg">${[['da','Da'],['weg','Fehlt']].map(([k,t])=>`<button type="button" data-q50s="${k}" class="${r.status===k||(k==='da'&&r.status==='spaet')?'on':''}">${t}</button>`).join('')}</div></div>
+          ${weg?`<div class="trg">${Object.entries(TRC.REASONS).map(([k,t])=>`<button type="button" data-q50g="${k}" class="${r.grund===k?'on'+(k==='ohne'||k==='keine_antwort'?' warn':''):''}">${t}</button>`).join('')}</div>`
+            :`<div class="q50-no">${svmEiBtns(svmEiK(r.note),'q50e',annN)}${r.note!=null?sv50Src(r.note_src):''}</div>`}
+          ${o?`<input class="q50-in" data-q50t maxlength="500" value="${svEsc(r.notiz||'')}" placeholder="Notiz, z.B. „stark im Abschlussspiel“">`:`<button type="button" class="trr-more" data-q50open>${r.notiz?'„'+svEsc(r.notiz.slice(0,60))+'“':'+ Notiz'}</button>`}
+        </div>`; }).join('')}</div>
+      <div class="btnrow sbact"><button class="btn" type="button" id="q50save">${SVI('check')} Speichern</button><button class="btn ghost" type="button" id="q50tell">🎙️ Erzählen</button></div>`;
+    const keep=()=>{ const n=E.querySelector('#q50n'); if(n)st.n=n.value; E.querySelectorAll('[data-q50t]').forEach(i=>{ const r=st.rows[i.closest('[data-q50]').dataset.q50]; if(r)r.notiz=i.value; }); };
+    E.querySelector('#q50d').onchange=e=>{ keep(); if(!e.target.value)return; st.datum=e.target.value; const ex=trSessionOn(st.datum,'training'); st.no=ex&&ex.no!=null?ex.no:null; st.ns=ex?ex.ns:null; st.n=ex?ex.n||'':''; fill(); draw(); };
+    E.querySelectorAll('[data-ges]').forEach(b=>b.onclick=()=>{ keep(); const n=SVM_EI[b.dataset.ges].n; if(st.no===n&&st.ns==='manuell'){ st.no=null; st.ns=null; } else { st.no=n; st.ns='manuell'; } draw(); });
+    E.querySelectorAll('[data-q50]').forEach(row=>{ const id=row.dataset.q50, r=st.rows[id];
+      row.querySelectorAll('[data-q50s]').forEach(b=>b.onclick=()=>{ keep(); const v=b.dataset.q50s; r.status=v; r.status_src='manuell';
+        if(v==='weg'){ r.grund=trInjury(id)?'verletzt':(r.grund&&r.grund!=='keine_antwort'?r.grund:'ohne'); } else { r.grund=null; if(r.note==null){ r.note=3; r.note_src='default'; } }
+        svSound('tick'); draw(); });
+      row.querySelectorAll('[data-q50g]').forEach(b=>b.onclick=()=>{ keep(); r.grund=b.dataset.q50g; r.status_src='manuell'; draw(); });
+      row.querySelectorAll('[data-q50e]').forEach(b=>b.onclick=()=>{ keep(); const n=SVM_EI[b.dataset.q50e].n; if(r.note===n&&r.note_src==='manuell'){ r.note=3; r.note_src='default'; } else { r.note=n; r.note_src='manuell'; } if(r.status_src==='default')r.status_src='manuell'; draw(); });
+      row.querySelectorAll('[data-q50open]').forEach(b=>b.onclick=()=>{ keep(); st.open=st.open===id?null:id; draw(); const i=document.querySelector(`[data-q50="${CSS.escape(id)}"] [data-q50t]`); if(i)i.focus(); }); });
+    E.querySelector('[data-all3]').onclick=()=>{ keep(); let n=0; Object.values(st.rows).forEach(r=>{ if(r.status_src==='default'){ r.status_src='manuell'; n++; } if(r.status!=='weg'&&r.note_src==='default'){ r.note_src='manuell'; n++; } }); draw(); kToast(n?'✓ Annahmen bestätigt':'Keine offenen Annahmen'); };
+    E.querySelector('#q50tell').onclick=()=>sv50Tell(st.datum);
+    E.querySelector('#q50save').onclick=async e=>{ keep(); const b=e.currentTarget;
+      const sp=[]; Object.entries(st.rows).forEach(([id,r])=>{ if(!r.status){ if(st.orig.has(id))sp.push({player_id:id,status:''}); return; }
+        const weg=r.status==='weg';
+        if(r.status==='spaet'){ r.status='da'; if(!/zu sp(ä|ae)t/i.test(r.notiz||''))r.notiz=('zu spät '+(r.notiz||'')).trim(); }
+        sp.push(Object.assign({player_id:id,status:r.status,grund:weg?(r.grund||'ohne'):null,status_src:r.status_src||'manuell',notiz:(r.notiz||'').trim()||null,
+          note:weg?null:(r.note||null),note_src:weg||r.note==null?null:(r.note_src||'manuell')},r.motivation?{motivation:r.motivation}:{},r.fitness?{fitness:r.fitness}:{})); });
+      b.disabled=true; b.textContent='Speichert …';
+      try{ await trSaveSession({datum:st.datum,typ:'training',note:st.no,note_src:st.no?(st.ns||'manuell'):null,notiz:(st.n||'').trim()||null,quelle:st.ki?'ki':'manuell',spieler:sp});
+        closeOverlay(); svSound('success'); kToast('✓ Training vom '+TRC.fmt(st.datum)+' gespeichert · '+sp.filter(x=>x.status==='weg').length+' fehlten');
+        if(ki&&typeof ki==='object'&&!ki.done){ ki.done='Training '+TRC.fmt(st.datum)+' eingetragen'; }
+      }catch(x){ b.disabled=false; b.innerHTML=SVI('check')+' Speichern'; kToast('⚠️ '+x.message); } };
+  };
+  draw();
+  if(typeof KB!=='undefined'&&!KB.loaded&&typeof kbLoad==='function')kbLoad().then(()=>{ if(!document.getElementById('q50'))return; const touched=Object.values(st.rows).some(r=>r.status_src==='manuell'&&!r.saved); if(!touched&&!st.ki&&!st.orig.size){ fill(); draw(); } });
+}
+// Abwesenheiten (Urlaub) vorher laden, wie bisher
+sv50Quick=function(){ const a=arguments; if(typeof SV91!=='undefined'&&!SV91.loaded&&canTraining()&&typeof sv91Load==='function'){ sv91Load().then(()=>svmTrainQuick.apply(null,a),()=>svmTrainQuick.apply(null,a)); return; } return svmTrainQuick.apply(null,a); };
+
+// Einheiten-Liste: Eindruck statt Note, Info-i je Einheit
+{ const _vs22=trViewSessions; trViewSessions=function(B){ const r=_vs22.apply(this,arguments);
+  try{ B.querySelectorAll('.trs[data-edit-s]').forEach(b=>{ const s=TR.st.sessions.find(x=>x.id===b.dataset.editS); if(!s)return; const f=b.querySelector('.trs-f'); if(!f||f.querySelector('.svm-i'))return;
+      f.querySelectorAll('.note50').forEach(x=>x.remove());
+      if(s.no!=null)f.insertAdjacentHTML('afterbegin',`<i class="svm-eil ${svmEiK(s.no)}">${svmEiChip(s.no)} ${SVM_EI[svmEiK(s.no)].t}</i>`);
+      if(s.q==='liste')f.insertAdjacentHTML('beforeend','<i class="src50 i">Liste</i>');
+      f.insertAdjacentHTML('beforeend',`<span role="button" tabindex="0" class="svm-i" data-svmi="${svEsc(s.d)}" title="Woher kommen die Angaben?">i</span>`);
+      f.querySelector('[data-svmi]').addEventListener('click',e=>{ e.stopPropagation(); e.preventDefault(); svmQuelleTraining(s.d); }); });
+    const h=B.querySelector('.hero50-t p'); if(h)h.textContent=h.textContent.replace(/, Gesamteindruck (\d)/,(m,n)=>', Eindruck '+SVM_EI[svmEiK(+n)].t.toLowerCase());
+  }catch(e){ console.warn('Einheiten 0.22',e); }
+  return r; }; }
+// Statistik: „Ø Eindruck“ und „Letzte Eindrücke“
+{ const _vh22=trViewHome; trViewHome=function(B){ const r=_vh22.apply(this,arguments);
+  try{ B.querySelectorAll('table.trtab th').forEach(th=>{ const t=th.textContent.trim(); if(t==='Ø Note')th.textContent='Ø Eindruck'; else if(t==='Letzte Noten')th.textContent='Letzte Eindrücke'; });
+    B.querySelectorAll('table.trtab td i.note50[title]').forEach(i=>{ const n=+i.textContent; i.outerHTML=svmEiChip(n,i.title); });
+    B.querySelectorAll('.card > .note').forEach(n=>{ if(/Automatisch vergebene 3er/.test(n.textContent))n.textContent='Nur echte Bewertungen zählen in den Schnitt. Automatisch angenommene Eindrücke (neutral) stehen in den Einheiten, fließen aber nicht ein. „Ohne Grund“ zählt auch fehlende Rückmeldungen.'; });
+    B.querySelectorAll('.rt4 .note.small').forEach(n=>{ n.textContent='Einheit: Anwesenheit und Eindruck · Spiel: Einsatz und Eindruck je Spieler · Eye-Test: im Spielerprofil.'; });
+  }catch(e){ console.warn('Statistik 0.22',e); }
+  return r; }; }
+
+/* ---------- Info-i: Woher kommen die Angaben einer Einheit? ---------- */
+const SVM_SRC_T={manuell:'Trainer in der App',ki:'Co-Trainer (vom Trainer bestätigt)',abstimmung:'Abstimmung per Link',import:'Anwesenheitsliste oder Datei',default:'Annahme'};
+if(typeof SV50_Q!=='undefined')SV50_Q.liste='Anwesenheitsliste';
+async function svmQuelleTraining(datum){
+  const M=svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('info')}</div><div><h2 style="margin:0">Training ${svEsc(TRC.fmt(datum))}</h2><div class="msub">Welche Quellen, welcher Vorrang, was fehlt, wo es sich widerspricht</div></div></div><div id="svmQ"><div class="empty">Lade …</div></div>`);
+  let L=[]; try{ const {data}=await SVB.sb.from('training_liste').select('player_id,status,grund,importiert_am').eq('datum',datum); L=data||[]; }catch(e){}
+  const E=document.getElementById('svmQ'); if(!E)return;
+  const s=trSessionOn(datum,'training'), A=new Map(((s&&s.a)||[]).map(x=>[x[0],x])), cnt={};
+  ((s&&s.a)||[]).forEach(x=>{ const k=x[10]||'manuell'; cnt[k]=(cnt[k]||0)+1; });
+  const art=x=>x==='weg'?'fehlt':'da';
+  const wid=L.filter(l=>{ const x=A.get(l.player_id); return x&&art(x[1])!==art(l.status); });
+  const fehlt=[]; if(!s)fehlt.push('Die Einheit ist in der App noch nicht erfasst.');
+  else { if(s.no==null)fehlt.push('Eindruck der Einheit vom Trainer');
+    const oe=(s.a||[]).filter(x=>x[1]!=='weg'&&(x[8]==null||x[9]==='default')).length; if(oe)fehlt.push(oe+' Spieler ohne echten Eindruck (nur angenommen)');
+    const an=(s.a||[]).filter(x=>x[10]==='default').length; if(an)fehlt.push(an+' Anwesenheiten nur angenommen'); }
+  const neuL=L.filter(l=>!A.has(l.player_id)).length;
+  E.innerHTML=`<div class="svm-qb"><h4>Verwendet</h4><ul>
+      <li>Einheit angelegt über: <b>${svEsc(s?(SV50_Q[s.q]||s.q||'App'):'noch nicht angelegt')}</b></li>
+      ${Object.entries(cnt).map(([k,n])=>`<li>${n}× Anwesenheit von: <b>${svEsc(SVM_SRC_T[k]||k)}</b></li>`).join('')}
+      <li>Anwesenheitsliste: ${L.length?`<b>${L.length} Einträge</b>, eingelesen ${svEsc(TRC.fmt(String(L[0].importiert_am).slice(0,10)))}`:'für diesen Tag nicht eingelesen'}</li></ul></div>
+    <div class="svm-qb"><h4>Vorrang</h4><ol>${SVM_QUELLEN[0][1].map(x=>`<li>${svEsc(x)}</li>`).join('')}</ol></div>
+    <div class="svm-qb"><h4>Fehlt</h4>${fehlt.length?`<ul>${fehlt.map(x=>`<li>${svEsc(x)}</li>`).join('')}</ul>`:'<p class="note small">Nichts, die Einheit ist vollständig.</p>'}</div>
+    <div class="svm-qb"><h4>Widersprüche <small>${wid.length}</small></h4>${wid.length?`<p class="note small">Hier gilt der Eintrag in der App. Stimmt die Liste, lässt sie sich übernehmen.</p>${wid.map(l=>{ const x=A.get(l.player_id);
+        return `<div class="svm-wr" data-wr="${svEsc(l.player_id)}"><span><b>${svEsc(trName(l.player_id))}</b><small>App: ${art(x[1])}${x[1]==='weg'?' ('+svEsc(TRC.REASONS[x[2]]||x[2]||'')+')':''} · Liste: ${art(l.status)}${l.status==='weg'?' ('+svEsc(TRC.REASONS[l.grund]||l.grund||'')+')':''}</small></span>${canTraining()?'<button type="button" class="btn ghost sm" data-wrl>Liste übernehmen</button>':''}</div>`; }).join('')}`
+      :`<p class="note small">${L.length?'Liste und App passen zusammen.':'Keine zweite Quelle zum Vergleichen.'}${neuL?' '+neuL+' Einträge der Liste stehen nur dort.':''}</p>`}</div>
+    <div class="btnrow sbact">${s&&canTraining()?`<button class="btn" type="button" id="svmQe">Einheit bearbeiten</button>`:''}<button class="btn ghost" type="button" id="svmQx">Schließen</button></div>`;
+  E.querySelectorAll('[data-wrl]').forEach(b=>b.onclick=async()=>{ const pid=b.closest('[data-wr]').dataset.wr, l=L.find(x=>x.player_id===pid); b.disabled=true;
+    try{ await trSaveSession({datum,typ:'training',spieler:[{player_id:pid,status:l.status,grund:l.status==='weg'?(l.grund||'ohne'):null,status_src:'import'}]}); kToast('✓ Angabe aus der Liste übernommen'); svmQuelleTraining(datum); }catch(e){ b.disabled=false; kToast('⚠️ '+e.message); } });
+  const be=E.querySelector('#svmQe'); if(be)be.onclick=()=>{ closeOverlay(); setTimeout(()=>sv50Quick(datum,s.id),40); };
+  E.querySelector('#svmQx').onclick=()=>closeOverlay();
+}
+
+/* ---------- Anwesenheitsliste (Excel): eigene Quelle, Trainereinträge bleiben ---------- */
+// Der Datei-Import ruft pro Tag training_save auf. Nur während „Importieren“ geht das über training_liste_import:
+// Rohwerte bleiben erhalten, ein Eintrag des Trainers wird nie überschrieben, Widersprüche zählen mit.
+function svmRpcHook(){ if(SVM.rpcHooked||typeof SVB==='undefined'||!SVB.sb)return; SVM.rpcHooked=1; const sb=SVB.sb, _rpc=sb.rpc.bind(sb);
+  sb.rpc=function(name,args,opt){ const p=args&&args.p;
+    if(name==='training_save'&&SVM.liste&&Date.now()-SVM.liste<15*60e3&&p&&p.typ==='training'&&Array.isArray(p.spieler)&&p.spieler.length
+       &&Object.keys(p).every(k=>['datum','typ','spieler'].includes(k))&&p.spieler.every(x=>!('status_src' in x)&&!('note' in x)))
+      return _rpc('training_liste_import',{p:{datum:p.datum,spieler:p.spieler}},opt).then(r=>{ if(r&&!r.error&&r.data){ const S=SVM.listeStat=SVM.listeStat||{tage:0,uebernommen:0,gleich:0,widersprueche:0}; S.tage++; ['uebernommen','gleich','widersprueche'].forEach(k=>S[k]+=+r.data[k]||0); } return r; });
+    return _rpc(name,args,opt); }; }
+document.addEventListener('click',e=>{ if(e.target.closest&&e.target.closest('#vrGo')){ svmRpcHook(); SVM.liste=Date.now(); SVM.listeStat=null; } },true);
+{ const _tl22=trLoad; trLoad=async function(force){ const r=await _tl22.apply(this,arguments);
+  try{ if(force&&SVM.liste){ SVM.liste=0; const S=SVM.listeStat; SVM.listeStat=null;
+      if(S&&S.tage)setTimeout(()=>kToast(`Anwesenheitsliste: ${S.uebernommen} Angaben übernommen${S.gleich?', '+S.gleich+' schon gleich':''}${S.widersprueche?`, ${S.widersprueche} Widersprüche (App-Eintrag gilt, Info-i der Einheit)`:''}`),1600); } }catch(e){}
+  return r; }; }
+
+/* =====================================================================
+   4. Spiele: Vergangene | Bevorstehende | Statistik
+   ===================================================================== */
+mnGSeg=function(B,v){ B.querySelectorAll(':scope > .mn-gseg').forEach(x=>x.remove());
+  B.insertAdjacentHTML('afterbegin',`<div class="seg50 mn-gseg" role="tablist">${[['games','Vergangene'],['gnext','Bevorstehende'],['gstat','Statistik']].map(([k,t])=>`<button type="button" class="${v===k?'on':''}" data-segg="${k}">${t}</button>`).join('')}</div>`);
+  B.querySelectorAll('[data-segg]').forEach(b=>b.onclick=()=>{ TR.view=b.dataset.segg; trRender(); }); };
+{ const _sub22=sv4Sub; sv4Sub=function(tab){ const k=_sub22.apply(this,arguments); return k==='training:gnext'?'training:games':k; }; }
+Object.assign(SV50_INFO,{'training:gnext':{w:'Die nächsten Spiele unserer Mannschaften, aus dem FuPa-Spielplan und von fussball.de.',f:'Früh sehen, wer an welchem Spieltag fehlt.',
+  h:'Nur Anzeige. Erfasst und bewertet wird ein Spiel, wenn es gespielt ist, unter „Vergangene“.',s:'Die Spalte „Fehlt“ zählt eingetragene Abwesenheiten und Verletzungen an diesem Tag.',b:[]}});
+if(SV50_INFO['training:gstat'])Object.assign(SV50_INFO['training:gstat'],{w:'Eine Statistik für alle Spiele dieser Saison: Einsätze, Kader, zugeschaut, nicht da, Minuten, Tore, Vorlagen und Eindruck.',
+  h:'Liegen mehrere Quellen vor, gilt: Eintrag in der App, dann FuPa, dann fussball.de, sonst die Annahme „zugeschaut“. Das Info-i zeigt die Details.'});
+
+// FuPa-Spielplan (nur eigene Mannschaften) einmal laden
+function svmPlanLoad(after){
+  if(SVM.plan||SVM.planBusy||SVM.planTry>2)return; if(!(canTraining()||(typeof canScout==='function'&&canScout())))return;
+  SVM.planBusy=true; SVM.planTry++;
+  Promise.resolve(SVB.sb.rpc('kla_spielplan')).then(r=>{ SVM.planBusy=false; if(!r.error){ SVM.plan=Array.isArray(r.data)?r.data:[]; try{ after&&after(); }catch(e){} } },()=>{ SVM.planBusy=false; });
+}
+const svmPlanD=g=>String(g.anstoss||'').slice(0,10);
+function svmPlanVorbei(){ const t=trToday(); return (SVM.plan||[]).filter(g=>svmPlanD(g)&&svmPlanD(g)<=t&&g.status!=='PRE'&&svmPlanD(g)>=sv50Start()); }
+function svmFbAm(d){ try{ return typeof FB!=='undefined'&&FB.loaded?FB.m.find(g=>g.team==='A'&&g.datum===d&&g.bericht)||null:null; }catch(e){ return null; } }
+
+// Vergangene: Quelle und Lücken je Spiel, neue Bewertung, noch nicht erfasste Spiele aus FuPa und fussball.de
+{ const _vg22b=trViewGames; trViewGames=function(B){ const r=_vg22b.apply(this,arguments);
+  try{ const gm=B.querySelector('.gm50'); if(!gm||gm.dataset.svm)return r; gm.dataset.svm='1';
+    if(!SVM.plan)svmPlanLoad(()=>{ if(svCurTab()==='training'&&TR.view==='games')trRender(); });
+    const P=new Map(svmPlanVorbei().map(g=>[svmPlanD(g),g]));
+    gm.querySelectorAll('[data-gs50]').forEach(b=>{ const s=TR.st.sessions.find(x=>x.id===b.dataset.gs50); if(!s)return; const box=b.querySelector('.gm50-s'); if(!box)return;
+      const miss=[]; if(s.no==null)miss.push('Trainereinschätzung'); const aa=s.a||[];
+      if(!aa.some(a=>(a[1]==='da'||a[1]==='spaet')&&a[8]!=null&&a[9]!=='default'))miss.push('Spielerbewertung'); if(!aa.length)miss.push('Einsätze');
+      if(s.no!=null)box.insertAdjacentHTML('afterbegin',svmEiChip(s.no,'Gesamteindruck'));
+      const src=[s.q==='fupa'?'FuPa-Datei':SV50_Q[s.q]||'App']; if(P.has(s.d))src.push('FuPa-Spielplan'); if(svmFbAm(s.d))src.push('fussball.de');
+      box.insertAdjacentHTML('beforeend',`${miss.length?`<i class="src50 d" title="Fehlt: ${svEsc(miss.join(', '))}">fehlt: ${svEsc(miss.join(', '))}</i>`:''}<span role="button" tabindex="0" class="svm-i" data-svmg="${svEsc(s.d)}" title="Quellen: ${svEsc(src.join(', '))}">i</span>`);
+      b.onclick=e=>{ if(e.target.closest('[data-svmg]'))return; svmSpielBewerten({id:s.id}); };
+      b.querySelector('[data-svmg]').addEventListener('click',e=>{ e.stopPropagation(); svmQuelleSpiel(s.d); }); });
+    // Gespielt, aber noch nicht in der App
+    const have=new Set(TR.st.sessions.filter(s=>s.t==='spiel').map(s=>s.d)), offen=new Map();
+    svmPlanVorbei().forEach(g=>{ const d=svmPlanD(g); if(!have.has(d))offen.set(d,{d,gegner:g.gegner,heim:g.heim,tw:g.tore_wir,tg:g.tore_gegner,q:'FuPa'}); });
+    try{ if(typeof FB!=='undefined'&&FB.loaded)FB.m.filter(g=>g.team==='A'&&g.bericht&&g.datum>sv50Start()&&g.datum<=trToday()&&!have.has(g.datum)).forEach(g=>{ if(!offen.has(g.datum))offen.set(g.datum,{d:g.datum,gegner:g.wir_heim?g.gast:g.heim,heim:g.wir_heim,q:'fussball.de'}); else offen.get(g.datum).q+=' + fussball.de'; }); }catch(e){}
+    if(offen.size){ const L=[...offen.values()].sort((a,b)=>b.d.localeCompare(a.d));
+      gm.insertAdjacentHTML('afterend',`<div class="card svm-off"><h3 class="trh">${SVI('clock')} Gespielt, aber noch nicht bewertet <small>${L.length}</small></h3>
+        <div class="gm50-l">${L.map(g=>`<button type="button" class="gm50-r" data-svmo="${svEsc(g.d)}"><span class="gm50-d">${TRC.fmt(g.d)}</span><span class="gm50-t"><b>${g.heim===false?'@':'vs'} ${svEsc(g.gegner||'?')}</b></span>
+          <span class="gm50-s">${g.tw!=null&&g.tg!=null?`<i class="res ${g.tw>g.tg?'w':g.tw===g.tg?'d':'l'}">${g.tw}:${g.tg}</i>`:''}<i class="src50 i">${svEsc(g.q)}</i>${canTraining()?'<small>Bewerten</small>':''}</span></button>`).join('')}</div>
+        <p class="note small">Ergebnis und Aufstellung kommen aus FuPa und fussball.de. Einsatz und Eindruck je Spieler trägst du beim Bewerten ein, wer nicht im Kader stand, gilt als „zugeschaut“.</p></div>`);
+      B.querySelectorAll('[data-svmo]').forEach(b=>b.onclick=()=>{ if(!canTraining())return; const g=offen.get(b.dataset.svmo); svmSpielBewerten({datum:g.d,gegner:g.gegner,heim:g.heim,tw:g.tw,tg:g.tg}); }); }
+    B.querySelectorAll('[data-rt18]').forEach(x=>{ x.innerHTML=`${SVI('star')} Letztes Spiel bewerten`; x.onclick=()=>svmSpielBewerten(); });
+  }catch(e){ console.warn('Spiele 0.22',e); }
+  return r; }; }
+tm4Rate=function(){ svmSpielBewerten(); };
+
+/* ---------- 4.3 Spiel bewerten: Gesamteindruck, je Spieler Einsatz und Eindruck ---------- */
+const SVM_EIN=[['da','Startelf'],['spaet','Eingewechselt'],['bank','Kader'],['zuschauer','Zugeschaut'],['weg','Nicht da']];
+function svmLetztesSpiel(){ const t=trToday(); const c=[];
+  TR.st.sessions.filter(s=>s.t==='spiel'&&s.d<=t).forEach(s=>c.push({d:s.d}));
+  svmPlanVorbei().forEach(g=>c.push({d:svmPlanD(g),gegner:g.gegner,heim:g.heim,tw:g.tore_wir,tg:g.tore_gegner}));
+  try{ if(typeof FB!=='undefined'&&FB.loaded)FB.m.filter(g=>g.team==='A'&&g.bericht&&g.datum<=t).forEach(g=>c.push({d:g.datum,gegner:g.wir_heim?g.gast:g.heim,heim:g.wir_heim})); }catch(e){}
+  c.sort((a,b)=>b.d.localeCompare(a.d)); return c[0]||{d:t}; }
+function svmSpielBewerten(o){
+  if(!canTraining())return kToast('Bewerten können Trainer, Kaderplaner, Vorstand und Admin.');
+  if(typeof SV91!=='undefined'&&!SV91.loaded&&typeof sv91Load==='function'&&!(o&&o._abw)){ sv91Load().then(()=>svmSpielBewerten(Object.assign({},o,{_abw:1})),()=>svmSpielBewerten(Object.assign({},o,{_abw:1}))); return; }
+  o=o||{}; let s0=o.id?TR.st.sessions.find(x=>x.id===o.id):null;
+  if(!s0&&!o.datum){ const l=svmLetztesSpiel(); o=Object.assign({},l,{datum:l.d}); }
+  const datum=s0?s0.d:o.datum; if(!s0)s0=trSessionOn(datum,'spiel');
+  const fu=(SVM.plan||[]).find(g=>svmPlanD(g)===datum)||null;
+  const st={datum,gegner:s0&&s0.g||o.gegner||(fu&&fu.gegner)||'',heim:s0&&s0.h!=null?s0.h:(o.heim!=null?o.heim:(fu?fu.heim:true)),
+    tw:s0&&s0.tw!=null?s0.tw:(o.tw!=null?o.tw:(fu&&fu.tore_wir!=null?fu.tore_wir:null)),tg:s0&&s0.tg!=null?s0.tg:(o.tg!=null?o.tg:(fu&&fu.tore_gegner!=null?fu.tore_gegner:null)),
+    no:s0&&s0.no!=null?s0.no:null,ns:s0?s0.ns:null,n:s0?s0.n||'':'',rows:{},open:null};
+  const fb=typeof fbSpielAm==='function'?fbSpielAm(datum):null;
+  const have=new Map(((s0&&s0.a)||[]).map(a=>[a[0],a]));
+  const abw=id=>{ try{ return typeof SV91!=='undefined'&&SV91.loaded?SV91.abw.find(a=>a.player_id===id&&a.von<=datum&&datum<=a.bis)||null:null; }catch(e){ return null; } };
+  new Set([...trSquad().map(p=>p.id),...have.keys(),...Object.keys((fb&&fb.rows)||{})]).forEach(id=>{ if(!trP(id))return;
+    const a=have.get(id), f=fb&&fb.rows[id];
+    if(a&&(a[10]||'manuell')!=='default')st.rows[id]={status:a[1],grund:a[2],src:a[10]||'manuell',note:a[8],nsrc:a[9]||null,notiz:a[5]||'',saved:true};
+    else if(f)st.rows[id]={status:f.status,src:'fde',note:a?a[8]:null,nsrc:a?a[9]:null,notiz:a?a[5]||'':'',saved:!!a};
+    else if(a)st.rows[id]={status:a[1],grund:a[2],src:'default',note:a[8],nsrc:a[9]||null,notiz:a[5]||'',saved:true};
+    else { const ab=abw(id), inj=trInjury(id); st.rows[id]=ab||inj?{status:'weg',grund:inj?'verletzt':(['urlaub','krank','arbeit','familie','uni','privat'].includes(ab.grund)?ab.grund:'privat'),src:'default',notiz:''}:{status:'zuschauer',src:'default',notiz:''}; } });
+  const SRC={manuell:['App','m'],ki:['Co-Trainer','k'],abstimmung:['Abstimmung','a'],import:['FuPa','i'],fde:['fussball.de','i'],default:['Annahme','d']};
+  const srcH=k=>{ const x=SRC[k]; return x?`<i class="src50 ${x[1]}">${x[0]}</i>`:''; };
+  svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('ball')}</div><div><h2 style="margin:0">Spiel bewerten <button type="button" class="svm-i" id="sb22i" title="Woher kommen die Angaben?">i</button></h2><div class="msub">Gesamteindruck, dazu je Spieler Einsatz und Eindruck. Wer nicht im Kader stand, hat zugeschaut.</div></div></div><div id="sb22"></div>`);
+  document.getElementById('sb22i').onclick=()=>svmQuelleSpiel(st.datum);
+  const draw=()=>{ const E=document.getElementById('sb22'); if(!E)return;
+    const ord=['da','spaet','bank','zuschauer','weg'], pi=p=>{ const i=TR_POS.indexOf(p.pos); return i<0?99:i; };
+    const list=Object.keys(st.rows).map(trP).filter(Boolean).sort((a,b)=>ord.indexOf(st.rows[a.id].status)-ord.indexOf(st.rows[b.id].status)||(pi(a)-pi(b))||a.name.localeCompare(b.name,'de'));
+    const c={}; list.forEach(p=>{ const k=st.rows[p.id].status; c[k]=(c[k]||0)+1; });
+    E.innerHTML=`<div class="editgrid sb22-top"><div class="field"><label>Datum</label><input type="date" id="sbD" value="${svEsc(st.datum)}" max="${trToday()}" ${s0?'disabled':''}></div>
+        <div class="field"><label>Gegner</label><input id="sbG" maxlength="80" value="${svEsc(st.gegner)}" placeholder="Gegner"></div>
+        <div class="field"><label>Ort</label><div class="trseg"><button type="button" data-sbh="1" class="${st.heim!==false?'on':''}">Heim</button><button type="button" data-sbh="0" class="${st.heim===false?'on':''}">Auswärts</button></div></div>
+        <div class="field"><label>Ergebnis (wir : Gegner)</label><div class="sb22-res"><input type="number" id="sbTw" min="0" max="40" inputmode="numeric" value="${st.tw!=null?st.tw:''}"><span>:</span><input type="number" id="sbTg" min="0" max="40" inputmode="numeric" value="${st.tg!=null?st.tg:''}"></div></div></div>
+      <div class="q50-ges"><span>Gesamteindruck ${st.ns?sv50Src(st.ns):''}</span>${svmEiBtns(svmEiK(st.no),'sbges')}</div>
+      <div class="field q50-note"><label>Notiz zum Spiel</label><input id="sbN" maxlength="2000" value="${svEsc(st.n)}" placeholder="z.B. starke erste Halbzeit, nach der Pause zu passiv"></div>
+      ${s0&&s0.hw?`<div class="q50-info">${SVI('info')} ${svEsc(s0.hw)}</div>`:''}
+      <div class="q50-info">${fb?`${SVI('check')} Startelf, Wechsel und Kader aus dem Spielbericht von fussball.de übernommen.`:have.size?'Einsätze aus der App.':'Kein Spielbericht gefunden. Alle stehen erst einmal auf „zugeschaut“, tippe an, wer gespielt hat.'}</div>
+      <div class="q50-sum sb22-sum">${SVM_EIN.map(([k,t])=>`<span><b>${c[k]||0}</b> ${t}</span>`).join('')}</div>
+      <div class="q50l">${list.map(p=>{ const r=st.rows[p.id], weg=r.status==='weg', spielt=r.status==='da'||r.status==='spaet', ann=r.src==='default';
+        return `<div class="q50r sb22-r${weg?' weg':''}${ann?' ann':''}" data-sb="${svEsc(p.id)}">
+          <div class="q50-h"><span class="q50-n" data-sbo><b>${svEsc(p.name)}</b><em>${trInjury(p.id)?'🩹 ':''}${srcH(r.src)}</em></span></div>
+          <div class="sb22-ein">${SVM_EIN.map(([k,t])=>`<button type="button" data-sbs="${k}" class="${r.status===k?'on':''}">${t}</button>`).join('')}</div>
+          ${weg?`<div class="trg">${Object.entries(TRC.REASONS).filter(([k])=>k!=='keine_antwort').map(([k,t])=>`<button type="button" data-sbg="${k}" class="${r.grund===k?'on':''}">${t}</button>`).join('')}</div>`:''}
+          ${spielt?`<div class="q50-no">${svmEiBtns(svmEiK(r.nsrc==='default'?null:r.note),'sbe')}</div>`:''}
+          ${st.open===p.id?`<input class="q50-in" data-sbt maxlength="500" value="${svEsc(r.notiz||'')}" placeholder="Notiz, z.B. „zwei Tore vorbereitet“">`:`<button type="button" class="trr-more" data-sbo>${r.notiz?'„'+svEsc(r.notiz.slice(0,60))+'“':'+ Notiz'}</button>`}</div>`; }).join('')}</div>
+      <div class="btnrow sbact"><button class="btn" type="button" id="sbSave">${SVI('check')} Speichern</button>${s0?'<button class="btn ghost" type="button" id="sbMore" title="Minuten, Tore, Vorlagen">Minuten und Tore</button><button class="btn ghost" type="button" id="sbDet" title="Datenstatus, Hinweise und Verlauf der Änderungen">Details</button>':''}<button class="btn ghost" type="button" id="sbX">Abbrechen</button></div>`;
+    const keep=()=>{ st.gegner=E.querySelector('#sbG').value; st.n=E.querySelector('#sbN').value; const tw=E.querySelector('#sbTw').value, tg=E.querySelector('#sbTg').value; st.tw=tw===''?null:+tw; st.tg=tg===''?null:+tg;
+      const d=E.querySelector('#sbD'); if(d&&d.value)st.datum=d.value; E.querySelectorAll('[data-sbt]').forEach(i=>{ const r=st.rows[i.closest('[data-sb]').dataset.sb]; if(r)r.notiz=i.value; }); };
+    E.querySelectorAll('[data-sbh]').forEach(b=>b.onclick=()=>{ keep(); st.heim=b.dataset.sbh==='1'; draw(); });
+    E.querySelectorAll('[data-sbges]').forEach(b=>b.onclick=()=>{ keep(); const n=SVM_EI[b.dataset.sbges].n; if(st.no===n){ st.no=null; st.ns=null; } else { st.no=n; st.ns='manuell'; } draw(); });
+    E.querySelectorAll('[data-sb]').forEach(row=>{ const id=row.dataset.sb, r=st.rows[id];
+      row.querySelectorAll('[data-sbs]').forEach(b=>b.onclick=()=>{ keep(); r.status=b.dataset.sbs; r.src='manuell'; r.grund=r.status==='weg'?(trInjury(id)?'verletzt':(r.grund||'ohne')):null; if(!(r.status==='da'||r.status==='spaet')){ r.note=null; r.nsrc=null; } svSound('tick'); draw(); });
+      row.querySelectorAll('[data-sbg]').forEach(b=>b.onclick=()=>{ keep(); r.grund=b.dataset.sbg; r.src='manuell'; draw(); });
+      row.querySelectorAll('[data-sbe]').forEach(b=>b.onclick=()=>{ keep(); const n=SVM_EI[b.dataset.sbe].n; if(r.note===n&&r.nsrc==='manuell'){ r.note=null; r.nsrc=null; } else { r.note=n; r.nsrc='manuell'; } draw(); });
+      row.querySelectorAll('[data-sbo]').forEach(b=>b.onclick=()=>{ keep(); st.open=st.open===id?null:id; draw(); const i=document.querySelector(`[data-sb="${CSS.escape(id)}"] [data-sbt]`); if(i)i.focus(); }); });
+    E.querySelector('#sbX').onclick=()=>closeOverlay();
+    const mo=E.querySelector('#sbMore'); if(mo)mo.onclick=()=>{ closeOverlay(); setTimeout(()=>trSessionEditor(null,s0.id),40); };
+    const dt=E.querySelector('#sbDet'); if(dt)dt.onclick=()=>{ closeOverlay(); setTimeout(()=>sv50Game(s0.id),40); };
+    E.querySelector('#sbSave').onclick=async e=>{ keep(); const b=e.currentTarget;
+      if(!st.datum)return kToast('Bitte ein Datum angeben');
+      if((st.tw==null)!==(st.tg==null))return kToast('Bitte beide Tore angeben oder keins');
+      const sp=Object.entries(st.rows).map(([id,r])=>{ const weg=r.status==='weg', spielt=r.status==='da'||r.status==='spaet';
+        return {player_id:id,status:r.status,grund:weg?(r.grund||'ohne'):null,status_src:r.src==='fde'?'import':(r.src||'manuell'),notiz:(r.notiz||'').trim()||null,note:spielt&&r.note!=null&&r.nsrc!=='default'?r.note:null,note_src:spielt&&r.note!=null&&r.nsrc!=='default'?(r.nsrc||'manuell'):null}; });
+      const p={datum:st.datum,typ:'spiel',heim:st.heim!==false,note:st.no,note_src:st.no!=null?(st.ns||'manuell'):null,notiz:(st.n||'').trim()||null,spieler:sp};
+      if(st.gegner.trim())p.gegner=st.gegner.trim().slice(0,80); if(st.tw!=null){ p.tore_wir=Math.max(0,Math.min(40,st.tw)); p.tore_gegner=Math.max(0,Math.min(40,st.tg)); }
+      if(!s0){ p.quelle='manuell'; if(fu||fb)p.quelle_ref=(fu?'FuPa-Spielplan':'')+(fu&&fb?' + ':'')+(fb?'fussball.de':''); }
+      b.disabled=true; b.textContent='Speichert …';
+      try{ for(let i=0;i<sp.length;i+=80)await trSaveSession(Object.assign({},p,{spieler:sp.slice(i,i+80)}));
+        closeOverlay(); svSound('success'); kToast('✓ Spiel vom '+TRC.fmt(st.datum)+' bewertet'); try{ if(svCurTab()==='training')trRender(); }catch(x){} }
+      catch(x){ b.disabled=false; b.innerHTML=SVI('check')+' Speichern'; kToast('⚠️ '+x.message); } };
+  };
+  draw();
+}
+
+/* ---------- Info-i je Spiel ---------- */
+function svmQuelleSpiel(d){
+  const s=trSessionOn(d,'spiel'), fu=(SVM.plan||[]).find(g=>svmPlanD(g)===d)||null, fb=svmFbAm(d), fbr=typeof fbSpielAm==='function'?fbSpielAm(d):null;
+  const A=(s&&s.a)||[], cnt={}; A.forEach(a=>{ const k=a[10]||'manuell'; cnt[k]=(cnt[k]||0)+1; });
+  const fehlt=[]; if(!s)fehlt.push('Das Spiel ist in der App noch nicht bewertet.'); else { if(s.no==null)fehlt.push('Trainereinschätzung (Gesamteindruck)');
+    const sp=A.filter(a=>a[1]==='da'||a[1]==='spaet'); if(!sp.some(a=>a[8]!=null&&a[9]!=='default'))fehlt.push('Eindruck der Spieler'); if(sp.length&&!sp.some(a=>a[11]!=null))fehlt.push('Minuten'); if(s.tw==null)fehlt.push('Ergebnis'); }
+  const wid=[];
+  if(s&&s.tw!=null&&fu&&fu.tore_wir!=null&&(+fu.tore_wir!==s.tw||+fu.tore_gegner!==s.tg))wid.push(`Ergebnis: App ${s.tw}:${s.tg}, FuPa ${fu.tore_wir}:${fu.tore_gegner}`);
+  const T=Object.fromEntries(SVM_EIN);
+  if(s&&fbr)Object.entries(fbr.rows).forEach(([pid,f])=>{ const a=A.find(x=>x[0]===pid); if(a&&a[1]!==f.status&&(a[10]||'manuell')!=='default')wid.push(`${trName(pid)}: App ${T[a[1]]||a[1]}, fussball.de ${T[f.status]||f.status}`); });
+  svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('info')}</div><div><h2 style="margin:0">Spiel ${svEsc(TRC.fmt(d))}${s&&s.g?' · '+svEsc(s.g):fu?' · '+svEsc(fu.gegner||''):''}</h2><div class="msub">Welche Quellen, welcher Vorrang, was fehlt, wo es sich widerspricht</div></div></div>
+    <div class="svm-qb"><h4>Verwendet</h4><ul>
+      <li>App: ${s?`<b>bewertet</b>${s.q?' · angelegt über '+svEsc(SV50_Q[s.q]||s.q):''}${s.qr?' · '+svEsc(s.qr):''}`:'noch nicht bewertet'}</li>
+      ${Object.entries(cnt).map(([k,n])=>`<li>${n}× Einsatz von: <b>${svEsc(k==='import'?'FuPa oder fussball.de':SVM_SRC_T[k]||k)}</b></li>`).join('')}
+      <li>FuPa-Spielplan: ${fu?`<b>${svEsc(fu.heim?'Heim':'Auswärts')} gegen ${svEsc(fu.gegner||'?')}</b>${fu.tore_wir!=null?' · '+fu.tore_wir+':'+fu.tore_gegner:''}${fu.geprueft?' · geprüft '+svEsc(TRC.fmt(String(fu.geprueft).slice(0,10))):''}`:'kein Eintrag'}</li>
+      <li>fussball.de: ${fb?`<b>Spielbericht</b> mit ${(fb.apps||[]).length} Einsätzen${fbr&&fbr.fehlt?', '+fbr.fehlt+' Namen nicht zugeordnet':''}`:'kein Spielbericht'}</li></ul></div>
+    <div class="svm-qb"><h4>Vorrang</h4><ol>${SVM_QUELLEN[1][1].map(x=>`<li>${svEsc(x)}</li>`).join('')}</ol></div>
+    <div class="svm-qb"><h4>Fehlt</h4>${fehlt.length?`<ul>${fehlt.map(x=>`<li>${svEsc(x)}</li>`).join('')}</ul>`:'<p class="note small">Nichts, das Spiel ist vollständig.</p>'}</div>
+    <div class="svm-qb"><h4>Widersprüche <small>${wid.length}</small></h4>${wid.length?`<ul>${wid.map(x=>`<li>${svEsc(x)}</li>`).join('')}</ul><p class="note small">Es gilt der Eintrag in der App.</p>`:'<p class="note small">Keine.</p>'}</div>
+    <div class="btnrow sbact">${canTraining()?'<button class="btn" type="button" id="sqB">Bewerten</button>':''}<button class="btn ghost" type="button" id="sqX">Schließen</button></div>`);
+  const b=document.getElementById('sqB'); if(b)b.onclick=()=>{ closeOverlay(); setTimeout(()=>svmSpielBewerten(s?{id:s.id}:{datum:d,gegner:fu&&fu.gegner,heim:fu&&fu.heim,tw:fu&&fu.tore_wir,tg:fu&&fu.tore_gegner}),40); };
+  document.getElementById('sqX').onclick=()=>closeOverlay();
+}
+
+/* ---------- 4.1 Bevorstehende Spiele ---------- */
+function svmViewKommend(B){
+  const need=!SVM.plan&&SVM.planTry<3&&(canTraining()||(typeof canScout==='function'&&canScout()));
+  if(need)svmPlanLoad(()=>{ if(svCurTab()==='training'&&TR.view==='gnext')trRender(); });
+  if(typeof SP!=='undefined'&&!SP.loaded&&typeof spLoad==='function'&&typeof canScout==='function'&&canScout())mnLoadOnce('sp22',()=>spLoad(),mnRerender('gnext'));
+  if(typeof SV91!=='undefined'&&!SV91.loaded&&typeof sv91Load==='function'&&canTraining())mnLoadOnce('u22',()=>sv91Load(),mnRerender('gnext'));
+  const t=trToday(), key=(window.VEREIN&&VEREIN.texte&&VEREIN.texte.fde_schluessel)||'', G=new Map();
+  (SVM.plan||[]).filter(g=>svmPlanD(g)>=t).forEach(g=>{ const d=svmPlanD(g); G.set(d+'|A',{d,zeit:String(g.anstoss).slice(11,16),team:'A',heim:g.heim,gegner:g.gegner,wb:g.wettbewerb||'',st:g.spieltag,q:'FuPa',url:g.quelle}); });
+  try{ if(typeof SP!=='undefined'&&SP.loaded&&key)(SP.fx||[]).filter(f=>f.datum>=t&&(f.heim_key===key||f.gast_key===key)).forEach(f=>{ const k=f.datum+'|'+(f.sub||'A');
+      if(G.has(k)){ G.get(k).q+=' + fussball.de'; return; } G.set(k,{d:f.datum,zeit:(f.zeit||'').slice(0,5),team:f.sub||'A',heim:f.heim_key===key,gegner:f.heim_key===key?f.gast:f.heim,wb:f.wettbewerb||'',q:'fussball.de'}); }); }catch(e){}
+  const L=[...G.values()].sort((a,b)=>a.d.localeCompare(b.d)||(a.zeit||'').localeCompare(b.zeit||'')).slice(0,40);
+  const sq=trSquad(), fehlt=d=>{ let n=0; const names=[]; sq.forEach(p=>{ const ab=typeof SV91!=='undefined'&&SV91.loaded&&SV91.abw.some(a=>a.player_id===p.id&&a.von<=d&&d<=a.bis);
+      const inj=(TR.st.injuries||[]).some(i=>i.p===p.id&&i.b<=d&&(!i.z||i.z>d)&&(!i.pr||i.pr>d)); if(ab||inj){ n++; names.push(p.name.split(' ')[0]+(inj?' 🩹':'')); } }); return {n,names}; };
+  const lade=(need||SVM.planBusy)&&!SVM.plan;
+  B.innerHTML=`<div class="card svm-next"><h3 class="trh">${SVI('clock')} Bevorstehende Spiele <small>${L.length}</small></h3>
+    ${L.length?`<div class="trtw"><table class="trtab t50"><thead><tr><th>Datum</th><th>Anstoß</th><th>Mannschaft</th><th>Spiel</th><th>Wettbewerb</th><th>Fehlt</th><th>Quelle</th></tr></thead><tbody>
+      ${L.map(g=>{ const f=g.team==='A'?fehlt(g.d):null;
+        return `<tr><td><b>${svEsc(svmTag(g.d))}</b></td><td>${svEsc(g.zeit||'–')}</td><td>${svEsc(MN_TK[g.team==='B'?'2':g.team==='A'?'1':g.team]||g.team)}</td>
+          <td><b>${g.heim?'vs':'@'} ${svEsc(g.gegner||'?')}</b></td><td>${svEsc(g.wb)}${g.st?' · '+svEsc(g.st)+'. Spieltag':''}</td>
+          <td>${f?(f.n?`<span class="warn" title="${svEsc(f.names.join(', '))}">${f.n}</span>`:'0'):'–'}</td><td><i class="src50 i">${svEsc(g.q)}</i></td></tr>`; }).join('')}</tbody></table></div>`
+      :`<p class="note">${lade?'Lade Spielplan …':'Keine bevorstehenden Spiele gefunden. Der FuPa-Spielplan kommt mit dem nächsten Abgleich, fussball.de mit dem Spieltag-Abruf.'}</p>`}
+    <p class="note small">Quelle: FuPa-Spielplan der 1. Mannschaft, ergänzt um fussball.de. „Fehlt“ zählt eingetragene Abwesenheiten und Verletzungen der 1. Mannschaft an diesem Tag, die Namen stehen beim Überfahren.</p></div>`;
+  mnGSeg(B,'gnext');
+}
+MN_VIEWS.gnext=svmViewKommend;
+
+/* ---------- 4.4 Eine Statistik für alle Spiele (App > FuPa > fussball.de > Annahme „zugeschaut“) ---------- */
+function svmSpieleSaison(){
+  const st=sv50Start(), t=trToday(), by=new Map(), get=d=>{ if(!by.has(d))by.set(d,{d}); return by.get(d); };
+  TR.st.sessions.filter(s=>s.t==='spiel'&&s.d>=st&&s.d<=t).forEach(s=>get(s.d).app=s);
+  svmPlanVorbei().forEach(g=>get(svmPlanD(g)).fu=g);
+  try{ if(typeof FB!=='undefined'&&FB.loaded)FB.m.filter(g=>g.team==='A'&&g.bericht&&g.datum>=st&&g.datum<=t).forEach(g=>get(g.datum).fb=g); }catch(e){}
+  const G=[...by.values()].sort((a,b)=>a.d.localeCompare(b.d));
+  G.forEach(g=>{ const a=g.app; if(a&&a.tw!=null){ g.tw=a.tw; g.tg=a.tg; g.h=a.h; g.gg=a.g; } else if(g.fu&&g.fu.tore_wir!=null){ g.tw=+g.fu.tore_wir; g.tg=+g.fu.tore_gegner; g.h=g.fu.heim; g.gg=g.fu.gegner; }
+    else if(g.fb){ g.h=g.fb.wir_heim; g.gg=g.fb.wir_heim?g.fb.gast:g.fb.heim; } if(g.gg==null&&a){ g.gg=a.g; g.h=a.h; } });
+  return G;
+}
+function svmViewGStat(B){
+  if(typeof FB!=='undefined'&&!FB.loaded&&typeof fbLoad==='function')mnLoadOnce('fb',()=>fbLoad(),mnRerender('gstat'));
+  if(!SVM.plan)svmPlanLoad(()=>{ if(svCurTab()==='training'&&TR.view==='gstat')trRender(); });
+  const G=svmSpieleSaison(), R=G.filter(g=>g.tw!=null&&g.tg!=null), n=G.length, M=typeof FB!=='undefined'&&FB.loaded&&typeof fbMap==='function'?fbMap():new Map();
+  const res=g=>g.tw>g.tg?'w':g.tw===g.tg?'d':'l';
+  const w=R.filter(g=>res(g)==='w').length, d=R.filter(g=>res(g)==='d').length, l=R.filter(g=>res(g)==='l').length;
+  const tf=R.reduce((a,g)=>a+g.tw,0), ta=R.reduce((a,g)=>a+g.tg,0), pts=w*3+d, zn=R.filter(g=>g.tg===0).length;
+  const split=h=>{ const L=R.filter(g=>g.h===h); return L.length?`${L.filter(g=>res(g)==='w').length}-${L.filter(g=>res(g)==='d').length}-${L.filter(g=>res(g)==='l').length} · ${L.reduce((a,g)=>a+g.tw,0)}:${L.reduce((a,g)=>a+g.tg,0)}`:'–'; };
+  const P=new Map(), get=pid=>{ if(!P.has(pid))P.set(pid,{pid,da:0,spaet:0,bank:0,zuschauer:0,weg:0,min:0,minK:0,tore:0,vor:0,eS:0,eN:0,src:{app:0,fupa:0,fde:0,std:0},gr:{}}); return P.get(pid); };
+  const Q={app:0,fupa:0,fde:0,nur:0};
+  G.forEach(g=>{ const seen=new Set(), A=(g.app&&g.app.a)||[];
+    if(g.app)Q[g.app.q==='fupa'?'fupa':'app']++; else if(g.fb)Q.fde++; else Q.nur++;
+    const fbA=new Map(), fbB=new Set(); if(g.fb){ (g.fb.apps||[]).forEach(a=>{ const pid=M.get(a.p); if(pid&&!fbA.has(pid))fbA.set(pid,a); }); (g.fb.bank||[]).forEach(k=>{ const pid=M.get(k); if(pid)fbB.add(pid); }); }
+    const zaehl=(pid,status,src,x)=>{ const o=get(pid); o[status]++; o.src[src]++; seen.add(pid); if(status==='weg'){ const gr=x&&x.grund||'ohne'; o.gr[gr]=(o.gr[gr]||0)+1; }
+      if(status==='da'||status==='spaet'){ if(x&&x.min!=null){ o.min+=x.min; o.minK++; } } o.tore+=x&&x.tore||0; o.vor+=x&&x.vor||0; if(x&&x.ei!=null){ o.eS+=x.ei; o.eN++; } };
+    A.forEach(a=>{ const s=a[10]||'manuell', f=fbA.get(a[0]);
+      const x={grund:a[2],min:a[11],tore:a[6]||0,vor:a[7]||0,ei:a[8]!=null&&a[9]!=='default'?a[8]:null};
+      if(s==='default'&&(f||fbB.has(a[0]))){ zaehl(a[0],f?(f.s?'da':'spaet'):'bank','fde',Object.assign(x,{min:f?f.m:null,tore:f?f.t||0:0})); return; }
+      zaehl(a[0],a[1],s==='import'?'fupa':s==='default'?'std':'app',x); });
+    fbA.forEach((f,pid)=>{ if(!seen.has(pid))zaehl(pid,f.s?'da':'spaet','fde',{min:f.m,tore:f.t||0}); });
+    fbB.forEach(pid=>{ if(!seen.has(pid))zaehl(pid,'bank','fde',null); }); });
+  const rows=[...P.values()].filter(x=>trP(x.pid)).map(x=>Object.assign(x,{p:trP(x.pid),ein:x.da+x.spaet,kader:x.da+x.spaet+x.bank,sc:x.tore+x.vor,ei:x.eN?x.eS/x.eN:null,quote:n?(x.da+x.spaet+x.bank)/n:null}))
+    .filter(x=>x.kader||x.zuschauer||x.weg||x.tore||x.vor);
+  const COLS=[['name','Spieler'],['ein','Einsätze'],['da','Startelf'],['spaet','Einw.'],['bank','Kader'],['zuschauer','Zugeschaut'],['weg','Nicht da'],['min','Minuten'],['tore','Tore'],['vor','Vorl.'],['sc','Scorer'],['ei','Ø Eindruck'],['quote','Quote']];
+  const k=COLS.some(c=>c[0]===MN.gsort)?MN.gsort:'ein', dir=MN.gdir, val=x=>k==='name'?x.p.name:k==='ei'?(x.ei==null?9:x.ei):-(x[k]||0);
+  rows.sort((a,b)=>{ const va=val(a), vb=val(b); if(va!==vb)return (va<vb?-1:1)*dir; return b.ein-a.ein||a.p.name.localeCompare(b.p.name,'de'); });
+  const top=(key,lbl)=>{ const L=rows.filter(x=>x[key]>0).sort((a,b)=>b[key]-a[key]).slice(0,3); return `<div class="mn-top"><span>${lbl}</span>${L.length?L.map(x=>`<p data-svp="${svEsc(x.pid)}"><b>${svEsc(x.p.name)}</b><em>${key==='min'?x.min.toLocaleString('de-DE'):x[key]}</em></p>`).join(''):'<p class="note small">noch niemand</p>'}</div>`; };
+  const form=R.slice(-5).map(g=>`<i class="res ${res(g)}" title="${TRC.fmt(g.d)} ${g.h===false?'@':'vs'} ${svEsc(g.gg||'?')} ${g.tw}:${g.tg}">${res(g)==='w'?'S':res(g)==='d'?'U':'N'}</i>`).join('');
+  const srcT=x=>Object.entries(x.src).filter(([,v])=>v).map(([s,v])=>({app:'App',fupa:'FuPa',fde:'fussball.de',std:'Annahme'})[s]+' '+v).join(' · ');
+  const n1=v=>v?v:'–';
+  B.innerHTML=`<div class="tiles trtiles mn-gt">
+      <div class="tile"><div class="v">${n}</div><div class="l">Spiele</div><div class="s">${R.length<n?`${n-R.length} ohne Ergebnis`:'seit '+TRC.fmt(sv50Start())}</div></div>
+      <div class="tile"><div class="v">${w}-${d}-${l}</div><div class="l">Siege · Remis · Niederlagen</div><div class="s">${pts} Punkte${R.length?' · Ø '+(pts/R.length).toFixed(2).replace('.',','):''}</div></div>
+      <div class="tile"><div class="v">${tf}:${ta}</div><div class="l">Tore</div><div class="s">${R.length?`Ø ${(tf/R.length).toFixed(1).replace('.',',')} : ${(ta/R.length).toFixed(1).replace('.',',')} · ${zn}× zu null`:'–'}</div></div>
+      <div class="tile"><div class="v mn-form">${form||'–'}</div><div class="l">Form (letzte 5)</div><div class="s">Heim ${split(true)} · Ausw. ${split(false)}</div></div></div>
+    ${rows.length?`<div class="mn-tops">${top('tore','Tore')}${top('vor','Vorlagen')}${top('min','Minuten')}${top('da','Startelf')}</div>`:''}
+    <div class="card"><div class="vrat-h"><h3 class="trh" style="margin:0">${SVI('users')} Spiele ${svEsc(typeof fbSeasonLabel==='function'?fbSeasonLabel():'')} · je Spieler <small>${rows.length} Spieler</small></h3><button type="button" class="svm-i" data-svmgs title="Woher kommen die Zahlen?">i</button></div>
+      ${rows.length?`<div class="trtw"><table class="trtab t50 mn-gtab svm-gs"><thead><tr>${COLS.map(([c,t])=>`<th${c==='name'?' class="nm50"':''}><button data-gs22="${c}" class="${k===c?'on':''}">${t}${k===c?(dir>0?' ▼':' ▲'):''}</button></th>`).join('')}</tr></thead><tbody>
+      ${rows.map(x=>`<tr data-svp="${svEsc(x.pid)}"><td class="nm50" title="${svEsc(srcT(x))}"><b>${svEsc(x.p.name)}</b> <small>${svEsc(x.p.pos||'')}</small></td><td><b>${x.ein}</b></td><td class="c1">${n1(x.da)}</td><td class="c2">${n1(x.spaet)}</td><td class="c3">${n1(x.bank)}</td><td class="c4">${n1(x.zuschauer)}</td>
+        <td class="c5">${n1(x.weg)}${x.weg?`<span class="fggr">${svEsc(Object.entries(x.gr).map(([g,c])=>(TRC.REASONS[g]||g)+(c>1?' '+c+'×':'')).join(', '))}</span>`:''}</td>
+        <td>${x.minK?x.min.toLocaleString('de-DE')+(x.minK<x.ein?' <small title="Nicht für jedes Spiel sind Minuten bekannt">~</small>':''):'–'}</td><td>${n1(x.tore)}</td><td>${n1(x.vor)}</td><td>${n1(x.sc)}</td>
+        <td>${x.ei!=null?svmEiChip(x.ei)+` <small>${x.eN}×</small>`:'–'}</td><td>${x.quote!=null?Math.round(x.quote*100)+' %':'–'}</td></tr>`).join('')}</tbody></table></div>`
+        :'<p class="note">Noch keine Spiele in dieser Saison. Sobald FuPa oder fussball.de einen Spielbericht haben oder ihr ein Spiel bewertet, steht es hier.</p>'}
+      <div class="note">${n} Spiele seit ${TRC.fmt(sv50Start())}${sv50Start().slice(2,4)}: ${Q.app} in der App bewertet, ${Q.fupa} aus der FuPa-Datei, ${Q.fde} nur mit Spielbericht von fussball.de${Q.nur?', '+Q.nur+' nur mit Ergebnis aus FuPa':''}. Einsätze = Startelf und Einwechslungen, Quote = im Kader je Spiel. Beim Überfahren eines Namens steht, woher seine Angaben kommen.</div></div>`;
+  B.querySelectorAll('[data-gs22]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const c=b.dataset.gs22; if(MN.gsort===c)MN.gdir*=-1; else { MN.gsort=c; MN.gdir=1; } svmViewGStat(B); });
+  B.querySelectorAll('[data-svp]').forEach(x=>x.onclick=()=>openModal(x.dataset.svp));
+  const qi=B.querySelector('[data-svmgs]'); if(qi)qi.onclick=()=>svmQuelleStat(Q,n);
+  mnGSeg(B,'gstat');
+}
+function svmQuelleStat(Q,n){
+  svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('info')}</div><div><h2 style="margin:0">Woher kommen die Zahlen?</h2><div class="msub">Spielstatistik der laufenden Saison</div></div></div>
+    <div class="svm-qb"><h4>Verwendet</h4><ul><li>${n} Spiele seit Saisonstart</li><li>${Q.app} in der App bewertet</li><li>${Q.fupa} aus der FuPa-Datei übernommen</li><li>${Q.fde} nur mit Spielbericht von fussball.de</li>${Q.nur?`<li>${Q.nur} nur mit Ergebnis aus dem FuPa-Spielplan (ohne Aufstellung)</li>`:''}</ul></div>
+    <div class="svm-qb"><h4>Vorrang je Spiel und Spieler</h4><ol>${SVM_QUELLEN[1][1].map(x=>`<li>${svEsc(x)}</li>`).join('')}</ol><p class="note small">${svEsc(SVM_QUELLEN[1][2])}</p></div>
+    <div class="svm-qb"><h4>Fehlt</h4><p class="note small">${Q.fde+Q.nur?`${Q.fde+Q.nur} Spiele haben noch keinen Eindruck vom Trainer. Unter „Vergangene“ stehen sie bei „Gespielt, aber noch nicht bewertet“.`:'Alle Spiele sind in der App bewertet.'}</p></div>
+    <div class="btnrow sbact"><button class="btn ghost" type="button" onclick="closeOverlay()">Schließen</button></div>`);
+}
+MN_VIEWS.gstat=svmViewGStat;
+if(SV50_INFO['training:games'])Object.assign(SV50_INFO['training:games'],{w:'Die gespielten Spiele der Saison, jedes mit Quelle und dem, was noch fehlt.',f:'Nach dem Spiel in einer Minute bewerten: Gesamteindruck, dazu je Spieler Einsatz und Eindruck.',
+  h:'Startelf, Wechsel und Ergebnis kommen aus FuPa und fussball.de. Was in der App eingetragen ist, hat immer Vorrang.',
+  s:'Ein Spiel antippen zum Bewerten. Das Info-i zeigt die Quellen, Lücken und Widersprüche. Spiele, die FuPa oder fussball.de kennen, die aber noch nicht bewertet sind, stehen darunter.',
+  b:['Nach dem Wochenende: „Letztes Spiel bewerten“, Startelf ist schon vorausgefüllt, nur Eindruck antippen.','Weicht das Ergebnis in der App von FuPa ab, steht das im Info-i.']});
+
+/* =====================================================================
+   Sportzentrale Beta 0.22 · Teil C (Änderungswünsche aus dem Trainerteam)
+   6.   Abwesenheiten: eintragen und bearbeiten, dazu Übersicht mit Zeitstrahl der laufenden Halbserie je Mannschaft
+   7.2  Mannschaftsteil (Torwart, Abwehr, Mittelfeld, Sturm) passend zur Hauptposition, Grundlage für den MScore
+   7.3  Torwart-Eye-Test mit fünf Kategorien: Hechten, Ballsicherheit, Abschlag, Stellungsspiel, Reflexe
+   7.4  Skills, Rolle und Charakter werden zu PlayStyles (Kategorien wie in EA SPORTS FC 26)
+   ===================================================================== */
+
+/* ---------- Halbserie ---------- */
+function svmHalb(d){ d=d||trToday(); const y=+d.slice(0,4), m=+d.slice(5,7), yy=n=>String(((n%100)+100)%100).padStart(2,'0');
+  return m>=7?{von:y+'-07-01',bis:y+'-12-31',t:'Hinrunde '+yy(y)+'/'+yy(y+1),k:'H'+y}:{von:y+'-01-01',bis:y+'-06-30',t:'Rückrunde '+yy(y-1)+'/'+yy(y),k:'R'+y}; }
+const svmTage=(a,b)=>Math.round((new Date(b+'T12:00:00Z')-new Date(a+'T12:00:00Z'))/864e5);
+
+/* =====================================================================
+   7.2 Mannschaftsteil
+   ===================================================================== */
+const SVM_MT={T:'Torwart',A:'Abwehr',M:'Mittelfeld',S:'Sturm'};
+const SVM_MT_POS={TW:['T'],IV:['A'],AV:['A','M'],ZM:['M','A'],OM:['M','S'],'Flügel':['M','S'],ST:['S','M']};
+function svmMtErlaubt(pos){ return SVM_MT_POS[pos]||['M']; }
+function svmMt(p,pos){ pos=pos||(p&&p.pos); const L=svmMtErlaubt(pos); let c=null; try{ c=(crmOf(p)||{}).mt; }catch(e){} return L.includes(c)?c:L[0]; }
+Object.assign(SV_TRAINER_FIELDS,{mt:1}); SV_FIELD.mt='Mannschaftsteil';
+if(MN_A.pos){ const _o=MN_A.pos.orig, _c=MN_A.pos.ctl, _r=MN_A.pos.read;
+  MN_A.pos.orig=p=>Object.assign(_o(p),{mt:p.pos?svmMt(p):''});
+  MN_A.pos.ctl=(p,v,ok)=>{ const L=v.ps?svmMtErlaubt(v.ps):[];
+    return _c(p,v,ok)+`<div class="mn-mt"><span>Mannschaftsteil</span>${L.length?`<div class="sbseg mn-seg">${L.map(k=>`<button type="button" data-set="mt:${k}" class="${v.mt===k?'on':''}" ${ok&&L.length>1?'':'disabled'}>${SVM_MT[k]}</button>`).join('')}</div>${L.length<2?'<small>folgt aus der Position</small>':''}`:'<small>erst die Hauptposition wählen</small>'}</div>`; };
+  const _s=MN_A.pos.set; MN_A.pos.set=(v,k,x)=>{ if(k==='mt'){ if(svmMtErlaubt(v.ps).includes(x))v.mt=x; return; } return _s(v,k,x); };
+  MN_A.pos.read=(k,val,v)=>{ const r=_r?_r(k,val,v):val; if(k==='ps'){ const L=svmMtErlaubt(val); if(!L.includes(v.mt))v.mt=L[0]; } return r; };
+}
+{ const _sv22=mnSave; mnSave=async function(btn){
+  try{ const D=MN.draft.pos||{}; if(MN_A.pos.can())Object.entries(D).forEach(([pid,d])=>{ const p=trP(pid); if(!p||!('mt' in d))return; const pos=d.ps||p.pos;
+      if(d.mt&&svmMtErlaubt(pos).includes(d.mt))crmSet(pid,{mt:d.mt}); delete d.mt; if(!Object.keys(d).length)delete D[pid]; }); }catch(e){ console.warn('Mannschaftsteil',e); }
+  return _sv22.apply(this,arguments); }; }
+
+/* =====================================================================
+   7.3 Torwart-Eye-Test: fünf Kategorien auf den bestehenden Spalten
+   ===================================================================== */
+const SVM_EYE_TW=[['tem','Hechten','HEC'],['def','Ballsicherheit','BAL'],['sch','Abschlag','ABS'],['pas','Stellungsspiel','STE'],['dri','Reflexe','REF']];
+Object.keys(SV4_EYE_TW).forEach(k=>delete SV4_EYE_TW[k]); SVM_EYE_TW.forEach(([k,l])=>SV4_EYE_TW[k]=l);
+SV4_EYE_W.TW={tem:.2,def:.2,sch:.15,pas:.2,dri:.25,phy:0};
+// Während ein Torwart gezeichnet wird, zeigt SV4_EYE nur seine fünf Kategorien (Spalte „phy“ bleibt beim Torwart leer)
+function svmMitTw(p,fn){ if(!p||p.pos!=='TW')return fn(); const alt=SV4_EYE.slice(); SV4_EYE.splice(0,SV4_EYE.length,...SVM_EYE_TW); try{ return fn(); }finally{ SV4_EYE.splice(0,SV4_EYE.length,...alt); } }
+{ const _ef=pf4EyeForm; pf4EyeForm=function(box,p){ return svmMitTw(p,()=>_ef.apply(this,arguments)); }; }
+if(MN_A.eye){ const _c=MN_A.eye.ctl; MN_A.eye.ctl=(p,v,ok)=>svmMitTw(p,()=>_c(p,v,ok)); }
+if(typeof SV50_INFO!=='undefined'&&SV50_INFO.eye)SV50_INFO.eye.h=(SV50_INFO.eye.h||'')+' Torhüter werden in fünf eigenen Kategorien bewertet: Hechten, Ballsicherheit, Abschlag, Stellungsspiel und Reflexe.';
+
+/* =====================================================================
+   7.4 PlayStyles statt Skills, Rolle und Charakter
+   Gespeichert wird weiter im Feld „sk“ (gleiche Schlüssel, wo es eine Entsprechung gibt), „+“ = herausragend.
+   ===================================================================== */
+const SVM_PST=[
+  // Torwart
+  {k:'reflexe',t:'Schnelle Reflexe',g:'Torwart',fc:'Quick Reflexes',d:'Reagiert blitzschnell, auch bei Schüssen aus kurzer Distanz',tw:1},
+  {k:'reichweite',t:'Große Reichweite',g:'Torwart',fc:'Far Reach',d:'Kommt auch an Bälle in die langen Ecken',tw:1},
+  {k:'strafraum',t:'Flankenfänger',g:'Torwart',fc:'Cross Claimer',d:'Kommt raus und pflückt Flanken sicher',tw:1},
+  {k:'einsgegeneins',t:'Herauslaufen',g:'Torwart',fc:'Rush Out',d:'Verkürzt den Winkel und gewinnt Eins-gegen-eins-Duelle',tw:1},
+  {k:'abwehren',t:'Sicheres Abwehren',g:'Torwart',fc:'Deflector',d:'Lenkt Schüsse zur Seite aus der Gefahrenzone',tw:1},
+  {k:'fussarbeit',t:'Fußarbeit',g:'Torwart',fc:'Footwork',d:'Sicher mit dem Ball am Fuß, spielt mit',tw:1},
+  {k:'abwurf',t:'Weiter Abwurf',g:'Torwart',fc:'Far Throw',d:'Leitet mit weiten, genauen Abwürfen Konter ein',tw:1},
+  // Körperlich
+  {k:'luftduell',t:'Lufthoheit',g:'Körperlich',fc:'Aerial Fortress',d:'Gewinnt Kopfballduelle in beiden Strafräumen'},
+  {k:'robust',t:'Robust',g:'Körperlich',fc:'Bruiser',d:'Körperlich präsent, schwer vom Ball zu trennen'},
+  {k:'antritt',t:'Antritt',g:'Körperlich',fc:'Quick Step',d:'Explosiv auf den ersten Metern'},
+  {k:'motor',t:'Unermüdlich',g:'Körperlich',fc:'Relentless',d:'Läuft 90 Minuten durch, lässt kaum nach'},
+  {k:'einwurf',t:'Weiter Einwurf',g:'Körperlich',fc:'Long Throw',d:'Einwurf als Standardwaffe'},
+  {k:'akrobatisch',t:'Akrobatisch',g:'Körperlich',fc:'Acrobatic',d:'Kommt auch per Seitfall- oder Fallrückzieher an den Ball'},
+  // Ballkontrolle
+  {k:'dribbling',t:'Technisch',g:'Ballkontrolle',fc:'Technical',d:'Enge Ballführung, kommt im Dribbling vorbei'},
+  {k:'tempo',t:'Schnell am Ball',g:'Ballkontrolle',fc:'Rapid',d:'Hohes Tempo mit dem Ball am Fuß'},
+  {k:'erstkontakt',t:'Erster Kontakt',g:'Ballkontrolle',fc:'First Touch',d:'Saubere Ballannahme, auch unter Druck'},
+  {k:'trickser',t:'Trickser',g:'Ballkontrolle',fc:'Trickster',d:'Setzt Tricks und Finten gewinnbringend ein'},
+  {k:'pressresistent',t:'Pressingresistent',g:'Ballkontrolle',fc:'Press Proven',d:'Behauptet den Ball gegen Druck'},
+  {k:'kreativ',t:'Kreativ',g:'Ballkontrolle',fc:'Flair',d:'Löst Situationen mit überraschenden Ideen'},
+  // Defensive
+  {k:'zweikampf',t:'Zweikampfstark',g:'Defensive',fc:'Anticipate',d:'Gewinnt Duelle am Boden mit sauberem Tackling'},
+  {k:'antizipation',t:'Abfangen',g:'Defensive',fc:'Intercept',d:'Liest das Spiel und fängt Pässe ab'},
+  {k:'stellung',t:'Stellungsspiel',g:'Defensive',fc:'Jockey',d:'Steht richtig, lässt sich nicht ausspielen'},
+  {k:'block',t:'Blocken',g:'Defensive',fc:'Block',d:'Wirft sich in jeden Schuss'},
+  {k:'graetsche',t:'Grätsche',g:'Defensive',fc:'Slide Tackle',d:'Grätscht sauber im richtigen Moment'},
+  // Pass
+  {k:'steilpass',t:'Steilpass',g:'Pass',fc:'Incisive Pass',d:'Sieht und spielt den Pass in die Tiefe'},
+  {k:'scharf',t:'Scharfer Pass',g:'Pass',fc:'Pinged Pass',d:'Harte, flache Pässe über weite Distanz'},
+  {k:'langball',t:'Langer Ball',g:'Pass',fc:'Long Ball Pass',d:'Lange Bälle und Verlagerungen kommen an'},
+  {k:'kurzpass',t:'Tiki-Taka',g:'Pass',fc:'Tiki Taka',d:'Sicher im Kurzpassspiel, verliert kaum Bälle'},
+  {k:'flanke',t:'Scharfe Flanke',g:'Pass',fc:'Whipped Pass',d:'Scharfe, präzise Flanken'},
+  {k:'einfall',t:'Einfallsreich',g:'Pass',fc:'Inventive',d:'Überraschende Pässe, auch mit Hacke oder Außenrist'},
+  // Abschluss
+  {k:'abschluss',t:'Platzierter Schuss',g:'Abschluss',fc:'Finesse Shot',d:'Schlenzt und platziert sicher'},
+  {k:'wucht',t:'Wuchtiger Schuss',g:'Abschluss',fc:'Power Shot',d:'Harter Schuss, auch aus der Distanz'},
+  {k:'flach',t:'Flachschuss',g:'Abschluss',fc:'Low Driven Shot',d:'Flache, harte Abschlüsse'},
+  {k:'lupfer',t:'Lupfer',g:'Abschluss',fc:'Chip Shot',d:'Hebt den Ball über den Torwart'},
+  {k:'kopfball',t:'Kopfballstark',g:'Abschluss',fc:'Precision Header',d:'Trifft mit dem Kopf, stark bei Flanken'},
+  {k:'standard',t:'Standards',g:'Abschluss',fc:'Dead Ball',d:'Freistöße und Ecken mit Qualität'},
+  {k:'gamechanger',t:'Gamechanger',g:'Abschluss',fc:'Gamechanger',d:'Spektakuläre Abschlüsse, auch mit dem Außenrist'},
+  {k:'elfer',t:'Elfmeterschütze',g:'Abschluss',fc:'',d:'Nervenstark vom Punkt (keine EA-Entsprechung, aus der früheren Liste)'}
+];
+SB_SKILLS.splice(0,SB_SKILLS.length,...SVM_PST);
+Object.keys(SB_SK).forEach(k=>delete SB_SK[k]); SB_SKILLS.forEach(s=>SB_SK[s.k]=s);
+SB_GROUPS.splice(0,SB_GROUPS.length,'Torwart','Körperlich','Ballkontrolle','Defensive','Pass','Abschluss');
+Object.assign(SB_IC,{
+  reichweite:'<path d="M3 12h18"/><path d="m6 9-3 3 3 3M18 9l3 3-3 3"/><circle cx="12" cy="7" r="2"/>',
+  abwehren:'<path d="M5 19 19 5"/><circle cx="7" cy="7" r="3"/><path d="M14 18h6v-6"/>',
+  antritt:'<path d="M4 18h6"/><path d="M4 13h9"/><path d="M4 8h13l-3-3M17 8l-3 3"/>',
+  akrobatisch:'<circle cx="16" cy="6" r="2.5"/><path d="M4 20c3-7 6-9 11-9"/><path d="M9 13 5 9"/>',
+  trickser:'<path d="M4 16c2-6 4-6 6 0s4 6 6 0 3-4 4-4"/>',
+  kreativ:'<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/>',
+  stellung:'<path d="M4 20h16"/><path d="M8 20V9M16 20V9"/><path d="M8 9h8"/><circle cx="12" cy="5" r="2"/>',
+  scharf:'<path d="M3 12h14"/><path d="m13 7 5 5-5 5"/><path d="M3 8h5M3 16h5"/>',
+  einfall:'<path d="M5 19c0-8 6-14 14-14"/><path d="M15 5h4v4"/><circle cx="6" cy="18" r="2"/>',
+  flach:'<path d="M3 17h18"/><path d="m16 13 4 4-4 4"/><circle cx="6" cy="14" r="2"/>',
+  lupfer:'<path d="M4 18C7 6 17 6 20 18"/><path d="M3 18h18"/><circle cx="12" cy="8" r="1.5"/>',
+  gamechanger:'<path d="m12 3 2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.4 6.8 19.2l1-5.9L3.5 9.2l5.9-.8z"/>'});
+try{ if(typeof SVM_KPI!=='undefined'){ const x=SVM_KPI.find(k=>k.t==='PlayStyles'); if(x)x.d='Besondere Stärken nach den Kategorien aus EA SPORTS FC 26: Torwart, Körperlich, Ballkontrolle, Defensive, Pass, Abschluss. Einmal antippen = hat er, zweimal = herausragend („+“). Ersetzt die frühere Einteilung in Skills, Rolle und Charakter.'; } }catch(e){}
+if(MN_A.skills){
+  MN_A.skills.t='PlayStyles';
+  MN_A.skills.leer=p=>!sbOf(p).sk.length;
+  MN_A.skills.orig=p=>{ const b=sbOf(p); return {sk:mnSkStr(Object.fromEntries(b.sk.map(x=>[x.k,x.plus?2:1])))}; };
+  MN_A.skills.ctl=(p,v,ok)=>{ const open=MN.open.has(p.id), sk=mnSkObj(v.sk), tw=p.pos==='TW', n=Object.keys(sk).length;
+    const sum=`<button type="button" class="mn-sum svm-pst-sum" data-open>${n?Object.entries(sk).map(([k,x])=>SB_SK[k]?sbHex(k,x===2,'sm'):'').join(''):'<i class="miss50">noch keine PlayStyles</i>'}${n?` <span>${n} PlayStyle${n===1?'':'s'}</span>`:''}<em>${open?'zuklappen':'bearbeiten'}</em></button>`;
+    if(!open)return sum;
+    const G=tw?['Torwart','Pass','Körperlich']:SB_GROUPS.filter(g=>g!=='Torwart');
+    return sum+`<div class="mn-sb svm-pst">${G.map(g=>`<div class="mn-fg"><span>${svEsc(g)}</span><div class="chips">${SB_SKILLS.filter(s=>s.g===g).map(s=>{ const x=sk[s.k]||0; return `<button type="button" class="sbskchip v${x}" data-set="sk:${s.k}" title="${svEsc(s.d+(s.fc?' · EA: '+s.fc:''))}" ${ok?'':'disabled'}>${svEsc(s.t)}${x===2?' +':''}</button>`; }).join('')}</div></div>`).join('')}
+      <p class="note small">Einmal antippen = hat er, zweimal = herausragend („+“), dreimal = entfernen.</p></div>`; };
+}
+{ const _pf22c=MN_VIEWS.pflege; MN_VIEWS.pflege=mnViewPflege=function(B){ const r=_pf22c.apply(this,arguments);
+  try{ B.querySelectorAll('.mp18 > p.note.small').forEach(x=>{ if(/^Zeile antippen zum Aufklappen\. Rolle/.test(x.textContent))x.textContent='Zeile antippen zum Aufklappen. PlayStyles wie in EA SPORTS FC 26, nach Kategorien. Frühere Angaben zu Rolle und Charakter bleiben gespeichert, werden aber nicht mehr gepflegt.';
+      if(/^Hauptposition wählen/.test(x.textContent))x.textContent='Hauptposition wählen, darunter antippen, was er noch spielen kann. Der Mannschaftsteil folgt aus der Hauptposition, bei Außenverteidiger, Mittelfeld, Flügel und Sturm lässt er sich umstellen. Er bestimmt, womit der MScore die Leistung vergleicht.'; }); }catch(e){}
+  return r; }; }
+
+/* =====================================================================
+   6. Abwesenheiten: eintragen, bearbeiten, Übersicht mit Zeitstrahl
+   ===================================================================== */
+const SVM_ABW={seg:'liste',team:'1',all:null,busy:false,key:''};
+async function svmAbwAll(force){ const H=svmHalb(); if(SVM_ABW.busy||(!force&&SVM_ABW.all&&SVM_ABW.key===H.k)||!canTraining())return; SVM_ABW.busy=true;
+  try{ const {data,error}=await SVB.sb.from('abwesenheiten').select('*').gte('bis',H.von).lte('von',H.bis).order('von').limit(2000); if(!error){ SVM_ABW.all=data||[]; SVM_ABW.key=H.k; } }catch(e){ console.warn('Abwesenheiten',e); }
+  finally{ SVM_ABW.busy=false; } }
+async function svmAbwNeu(){ SVM_ABW.all=null; await Promise.all([sv91Load(true),svmAbwAll(true)]); try{ if(typeof kbLoad==='function')await kbLoad(true); }catch(e){} try{ if(svCurTab()==='training')trRender(); }catch(e){} }
+function svmAbwEdit(id,pid){
+  const a0=id?((SVM_ABW.all||[]).find(x=>x.id===id)||SV91.abw.find(x=>x.id===id)):null, t=trToday();
+  const sq=mnIntern().slice().sort((a,b)=>a.name.localeCompare(b.name,'de')); if(a0&&!sq.some(p=>p.id===a0.player_id)&&trP(a0.player_id))sq.unshift(trP(a0.player_id));
+  const st=a0?{player_id:a0.player_id,von:a0.von,bis:a0.bis,grund:a0.grund,notiz:a0.notiz||''}:{player_id:pid||'',von:t,bis:sv91Add(t,6),grund:'urlaub',notiz:''};
+  const M=svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('clock')}</div><div><h2 style="margin:0">${a0?'Abwesenheit bearbeiten':'Abwesenheit eintragen'}</h2><div class="msub">Für jedes Training und Spiel im Zeitraum ist der Spieler automatisch abgemeldet und wird nicht erinnert.</div></div></div>
+    <div class="editgrid" style="margin-top:12px"><div class="field w" style="grid-column:1/-1"><label>Spieler</label><select id="sa22p"><option value="">– wählen –</option>${sq.map(p=>`<option value="${svEsc(p.id)}"${st.player_id===p.id?' selected':''}>${svEsc(p.name)}</option>`).join('')}</select></div>
+      <div class="field"><label>Von</label><input type="date" id="sa22v" value="${svEsc(st.von)}"></div><div class="field"><label>Bis</label><input type="date" id="sa22b" value="${svEsc(st.bis)}"><div class="trquick">${[1,2,3,4].map(w=>`<button type="button" data-w="${w}">${w} W</button>`).join('')}</div></div>
+      <div class="field"><label>Grund</label><select id="sa22g">${Object.entries(SV91_GR).map(([k,v])=>`<option value="${k}"${st.grund===k?' selected':''}>${v}</option>`).join('')}</select></div>
+      <div class="field" style="grid-column:1/-1"><label>Notiz (optional)</label><input id="sa22n" maxlength="200" value="${svEsc(st.notiz)}"></div></div>
+    ${a0&&a0.via==='link'?'<p class="note small">Vom Spieler selbst über den Kabinen-Link eingetragen.</p>':''}
+    <div class="btnrow sbact"><button class="btn" type="button" id="sa22s">${SVI('check')} Speichern</button><button class="btn ghost" type="button" id="sa22c">Abbrechen</button>${a0?'<button class="btn ghost" type="button" id="sa22x" style="margin-left:auto;color:#fca5a5">Löschen</button>':''}</div>`);
+  const $=s=>M.querySelector(s);
+  M.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{ $('#sa22b').value=sv91Add($('#sa22v').value||t,+b.dataset.w*7-1); });
+  $('#sa22c').onclick=()=>closeOverlay();
+  if($('#sa22x'))$('#sa22x').onclick=async e=>{ const b=e.currentTarget; if(!b.classList.contains('sure')){ b.classList.add('sure'); b.textContent='Wirklich löschen?'; return; } b.disabled=true;
+    const {error}=await SVB.sb.from('abwesenheiten').delete().eq('id',a0.id); if(error){ b.disabled=false; return kToast('⚠️ '+error.message); }
+    closeOverlay(); kToast('Gelöscht, die automatischen Absagen sind zurückgenommen'); svmAbwNeu(); };
+  $('#sa22s').onclick=async e=>{ const row={player_id:$('#sa22p').value,von:$('#sa22v').value,bis:$('#sa22b').value,grund:$('#sa22g').value,notiz:$('#sa22n').value.trim()||null};
+    if(!row.player_id)return kToast('Bitte einen Spieler wählen'); if(!row.von||!row.bis||row.bis<row.von)return kToast('Bitte einen gültigen Zeitraum wählen');
+    if(svmTage(row.von,row.bis)>90)return kToast('Höchstens 90 Tage am Stück, bitte aufteilen');
+    const b=e.currentTarget; b.disabled=true;
+    const q=a0?SVB.sb.from('abwesenheiten').update(row).eq('id',a0.id):SVB.sb.from('abwesenheiten').insert(Object.assign(row,{via:'app'}));
+    const {error}=await q; if(error){ b.disabled=false; return kToast('⚠️ '+error.message); }
+    closeOverlay(); kToast('✓ '+trName(row.player_id)+': '+SV91_GR[row.grund]+' '+(a0?'geändert':'eingetragen')); svmAbwNeu(); };
+}
+function svmAbwSeg(B){ B.insertAdjacentHTML('afterbegin',`<div class="seg50 svm-aseg" role="tablist">${[['liste','Abwesenheiten'],['uebersicht','Übersicht']].map(([k,t])=>`<button type="button" class="${SVM_ABW.seg===k?'on':''}" data-aseg="${k}">${t}</button>`).join('')}</div>`);
+  B.querySelectorAll('[data-aseg]').forEach(b=>b.onclick=()=>{ SVM_ABW.seg=b.dataset.aseg; trRender(); }); }
+function svmViewAbw(B){
+  if(!SV91.loaded){ B.innerHTML='<div class="card"><div class="empty">Lade Abwesenheiten …</div></div>'; mnLoadOnce('u91',()=>sv91Load(),mnRerender('urlaub')); return; }
+  const H=svmHalb(); if(!SVM_ABW.all||SVM_ABW.key!==H.k){ if(!SVM_ABW.busy)svmAbwAll().then(()=>{ if(svCurTab()==='training'&&TR.view==='urlaub')trRender(); }); }
+  if(SVM_ABW.seg==='uebersicht')svmAbwUebersicht(B,H); else svmAbwListe(B,H);
+  svmAbwSeg(B);
+}
+function svmAbwListe(B,H){
+  const t=trToday(), all=(SVM_ABW.all||SV91.abw).slice(), byId=new Map(); SV91.abw.forEach(a=>byId.set(a.id,a)); all.forEach(a=>byId.set(a.id,a));
+  const L=[...byId.values()], heute=L.filter(a=>a.von<=t&&t<=a.bis), bald=L.filter(a=>a.von>t).sort((a,b)=>a.von.localeCompare(b.von)), alt=L.filter(a=>a.bis<t&&a.bis>=H.von).sort((a,b)=>b.von.localeCompare(a.von));
+  const row=a=>`<button type="button" class="ab91-r svm-ar${a.von<=t&&t<=a.bis?' jetzt':''}" data-sa22="${svEsc(a.id)}"><div><b>${svEsc(trName(a.player_id))}</b><small>${sv91Tag(a.von)} bis ${sv91Tag(a.bis)} · ${svmTage(a.von,a.bis)+1} Tage · ${svEsc(SV91_GR[a.grund]||a.grund)}${a.notiz?' · '+svEsc(a.notiz):''} · ${a.via==='link'?'selbst eingetragen':'vom Trainerteam'}</small></div><em>${SVI('chev')}</em></button>`;
+  B.innerHTML=`<div class="tiles trtiles"><div class="tile"><div class="v ${heute.length?'warn':''}">${heute.length}</div><div class="l">Heute abwesend</div><div class="s">${heute.length?svEsc(heute.slice(0,3).map(a=>sv91Vor(trName(a.player_id))).join(', '))+(heute.length>3?' …':''):'alle an Bord'}</div></div>
+      <div class="tile"><div class="v">${bald.filter(a=>a.von<=sv91Add(t,14)).length}</div><div class="l">Nächste 14 Tage</div><div class="s">${bald.length?svEsc(bald.slice(0,3).map(a=>sv91Vor(trName(a.player_id))+' ab '+TRC.fmt(a.von)).join(', ')):'nichts geplant'}</div></div></div>
+    <div class="card"><div class="vrat-h"><h3 class="trh" style="margin:0">${SVI('clock')} Aktuell und geplant <small>${heute.length+bald.length}</small></h3>${canTraining()?`<button type="button" class="btn sm" data-sa22n>${SVI('plus')} Eintragen</button>`:''}</div>
+      ${heute.length+bald.length?`<div class="ab91-l">${heute.concat(bald).map(row).join('')}</div>`:'<p class="note">Niemand hat gerade eine Abwesenheit eingetragen.</p>'}
+      <p class="note small">Spieler tragen Urlaub auch selbst über ihren Kabinen-Link ein. Antippen zum Ändern oder Löschen.</p></div>
+    ${alt.length?`<details class="card md91-alt"><summary>Vorbei in der ${svEsc(H.t)} (${alt.length})</summary><div class="ab91-l">${alt.map(row).join('')}</div></details>`:''}`;
+  B.querySelectorAll('[data-sa22]').forEach(b=>b.onclick=()=>{ if(canTraining())svmAbwEdit(b.dataset.sa22); });
+  const n=B.querySelector('[data-sa22n]'); if(n)n.onclick=()=>svmAbwEdit(null);
+}
+function svmAbwUebersicht(B,H){
+  const t=trToday(), tage=svmTage(H.von,H.bis)+1, team=SVM_ABW.team;
+  const pl=mnIntern().filter(p=>team==='alle'||(mnTeam(p)||'-')===team).sort((a,b)=>(mnTeamOrd(mnTeam(a))-mnTeamOrd(mnTeam(b)))||a.name.localeCompare(b.name,'de'));
+  const ids=new Set(pl.map(p=>p.id)), A=(SVM_ABW.all||[]).filter(a=>ids.has(a.player_id));
+  const clip=(v,b)=>({v:v<H.von?H.von:v,b:b>H.bis?H.bis:b});
+  const I=(TR.st.injuries||[]).filter(i=>ids.has(i.p)).map(i=>({player_id:i.p,von:i.b,bis:i.z||i.pr||t,grund:'verletzt',inj:1,offen:!i.z})).filter(i=>i.bis>=H.von&&i.von<=H.bis);
+  const S=new Map(); pl.forEach(p=>S.set(p.id,{p,n:0,tage:0,gr:{},inj:0}));
+  A.forEach(a=>{ const x=S.get(a.player_id); if(!x)return; const c=clip(a.von,a.bis), d=svmTage(c.v,c.b)+1; x.n++; x.tage+=d; x.gr[a.grund]=(x.gr[a.grund]||0)+d; });
+  I.forEach(i=>{ const x=S.get(i.player_id); if(!x)return; const c=clip(i.von,i.bis); x.inj+=svmTage(c.v,c.b)+1; });
+  const rows=[...S.values()], sumT=rows.reduce((s,x)=>s+x.tage,0), betr=rows.filter(x=>x.n).length, gr={}; rows.forEach(x=>Object.entries(x.gr).forEach(([g,d])=>gr[g]=(gr[g]||0)+d));
+  const top=Object.entries(gr).sort((a,b)=>b[1]-a[1])[0], injT=rows.reduce((s,x)=>s+x.inj,0);
+  const pct=d=>Math.max(0,Math.min(100,svmTage(H.von,d)/tage*100));
+  const monate=[]; { let d=H.von; while(d<=H.bis){ monate.push(d); const y=+d.slice(0,4), m=+d.slice(5,7); d=(m===12?(y+1)+'-01':y+'-'+String(m+1).padStart(2,'0'))+'-01'; } }
+  const MON=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const bars=pid=>A.filter(a=>a.player_id===pid).map(a=>{ const c=clip(a.von,a.bis); return `<i class="svm-tb g-${svEsc(a.grund)}${a.bis<t?' alt':''}" style="left:${pct(c.v)}%;width:${Math.max(.6,pct(sv91Add(c.b,1))-pct(c.v))}%" title="${svEsc(trName(pid))}: ${svEsc(SV91_GR[a.grund]||a.grund)} ${TRC.fmt(a.von)} bis ${TRC.fmt(a.bis)}${a.notiz?' · '+svEsc(a.notiz):''}"></i>`; }).join('')
+    +I.filter(i=>i.player_id===pid).map(i=>{ const c=clip(i.von,i.bis); return `<i class="svm-tb g-inj${i.offen?' offen':''}" style="left:${pct(c.v)}%;width:${Math.max(.6,pct(sv91Add(c.b,1))-pct(c.v))}%" title="${svEsc(trName(pid))}: verletzt seit ${TRC.fmt(i.von)}${i.offen?' (noch offen)':' bis '+TRC.fmt(i.bis)}"></i>`; }).join('');
+  const lade=!SVM_ABW.all;
+  B.innerHTML=`<div class="chips4 svm-at">${[['1','Erste'],['2','Zweite'],['A','A-Jugend'],['U','Mit Pass'],['alle','Alle']].map(([k,l])=>`<button type="button" class="${team===k?'on':''}" data-sat="${k}">${l}</button>`).join('')}</div>
+    <div class="tiles trtiles"><div class="tile"><div class="v">${sumT}</div><div class="l">Abwesenheitstage</div><div class="s">${svEsc(H.t)}, ohne Verletzungen</div></div>
+      <div class="tile"><div class="v">${betr}</div><div class="l">Spieler betroffen</div><div class="s">von ${pl.length} ${team==='alle'?'internen Spielern':'in '+svEsc(MN_TEAM[team]||team)}</div></div>
+      <div class="tile"><div class="v">${top?svEsc(SV91_GR[top[0]]||top[0]):'–'}</div><div class="l">Häufigster Grund</div><div class="s">${top?top[1]+' Tage':'noch nichts eingetragen'}</div></div>
+      <div class="tile"><div class="v">${injT}</div><div class="l">Verletzungstage</div><div class="s">zum Vergleich, aus „Verletzungen“</div></div></div>
+    <div class="card"><h3 class="trh">${SVI('clock')} Zeitstrahl ${svEsc(H.t)} <small>${TRC.fmt(H.von)}${H.von.slice(2,4)} bis ${TRC.fmt(H.bis)}${H.bis.slice(2,4)}</small></h3>
+      ${lade?'<p class="note">Lade Abwesenheiten der Halbserie …</p>':pl.length?`<div class="svm-tlw"><div class="svm-tl" style="--heute:${pct(t)}%">
+        <div class="svm-tr svm-th"><span></span><div class="svm-tt">${monate.map(m=>`<b style="left:${pct(m)}%">${MON[+m.slice(5,7)-1]}</b>`).join('')}${t>=H.von&&t<=H.bis?`<i class="svm-now" style="left:${pct(t)}%"></i>`:''}</div></div>
+        ${pl.map(p=>`<div class="svm-tr"><span data-svp="${svEsc(p.id)}">${svEsc(p.name)} <small>${svEsc(MN_TK[mnTeam(p)]||'')}</small></span><div class="svm-tt">${monate.map(m=>`<u style="left:${pct(m)}%"></u>`).join('')}${bars(p.id)}${t>=H.von&&t<=H.bis?`<i class="svm-now" style="left:${pct(t)}%"></i>`:''}</div></div>`).join('')}</div></div>
+        <div class="svm-leg">${Object.entries(SV91_GR).filter(([k])=>k!=='verletzt').map(([k,v])=>`<span><i class="svm-tb g-${k}"></i>${v}</span>`).join('')}<span><i class="svm-tb g-inj"></i>Verletzt</span><span><i class="svm-tb g-urlaub alt"></i>vorbei</span></div>`
+      :'<p class="note">Keine Spieler in dieser Mannschaft.</p>'}</div>
+    <div class="card"><h3 class="trh">${SVI('users')} Je Spieler <small>${svEsc(H.t)}</small></h3>
+      <div class="trtw"><table class="trtab t50"><thead><tr><th class="nm50">Spieler</th><th>Einträge</th><th>Tage</th><th>Gründe</th><th>Verletzt</th></tr></thead><tbody>
+      ${rows.filter(x=>x.n||x.inj).sort((a,b)=>b.tage-a.tage||b.inj-a.inj).map(x=>`<tr data-svp="${svEsc(x.p.id)}"><td class="nm50"><b>${svEsc(x.p.name)}</b></td><td>${x.n||'–'}</td><td><b>${x.tage||'–'}</b></td><td>${Object.entries(x.gr).map(([g,d])=>svEsc(SV91_GR[g]||g)+' '+d).join(', ')||'–'}</td><td>${x.inj?x.inj+' Tage':'–'}</td></tr>`).join('')||'<tr><td colspan="5" class="note">In dieser Halbserie noch keine Abwesenheiten.</td></tr>'}</tbody></table></div>
+      <p class="note small">Gezählt werden Kalendertage in der ${svEsc(H.t)}, geplante Abwesenheiten eingeschlossen. Verletzungen stehen getrennt, weil sie unter „Verletzungen“ gepflegt werden.</p></div>`;
+  B.querySelectorAll('[data-sat]').forEach(b=>b.onclick=()=>{ SVM_ABW.team=b.dataset.sat; trRender(); });
+  B.querySelectorAll('[data-svp]').forEach(x=>x.onclick=()=>openModal(x.dataset.svp));
+}
+MN_VIEWS.urlaub=svmViewAbw;
+if(SV50_INFO['training:urlaub'])Object.assign(SV50_INFO['training:urlaub'],{w:'Urlaub und andere Abwesenheiten: eintragen, ändern und für die laufende Halbserie auswerten.',
+  s:'Unter „Abwesenheiten“ antippen zum Ändern. Unter „Übersicht“ steht der Zeitstrahl der Halbserie je Mannschaft.'});
+else SV50_INFO['training:urlaub']={w:'Urlaub und andere Abwesenheiten: eintragen, ändern und für die laufende Halbserie auswerten.',f:'Früh sehen, wer wann fehlt.',h:'Wer eingetragen ist, ist für Training und Spiele automatisch abgemeldet.',s:'Unter „Abwesenheiten“ antippen zum Ändern. Unter „Übersicht“ steht der Zeitstrahl der Halbserie je Mannschaft.',b:[]};
+
+/* ---------- Profil: „Spielerbogen“ wird zu „PlayStyles“ ---------- */
+function svmPstHtml(p){ const b=sbOf(p), by={}; b.sk.forEach(x=>{ const s=SB_SK[x.k]; if(s)(by[s.g]=by[s.g]||[]).push(x); });
+  const G=SB_GROUPS.filter(g=>by[g]);
+  return `${G.length?G.map(g=>`<div class="svm-pstg"><span>${svEsc(g)}</span><div>${by[g].map(x=>`<span class="svm-pstc">${sbHex(x.k,x.plus,'sm')}<b>${svEsc(SB_SK[x.k].t)}${x.plus?' +':''}</b></span>`).join('')}</div></div>`).join('')
+      :'<p class="note">Noch keine PlayStyles gepflegt.</p>'}
+    ${canWriteField('sk')&&mnIsIntern(p)?`<div class="btnrow"><button type="button" class="btn ghost sm" data-svmpst="${svEsc(p.id)}">${SVI('sliders')} PlayStyles pflegen</button></div>`:''}`; }
+{ const _pb22=pf4Build; pf4Build=function(id){ const r=_pb22.apply(this,arguments);
+  try{ const M=document.getElementById('modal'), d=M&&M.querySelector('details.pf4-sec[data-k="bogen"]'), p=trP(id); if(d&&p){ const s=d.querySelector('summary span'); if(s)s.textContent='PlayStyles';
+      const b=d.querySelector('.pf4-b'); if(b){ b.innerHTML=svmPstHtml(p); const btn=b.querySelector('[data-svmpst]'); if(btn)btn.onclick=()=>mnGo('skills',p.id); } } }catch(e){ console.warn('PlayStyles Profil',e); }
+  return r; }; }
+// Spielerbogen externer Spieler: nur Fuß, PlayStyles und Bemerkungen (Rolle, Charakter und Tags werden nicht mehr gepflegt)
+{ const _se22=sbEditor; sbEditor=function(pid){ const r=_se22.apply(this,arguments);
+  try{ const E=document.getElementById('sbEd'); if(E){ const fix=()=>{ E.querySelectorAll('.sbsec h4').forEach(h=>{ if(/^Special Skills/.test(h.textContent))h.innerHTML='PlayStyles <small>1× tippen = hat er · 2× = herausragend (+)</small>'; }); };
+      fix(); new MutationObserver(fix).observe(E,{childList:true}); const h2=document.querySelector('#modal .mhead h2'); if(h2&&h2.textContent==='Spielerbogen')h2.textContent='Fuß und PlayStyles'; } }catch(e){}
+  return r; }; }
+
+/* =====================================================================
+   Sportzentrale Beta 0.22 · Teil D (Änderungswünsche aus dem Trainerteam)
+   8.3  MScore: Einsatz und Leistung aus der laufenden Saison und den drei Spielzeiten davor, jüngere zählen mehr;
+        Leistung nach Mannschaftsteil; ohne „Mannschaft“ und „Form“; eigene Spieler zusätzlich mit Trainings- und Spielleistung
+   8.4  FIFA-Karte: genau diese vier oder sechs Bausteine, Foto, Gesamtwert, Position, Mannschaft, starker Fuß, Name,
+        Treue-Abzeichen in Bronze, Silber oder Gold statt fünf Herzen
+   ===================================================================== */
+function svmGrp(p){ const mt=p&&p.pos&&typeof svmMt==='function'?svmMt(p):null; return mt==='S'?'off':mt==='M'?'mid':mt==='A'||mt==='T'?'def':SV94_GRUPPE(p&&p.pos); }
+// Eindrücke der laufenden Saison: Training (anwesend) und Spiel (gespielt), ohne angenommene Werte
+function svmEindruecke(p){
+  if(!p||!p.own||typeof TR==='undefined'||!TR.loaded||!TR.st)return null;
+  const st=typeof sv50Start==='function'?sv50Start():'2026-07-01', o={trn:{n:0,s:0,pos:0,neu:0,neg:0},spl:{n:0,s:0,pos:0,neu:0,neg:0}};
+  TR.st.sessions.forEach(s=>{ if(s.d<st)return; const a=(s.a||[]).find(x=>x[0]===p.id); if(!a||a[8]==null||!a[9]||a[9]==='default')return;
+    const x=s.t==='spiel'?(a[1]==='da'||a[1]==='spaet'?o.spl:null):s.t==='training'&&a[1]!=='weg'?o.trn:null; if(!x)return;
+    x.n++; x.s+=+a[8]; const k=svmEiK(a[8]); if(k==='p')x.pos++; else if(k==='m')x.neg++; else x.neu++; });
+  ['trn','spl'].forEach(k=>{ const x=o[k]; x.avg=x.n>=3?x.s/x.n:null; });
+  return o;
+}
+// Spielzeiten: laufende plus drei davor, jüngere zählen mehr (1,2 · 1,0 · 0,6 · 0,35 vor Einsatz-Gewichtung)
+{ const _se22=sv94Seasons; sv94Seasons=function(p,r){ const S=_se22.apply(this,arguments);
+  try{ S.forEach(s=>{ if(s.k==='base')s.rec=1.0; if(s.k==='prev')s.rec=0.6; });
+    const K=typeof KLAW!=='undefined'&&KLAW.by&&KLAW.by[p.id];
+    if(K&&typeof klaSk==='function'&&typeof svlCode==='function'){
+      const add=(k,sk,y,rec,mitte)=>{ const x=K[klaSk(sk)]; if(!x||!x.belegt)return; const lg=[...new Set((x.basis||[]).map(b=>svlCode(b.league)).filter(Boolean))][0]; if(!lg||!sv94Lv(lg))return;
+        const sp=+x.einsaetze||0, tsp=30, q=x.minuten!=null&&+x.minuten>0?Math.min(1,+x.minuten/(tsp*90)):sp?Math.min(1,sp/tsp)*0.92:null;
+        S.push({k,y,sk,liga:lg,club:x.mannschaft,teamSp:tsp,sp:sp||null,q,qF:null,tore:+x.tore||0,ast:+x.vorlagen||0,rank:null,tc:null,jahre:sv94Jahre(mitte),rec,kla:1}); };
+      if(!S.some(s=>s.k==='prev'))add('prev','2425','24/25',0.6,sv94Mitte(-1));
+      add('pre2','2324','23/24',0.35,sv94Mitte(-2)); } }catch(e){ console.warn('MScore Saisons',e); }
+  return S; }; }
+if(typeof SV4_CL!=='undefined')Object.assign(SV4_CL,{trn:'Trainingsleistung',spl:'Spielleistung'});
+{ const _tl22d=trLoad; trLoad=async function(){ const r=await _tl22d.apply(this,arguments); try{ SV94.cache.clear(); if(typeof SV70!=='undefined')SV70.cache.clear(); }catch(e){} return r; }; }
+
+/* ---------- Karte: genau die Bausteine des MScore ---------- */
+const SVM_KARTE={level:'EIN',prod:'LEI',pot:'POT',scout:'EYE',trn:'TRN',spl:'SPL'};
+{ const _sr22=scRate; scRate=function(p){ const R=_sr22.apply(this,arguments);
+  try{ const s=R&&R.s; if(s&&s.m4&&!p.isJugend&&Array.isArray(s.comps)){ const T=v=>v==null?null:Math.max(25,Math.min(99,Math.round(30+v*0.69)));
+      R.st=s.comps.filter(c=>SVM_KARTE[c.k]).map(c=>[SVM_KARTE[c.k],c.v==null?null:(c.k==='level'||c.k==='prod'||c.k==='trn'||c.k==='spl')?T(c.v):Math.max(25,Math.min(99,Math.round(c.v)))]); } }catch(e){}
+  return R; }; }
+
+/* ---------- Treue: Bronze, Silber, Gold ---------- */
+const SVM_TREUE={5:['gold','Gold'],4:['gold','Gold'],3:['silber','Silber'],2:['bronze','Bronze']};
+function svmTreueBadge(n,t){ const x=SVM_TREUE[n]; return x?`<span class="svm-tb3 ${x[0]}" title="Vereinstreue ${x[1]}${t?': '+svEsc(t):''}">${x[1]}</span>`:''; }
+sv90Herzen=function(n){ return svmTreueBadge(n)||'<span class="svm-tb3 none" title="Noch keine Treue-Stufe">–</span>'; };
+{ const _fc22=fcCard; fcCard=function(p,o){ o=Object.assign({},o||{});
+  try{ if(p&&!p.isJugend&&!o.sub){ const t=typeof mnTeam==='function'?mnTeam(p):null; const club=(p.cur&&p.cur.club)||p.club||''; o.sub=t&&MN_TEAM[t]?svEsc(MN_TEAM[t]):club?svEsc(club):' '; }
+    if(p&&p.own&&!o.badge){ const L=sv70Treue(p), S=L&&sv90Stufe(L.score); if(S&&SVM_TREUE[S.n])o.badge=svmTreueBadge(S.n,S.t); } }catch(e){}
+  return _fc22.call(this,p,o); }; }
+
+/* =====================================================================
+   Sportzentrale Beta 0.22 · Teil E: Zukunft nach Hin- und Rückrunden (Punkte 8.1 und 8.2)
+   Regel: die restliche Halbserie der laufenden Saison plus zwei volle Spielzeiten danach.
+   Heute (Hinrunde 26/27): Rückrunde 26/27, Hinrunde 27/28, Rückrunde 27/28, Hinrunde 28/29, Rückrunde 28/29.
+   Speicherung in spieler_saison, aufstellungen und bedarfe mit Schlüssel „2728H“ oder „2728R“.
+   Bestehende Planungen je Saison („2728“) gelten weiter: sie zählen ab der Hinrunde dieser Saison,
+   bis für eine Halbserie etwas Eigenes eingetragen ist.
+   Kaderplanung und Gespräche sind ein Bereich; Gespräche werden nur dort erfasst, das Profil zeigt das Ergebnis.
+   ===================================================================== */
+const SVM_HR=/^(\d{2})(\d{2})([HR])$/;
+function svmHalbJetzt(){ const m=+trToday().slice(5,7); return m>=7?'H':'R'; }
+function svmIdx(k){ const m=SVM_HR.exec(k); return m?(+m[1])*2+(m[3]==='R'?1:0):null; }
+function svmKeyOf(i){ const y=Math.floor(i/2); return String(y).padStart(2,'0')+String((y+1)%100).padStart(2,'0')+(i%2?'R':'H'); }
+function svmJetztIdx(){ return svmIdx(sv4S()+svmHalbJetzt()); }
+function svmPlainOf(i){ const y=Math.floor(i/2); return String(y).padStart(2,'0')+String((y+1)%100).padStart(2,'0'); }
+// Zeiträume der Planung: „jetzt“ (laufender Stand) und die folgenden Halbserien bis zur Rückrunde der übernächsten Saison
+function svmPerioden(){ const j=svmJetztIdx(), end=(+sv4S().slice(0,2)+2)*2+1, L=[sv4S()]; for(let i=j+1;i<=end;i++)L.push(svmKeyOf(i)); return L; }
+function svmIstHalb(s){ return SVM_HR.test(String(s||'')); }
+
+{ const _sl22=sv4SL; sv4SL=function(s){ const m=SVM_HR.exec(String(s||'')); if(m)return (m[3]==='H'?'Hinrunde ':'Rückrunde ')+m[1]+'/'+m[2]; return _sl22.apply(this,arguments); }; }
+{ const _sa22=sv4SAdd; sv4SAdd=function(s,n){ const i=svmIdx(String(s||'')); if(i==null)return _sa22.apply(this,arguments);
+    const k=i+n, j=svmJetztIdx(); return k<=j?svmPlainOf(k):svmKeyOf(k); }; }
+sv4Seasons=function(){ return svmPerioden(); };
+// Nachschlagen: genaue Halbserie, sonst Hinrunde derselben Saison (bei Rückrunde), sonst Eintrag der ganzen Saison.
+// Übernommene Zeilen bringen keinen Wechsel mit (hoch, runter, neu gelten nur für den Zeitraum, in dem sie stehen).
+{ const _ss22=sv4SS; sv4SS=function(pid,s){ const r=_ss22.apply(this,arguments); if(r)return r; s=String(s||''); const m=SVM_HR.exec(s);
+  const erb=x=>x?Object.assign({},x,{zukunft:['hoch','runter','neu'].includes(x.zukunft)?'bleibt':x.zukunft,_erbt:x.saison}):null;
+  if(m){ const y=m[1]+m[2]; if(m[3]==='R'){ const h=_ss22(pid,y+'H'); if(h)return erb(h); } const pl=_ss22(pid,y); if(!pl)return null; return y===sv4S()||m[3]==='R'?erb(pl):pl; }
+  if(/^\d{4}$/.test(s)&&s>sv4S())return _ss22(pid,s+'H');
+  return null; }; }
+{ const _st22=sv60Target; sv60Target=function(s){ return s===sv4S()?(svmPerioden()[1]||_st22(s)):s; }; }
+
+// Bedarfe und Aufstellungen: Einträge je Saison zeigen sich in der Hinrunde dieser Saison
+function svmNormBedarf(){ try{ (SV4.bed||[]).forEach(b=>{ if(/^\d{4}$/.test(b.saison)&&b.saison>sv4S()){ b._saison=b.saison; b.saison=b.saison+'H'; } }); }catch(e){} }
+{ const _l22=sv4Load; sv4Load=async function(){ const r=await _l22.apply(this,arguments); svmNormBedarf();
+  try{ if(SV4.auf&&SV4.auf.forEach){ const add=[]; SV4.auf.forEach((v,k)=>{ const [t,s,a]=k.split('|'); if(/^\d{4}$/.test(s)&&s>sv4S()&&!SV4.auf.has(t+'|'+s+'H|'+a))add.push([t+'|'+s+'H|'+a,v]);
+      if(a==='traum'&&s===sv4S()&&svmPerioden()[1]&&!SV4.auf.has(t+'|'+svmPerioden()[1]+'|traum'))add.push([t+'|'+svmPerioden()[1]+'|traum',v]); }); add.forEach(([k,v])=>SV4.auf.set(k,v)); } }catch(e){}
+  return r; }; }
+
+// Traumelf: Zeiträume ohne „jetzt“
+sv90TKey=function(){ const T=SV90.traum, L=svmPerioden().slice(1); if(!T.s||!L.includes(T.s))T.s=L[0]; return T.team+'|'+T.s+'|traum'; };
+{ const _tr22=sv90Traum; sv90Traum=function(){ const r=_tr22.apply(this,arguments); try{ const P=document.getElementById('panel-sxi'); if(P)P.querySelectorAll(`[data-ts90="${sv4S()}"]`).forEach(b=>b.remove()); }catch(e){} return r; }; }
+sv90Wuensche=function(team,s){ const W=(SV60.cfg&&SV60.cfg.wuensche)||{}; let L=W[team+'|'+s]; if(!L&&svmIstHalb(s)){ const y=s.slice(0,4); L=W[team+'|'+y]||(s.endsWith('R')?W[team+'|'+y+'H']:null); } return (L||[]).slice(); };
+sv90WSave=async function(team,s,L){
+  const W=Object.assign({},(SV60.cfg&&SV60.cfg.wuensche)||{}), keep=new Set(svmPerioden()); svmPerioden().forEach(x=>{ if(svmIstHalb(x))keep.add(x.slice(0,4)); });
+  Object.keys(W).forEach(k=>{ if(!keep.has(k.split('|')[1]))delete W[k]; });
+  if(L.length)W[team+'|'+s]=L.slice(0,6); else delete W[team+'|'+s];
+  await sv60CfgSave(Object.assign({},SV60.cfg||{},{wuensche:W}));
+};
+if(SV50_INFO.kader)SV50_INFO.kader.s='Oben den Zeitraum wählen: jetzt, die Rückrunde und die Halbserien der nächsten beiden Spielzeiten. Spieler antippen und Zukunft, Sicherheit und Verfügbarkeit festlegen. Gespräche stehen im selben Bereich unter „Gespräche“.';
+if(SV50_INFO.sxi)SV50_INFO.sxi.w='Deine Wunschelf je Halbserie, bis zur Rückrunde der übernächsten Saison, auch mit Spielern, die noch nicht zugesagt haben.';
+if(typeof SV_PAGES!=='undefined'&&SV_PAGES.sxi)SV_PAGES.sxi=['Traumelf','Wunschspieler und Planung je Halbserie bis zur Rückrunde der übernächsten Saison'];
+
+/* ---------- Ein Bereich: Kaderplanung & Gespräche ---------- */
+SV4_HUB.kader.tabs=SV4_HUB.kader.tabs.filter(([k])=>k!=='gespr').map(([k,l])=>k==='kader'?[k,'Kaderplanung & Gespräche']:k==='kaderplan'?[k,'Rollen & PlayStyles']:[k,l]);
+{ const _sb22e=sv4Sub; sv4Sub=function(tab){ const k=_sb22e.apply(this,arguments); return k==='gespr'?'kader':k; }; }
+function svmKgSeg(P,v){ if(!P||P.querySelector(':scope > .svm-kg'))return; P.insertAdjacentHTML('afterbegin',`<div class="seg50 svm-kg" role="tablist"><button type="button" class="${v==='kader'?'on':''}" data-kg="kader">Planung</button><button type="button" class="${v==='gespr'?'on':''}" data-kg="gespr">Gespräche</button></div>`);
+  P.querySelectorAll('[data-kg]').forEach(b=>b.onclick=()=>{ if(b.dataset.kg!==v)goTab(b.dataset.kg); }); }
+{ const _kr22=kd4Render; kd4Render=function(){ const r=_kr22.apply(this,arguments);
+  try{ const P=document.getElementById('panel-kader'); svmKgSeg(P,'kader');
+    if(P){ P.querySelectorAll('[data-ks] small.pz90').forEach(sm=>{ const x=sm.parentNode.dataset.ks, h=svmIstHalb(x)?x.slice(-1):null; sm.textContent=(h?h==='R':svmHalbJetzt()==='H')?'Winterfenster':'Sommerfenster'; });
+      const n=P.querySelector('.pz90t'); if(n&&!n.dataset.svm){ n.dataset.svm='1'; const C=sv60C(), md=x=>{ const [mm,dd]=String(x).split('-'); return (+dd)+'.'+(+mm)+'.'; };
+        n.innerHTML=`Geplant wird je Halbserie bis zur ${svEsc(sv4SL(svmPerioden().slice(-1)[0]))}. Vor jeder Rückrunde liegt das Winterfenster (${md(C.winter.von)} bis ${md(C.winter.bis)}), Verstärkung dann am schnellsten aus der Zweiten oder der A-Jugend. Vor jeder Hinrunde liegt das Sommerfenster (${md(C.sommer.von)} bis ${md(C.sommer.bis)}).`; } } }catch(e){ console.warn('Kader 0.22',e); }
+  return r; }; }
+{ const _kg22=kd4Gespr; kd4Gespr=function(){ const r=_kg22.apply(this,arguments); try{ svmKgSeg(document.getElementById('panel-gespr'),'gespr'); }catch(e){} return r; }; }
+if(typeof SV_PAGES!=='undefined'){ if(SV_PAGES.kader)SV_PAGES.kader=['Kaderplanung & Gespräche','Wer spielt wann wo: jetzt, Rückrunde und die Halbserien der nächsten beiden Spielzeiten, dazu alle Spielergespräche'];
+  if(SV_PAGES.gespr)SV_PAGES.gespr=['Kaderplanung & Gespräche','Alle Spielergespräche: Sicht des Spielers, offene Themen, Entscheidung. Nur hier werden Gespräche erfasst.']; }
+
+/* ---------- Profil: nur das Ergebnis der Planung, keine Eingabe ---------- */
+function svmPlanErgebnis(p){
+  const P=svmPerioden(), t0=sv4Team(p,P[0]); let w=null;
+  for(const x of P.slice(1)){ const t=sv4Team(p,x), z=sv4Zuk(p,x); if(t!==t0||['geht','karriereende','unsicher'].includes(z)){ w={x,t,z}; break; } }
+  if(!w)return {b:t0?'Bleibt':'–',s:t0?`${SV4_TEAM[t0]||''} bis ${sv4SL(P[P.length-1])}`:'nicht im Kader',c:'ok'};
+  if(!w.t||w.z==='geht'||w.z==='karriereende')return {b:w.z==='karriereende'?'Karriereende':'Geht',s:'ab '+sv4SL(w.x),c:'bad'};
+  if(w.z==='unsicher')return {b:'Unsicher',s:'ab '+sv4SL(w.x),c:'warn'};
+  return {b:SV4_TEAM[w.t]||w.t,s:'ab '+sv4SL(w.x),c:'ok'};
+}
+{ const _pb22e=pf4Build; pf4Build=function(id){ const r=_pb22e.apply(this,arguments);
+  try{ const M=document.getElementById('modal'), p=sv4P(id); if(M&&p){
+      const zk=M.querySelector('.g4.zk'); if(zk){ const E=svmPlanErgebnis(p); zk.innerHTML=`<span>Planung</span><b class="svm-pl ${E.c}">${svEsc(E.b)}</b><small>${svEsc(E.s)} · aus der Kaderplanung</small>`; zk.classList.remove('zk'); }
+      const d=M.querySelector('details.pf4-sec[data-k="kader"]'); if(d){ d.querySelectorAll('[data-pf4="gespr"]').forEach(x=>x.remove());
+        const b=d.querySelector('.pf4-b'); if(b&&!b.querySelector('.svm-kgo')&&sv4Can())b.insertAdjacentHTML('beforeend',`<div class="btnrow svm-kgo"><button type="button" class="btn ghost sm" data-svmkg>${SVI('users')} In der Kaderplanung öffnen</button></div>`);
+        const bt=d.querySelector('[data-svmkg]'); if(bt)bt.onclick=()=>{ try{ closeOverlay(); }catch(e){} const t=sv4Team(p,svmPerioden()[0])||sv4Team(p,svmPerioden()[1]); if(t)KD4.team=t==='A'?'1':t; goTab('kader'); }; } } }catch(e){ console.warn('Profil Planung',e); }
+  return r; }; }
+
+/* =====================================================================
    SV/BSC Scout · Runde 20: „Was ist neu“: Update-Fenster & Patch-Historie
    - Nach jedem Update ein Pop-up: das Wichtigste in Kürze → „OK“ oder „Mehr erfahren“ (ganze Historie)
    - Jederzeit erreichbar: Seitenleiste / „Mehr“ / Mein Konto → „Was ist neu“
@@ -13469,6 +14479,16 @@ setTimeout(svzPruefen,50);
    Sichtbarkeit je Punkt: r:'team' (ohne Gäste) · r:'scout' · r:'admin' · ohne r = alle
    ===================================================================== */
 const SV_PATCHES=[
+  {id:'0.22',v:'0.22',datum:'2026-09-28',titel:'Mannschaft, Spiele und Spielerprofil überarbeitet',kurz:'Training und Spiele mit Eindruck Positiv, Neutral, Negativ, Spiele in Vergangene, Bevorstehende und Statistik, Quellen je Einheit und Spiel, Abwesenheiten mit Zeitstrahl, PlayStyles, ein neuer MScore und Planung je Halbserie.',
+   punkte:[
+    {ic:'👍',t:'Eindruck statt Noten',d:'Training und Spiel bewertest du nur noch mit Positiv, Neutral oder Negativ, für die Einheit und je Spieler, dazu eine Notiz. Keine Position mehr im Training, kein „Details“.',r:'team',go:'training'},
+    {ic:'⚽',t:'Spiele neu',d:'Drei Reiter: Vergangene, Bevorstehende (aus FuPa und fussball.de) und Statistik. Jedes Spiel zeigt Quelle und was fehlt. Bewerten: Gesamteindruck, je Spieler Einsatz (Startelf, eingewechselt, Kader, zugeschaut, nicht da) und Eindruck. Startelf und Wechsel sind vorausgefüllt.',r:'team',go:'gstat'},
+    {ic:'ℹ️',t:'Woher kommt jede Zahl?',d:'Jede Spalte erklärt sich beim Überfahren, alle Kennzahlen stehen unter Wissen → Kennzahlen. Das Info-i an Training und Spielen zeigt Quellen, Vorrang, Lücken und Widersprüche, etwa zwischen Anwesenheitsliste und App.',r:'team'},
+    {ic:'📋',t:'Mannschaft und Extern',d:'„Keine Mannschaft, aber Pass“ ersetzt „Umfeld“, neu ist „Extern“. FuPa-Kader werden geprüft: Wer laut FuPa woanders spielt, steht als Prüffall in der Massenpflege.',r:'scout',go:'pflege'},
+    {ic:'🌴',t:'Abwesenheiten mit Übersicht',d:'Eintragen und ändern unter „Abwesenheiten“, dazu eine Übersicht mit Zeitstrahl der Halbserie je Mannschaft.',r:'team',go:'abwesend'},
+    {ic:'🧤',t:'Massenpflege aufgeräumt',d:'Mannschaft und Position zuerst, Mannschaftsteil passend zur Position, Torwart-Eye-Test mit Hechten, Ballsicherheit, Abschlag, Stellungsspiel und Reflexe, PlayStyles wie in EA SPORTS FC 26 statt Skills, Rolle und Charakter.',r:'team',go:'pflege'},
+    {ic:'📈',t:'MScore und Karte',d:'Einsatz und Leistung aus der laufenden und den drei letzten Spielzeiten, Leistung nach Mannschaftsteil, ohne Mannschaft und Form. Eigene Spieler zusätzlich mit Trainings- und Spielleistung. Die Karte zeigt genau diese Bausteine und die Treue in Bronze, Silber oder Gold.',r:'scout'},
+    {ic:'🗓️',t:'Planung je Halbserie',d:'Kaderplanung, Traumelf und Profil planen jetzt bis zur Rückrunde der übernächsten Saison, Halbserie für Halbserie. Kaderplanung und Gespräche sind ein Bereich, das Profil zeigt nur das Ergebnis.',r:'scout',go:'kader'}]},
   {id:'0.21',v:'0.21',datum:'2026-09-28',titel:'Push-Nachrichten und Server-Checker',kurz:'Ein Tipp auf eine Push-Nachricht öffnet genau diese Nachricht, mit allem, worum es geht. Dazu prüft der Server alle 10 Minuten, ob alle Daten sauber ankommen.',
    punkte:[
     {ic:'🔔',t:'Push öffnet genau die Nachricht',d:'Tippst du auf eine Push-Nachricht, siehst du genau diese Nachricht mit vollem Text. Bei Radar-Tipps und Talenten gleich die Spieler mit Profil, bei Spieltag-Updates den Spieler, beim KI-Auftrag das Ergebnis. Auch auf der Übersicht öffnet die Meldungskarte die Nachrichten selbst.',r:'team'},
@@ -13674,6 +14694,8 @@ const SV_PATCHES=[
    punkte:[
     {ic:'🚀',t:'SV/BSC Scout ist da',d:'Scouting-Datenbank, Aufstellung mit Formationen und Drag & Drop, Bedarfsanalyse und Transfer-Vorschläge.'}]}
 ];
+// Neue Vereine sehen die Historie erst ab ihrem Start (verein/<id>.json: patch_ab = älteste gezeigte Version)
+{ const ab=(window.VEREIN||{}).patch_ab; if(ab){ const i=SV_PATCHES.findIndex(p=>p.id===ab); if(i>=0)SV_PATCHES.splice(i+1); } }
 const SV_PATCH_LATEST=SV_PATCHES[0].id;
 const spV=p=>'Beta '+((p&&(p.v||p.id))||'');
 const SV_PATCH_LABEL=spV(SV_PATCHES[0]);

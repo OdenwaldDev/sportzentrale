@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="favicon-64.png">
-<meta name="app-build" content="beta-0.21">
+<meta name="app-build" content="beta-0.22">
 <title>SV/BSC Sportzentrale</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" async></script>
 <style>
@@ -3087,6 +3087,128 @@ tr.svq-bad td{color:#fecaca}
 .svz-sp{cursor:pointer}
 .svz .btnrow{margin-top:8px}
 
+/* Beta 0.22 · Mannschaft und Spielerprofil (Lukas) */
+th.kpi-th{text-decoration:underline dotted rgba(148,163,196,.55);text-underline-offset:4px;cursor:help}
+th.kpi-th>button{text-decoration:underline dotted rgba(148,163,196,.55);text-underline-offset:4px;cursor:pointer}
+/* 1.3 Suchfelder im Stil der App */
+input.svm-such{appearance:none;-webkit-appearance:none;height:40px;border-radius:12px;border:1px solid rgba(148,163,196,.18);background:rgba(148,163,196,.07) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa6bf' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 12px center;padding:0 12px 0 36px;color:var(--ink,#e8ecf3);font:inherit;font-size:15px;outline:none;transition:border-color .15s,box-shadow .15s,background-color .15s}
+input.svm-such::placeholder{color:var(--ink3,#8792a8)}
+input.svm-such:focus{border-color:var(--brand2);box-shadow:0 0 0 3px var(--brandSoft);background-color:rgba(148,163,196,.1)}
+input.svm-such::-webkit-search-cancel-button{-webkit-appearance:none}
+/* 2.1 Fotos in der Spielerliste */
+td.svm-nm{display:flex;align-items:center;gap:10px;min-height:44px}
+td.svm-nm .svm-av{flex:0 0 auto;display:inline-flex}
+td.svm-nm .svm-av>*{width:36px!important;height:36px!important;font-size:13px}
+/* 3.3 Luft zwischen Kennzahlen und Tabelle im Training */
+#panel-training[data-mn="home"] .trtiles{margin-bottom:22px}
+#panel-training .mn-gt{margin-bottom:22px}
+/* 8.2 Karte dreht sich nicht mehr */
+.fut.fut-noflip.flip .fut-in{transform:none}
+/* Kennzahlen-Tab */
+.svm-kpi .svm-such{width:100%;max-width:420px;margin:6px 0 12px}
+.svm-kg h4{margin:16px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3,#8792a8)}
+.svm-k{border-top:1px solid rgba(148,163,196,.1);padding:8px 0}
+.svm-k summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;list-style:none}
+.svm-k summary::-webkit-details-marker{display:none}
+.svm-k summary b{font-size:15px}
+.svm-k summary code{font-size:11.5px;color:var(--ink3,#8792a8);background:rgba(148,163,196,.08);padding:1px 6px;border-radius:6px}
+.svm-k summary span{flex-basis:100%;font-size:13.5px;color:var(--ink2,#c7cdd8)}
+.svm-k p{margin:6px 0 2px;font-size:13.5px;color:var(--ink2,#c7cdd8);max-width:70ch}
+.svm-q h4{margin:14px 0 4px}
+.svm-q ol{margin:4px 0;padding-left:20px;font-size:14px;color:var(--ink2,#c7cdd8)}
+/* ---------- Teil B ---------- */
+/* Eindruck Positiv, Neutral, Negativ */
+.svm-ei{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-style:normal;font-weight:700;font-size:13px;line-height:1;vertical-align:middle;background:rgba(148,163,196,.16);color:var(--ink2,#c7cdd8)}
+.svm-ei.p{background:rgba(34,197,94,.2);color:#86efac}
+.svm-ei.m{background:rgba(239,68,68,.2);color:#fca5a5}
+.svm-eil{display:inline-flex;align-items:center;gap:5px;font-style:normal}
+.svm-eib{display:inline-flex;gap:6px;flex-wrap:wrap}
+.svm-eib button{min-height:34px;padding:0 12px;border-radius:10px;border:1px solid rgba(148,163,196,.2);background:rgba(148,163,196,.06);color:var(--ink2,#c7cdd8);font:inherit;font-size:14px;cursor:pointer}
+.svm-eib button.on.p{background:rgba(34,197,94,.22);border-color:rgba(34,197,94,.55);color:#bbf7d0}
+.svm-eib button.on.o{background:rgba(148,163,196,.22);border-color:rgba(148,163,196,.5);color:var(--ink,#e8ecf3)}
+.svm-eib button.on.m{background:rgba(239,68,68,.22);border-color:rgba(239,68,68,.55);color:#fecaca}
+.svm-eib button.on.ann{border-style:dashed;opacity:.8}
+.q50r .svm-eib button span{display:none}
+@media (min-width:560px){ .q50r .svm-eib button span{display:inline} }
+/* Info-i */
+.svm-i{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:24px;height:24px;border-radius:50%;border:1px solid rgba(148,163,196,.35);background:rgba(148,163,196,.08);color:var(--ink2,#c7cdd8);font:italic 700 13px/1 Georgia,serif;cursor:pointer;padding:0;margin-left:6px}
+.svm-i:hover,.svm-i:focus-visible{border-color:var(--brand2);color:var(--ink,#e8ecf3);outline:none}
+.svm-qb{margin:14px 0}
+.svm-qb h4{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3,#8792a8)}
+.svm-qb ul,.svm-qb ol{margin:0;padding-left:20px;font-size:14px;color:var(--ink2,#c7cdd8);display:grid;gap:3px}
+.svm-wr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid rgba(148,163,196,.1)}
+.svm-wr span{display:flex;flex-direction:column}
+.svm-wr small{color:var(--ink3,#8792a8)}
+/* Prüffälle aus FuPa */
+.svm-pf{margin-bottom:14px;border-color:rgba(245,158,11,.35)}
+.svm-pfr{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;padding:10px 0;border-top:1px solid rgba(148,163,196,.1)}
+.svm-pfr>div:first-child{display:flex;flex-direction:column;min-width:0}
+.svm-pfr b{cursor:pointer}
+.svm-pfr small{color:var(--ink3,#8792a8)}
+.svm-xh{display:block;margin-top:6px;max-width:52ch}
+/* Spiel bewerten */
+.sb22-top{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.sb22-res{display:flex;align-items:center;gap:6px}
+.sb22-res input{width:64px;text-align:center}
+.sb22-sum{flex-wrap:wrap;gap:6px 14px}
+.sb22-ein{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+.sb22-ein button{min-height:32px;padding:0 10px;border-radius:9px;border:1px solid rgba(148,163,196,.2);background:rgba(148,163,196,.06);color:var(--ink2,#c7cdd8);font:inherit;font-size:13px;cursor:pointer}
+.sb22-ein button.on{background:var(--brandSoft,rgba(47,107,255,.18));border-color:var(--brand2);color:var(--ink,#e8ecf3)}
+.sb22-r .q50-no{margin-top:4px}
+/* Spiele */
+.gm50-s .svm-ei{margin-right:4px}
+.svm-off .gm50-r small{color:var(--brand2)}
+.svm-next td .warn{color:#fde68a;font-weight:700;cursor:help}
+table.svm-gs td.c1,table.svm-gs td.c2{color:var(--ink,#e8ecf3)}
+table.svm-gs td.c4,table.svm-gs td.c5{color:var(--ink3,#8792a8)}
+h2 .svm-i{vertical-align:3px;margin-left:8px}
+@media (min-width:720px){ .sb22-r{display:grid;grid-template-columns:minmax(150px,210px) 1fr;column-gap:14px;align-items:center}
+  .sb22-r>.q50-h{grid-row:span 3}.sb22-r>.sb22-ein{margin:4px 0}.sb22-r>*:not(.q50-h){grid-column:2} }
+/* ---------- Teil C ---------- */
+.mn-mt{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:8px}
+.mn-mt>span{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3,#8792a8)}
+.mn-mt small{color:var(--ink3,#8792a8)}
+.svm-pst-sum{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.svm-pst-sum span{margin-left:4px}
+/* Abwesenheiten */
+.svm-aseg{margin-bottom:12px}
+.svm-ar{width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:10px;background:none;border:0;border-top:1px solid rgba(148,163,196,.1);color:inherit;font:inherit;cursor:pointer;padding:10px 2px}
+.svm-ar em{opacity:.5}
+.svm-at{margin:0 0 12px}
+.svm-tlw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.svm-tl{min-width:640px;display:grid;gap:2px}
+.svm-tr{display:grid;grid-template-columns:170px 1fr;align-items:center;gap:10px;min-height:26px}
+.svm-tr>span{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.svm-tr>span small{color:var(--ink3,#8792a8)}
+.svm-tt{position:relative;height:18px;border-radius:6px;background:rgba(148,163,196,.06)}
+.svm-th .svm-tt{background:none;height:16px}
+.svm-th .svm-tt b{position:absolute;top:0;font-size:11px;font-weight:600;color:var(--ink3,#8792a8);transform:translateX(2px)}
+.svm-tt u{position:absolute;top:0;bottom:0;border-left:1px solid rgba(148,163,196,.14);text-decoration:none}
+.svm-now{position:absolute;top:-2px;bottom:-2px;border-left:2px solid var(--brand2);z-index:2}
+.svm-tb{position:absolute;top:3px;bottom:3px;border-radius:4px;background:#60a5fa;min-width:3px}
+.svm-tb.g-urlaub{background:#38bdf8}.svm-tb.g-arbeit{background:#a78bfa}.svm-tb.g-uni{background:#f472b6}.svm-tb.g-familie{background:#34d399}
+.svm-tb.g-privat{background:#94a3b8}.svm-tb.g-krank{background:#fbbf24}.svm-tb.g-verletzt,.svm-tb.g-inj{background:#f87171}
+.svm-tb.g-inj{background:repeating-linear-gradient(135deg,#f87171 0 5px,#b91c1c 5px 8px)}
+.svm-tb.alt{opacity:.55}
+.svm-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--ink2,#c7cdd8)}
+.svm-leg span{display:inline-flex;align-items:center;gap:6px}
+.svm-leg .svm-tb{position:static;display:inline-block;width:16px;height:10px}
+/* ---------- Teil D: Treue-Abzeichen ---------- */
+.svm-tb3{display:inline-flex;align-items:center;justify-content:center;min-width:52px;height:20px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#1a1204;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 1px 2px rgba(0,0,0,.35)}
+.svm-tb3.gold{background:linear-gradient(135deg,#fde68a,#d4a017 55%,#fbbf24)}
+.svm-tb3.silber{background:linear-gradient(135deg,#f1f5f9,#a8b3c2 55%,#e2e8f0)}
+.svm-tb3.bronze{background:linear-gradient(135deg,#f5c9a0,#b0703c 55%,#d99a66);color:#2a1606}
+.svm-tb3.none{background:rgba(148,163,196,.15);color:var(--ink3,#8792a8);box-shadow:none;min-width:24px}
+.fut-badge .svm-tb3{height:18px;min-width:0;font-size:10px}
+.svm-pstg{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:start;padding:6px 0;border-top:1px solid rgba(148,163,196,.08)}
+.svm-pstg>span{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3,#8792a8);padding-top:4px}
+.svm-pstg>div{display:flex;flex-wrap:wrap;gap:6px 12px}
+.svm-pstc{display:inline-flex;align-items:center;gap:6px;font-size:13.5px}
+/* ---------- Teil E ---------- */
+.svm-kg{margin-bottom:12px}
+.g4 b.svm-pl.ok{color:#86efac}.g4 b.svm-pl.bad{color:#fca5a5}.g4 b.svm-pl.warn{color:#fde68a}
+#sbEd .sbsec:nth-of-type(2),#sbEd .sbsec:nth-of-type(4),#sbEd .sbsec:nth-of-type(5),#sbEd .sbwf{display:none}
+
 </style>
 <style id="v3gate">
 /* =====================================================================
@@ -3730,9 +3852,9 @@ a.kbtn{text-decoration:none;display:inline-block}
 
 
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
-<script>window.SVBC_CFG={"url": "https://lvaukuzgcwgqipxwzabo.supabase.co", "anon": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2YXVrdXpnY3dncWlweHd6YWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNTYwMTcsImV4cCI6MjEwNTczMjAxN30.jYZF8q8-SyCaWykM0wwcK58EzfTbO2VASKz1NIv1xbo", "build": "beta-0.21", "dataBytes": 3053230};</script>
-<script src="vendor/supabase.js?v=beta-0.21"></script>
-<script src="icons.js?v=beta-0.21"></script>
-<script src="boot.js?v=beta-0.21"></script>
+<script>window.SVBC_CFG={"url": "https://lvaukuzgcwgqipxwzabo.supabase.co", "anon": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2YXVrdXpnY3dncWlweHd6YWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNTYwMTcsImV4cCI6MjEwNTczMjAxN30.jYZF8q8-SyCaWykM0wwcK58EzfTbO2VASKz1NIv1xbo", "build": "beta-0.22", "dataBytes": 3053230};</script>
+<script src="vendor/supabase.js?v=beta-0.22"></script>
+<script src="icons.js?v=beta-0.22"></script>
+<script src="boot.js?v=beta-0.22"></script>
 </body>
 </html>
