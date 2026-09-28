@@ -1,4 +1,4 @@
-window.VEREIN=Object.freeze({"id":"svbsc","marke":"Kaderwerk","texte":{"name":"SV/BSC Mörlenbach","kurz":"SV/BSC","ort":"Mörlenbach","ort_adjektiv":"Mörlenbacher","ort_ascii":"Moerlenbach","schluessel":"moerlenbach","fde_schluessel":"svbscmoerlenbach","website":"sv-moerlenbach.de","vereinsfarben":"Blau-Weiß","kabine_host":"svbsc.albertklee.de","kasse_host":"mannschaftskasse.albertklee.de","app_url":"https://radioodenwald.github.io/svbc-scout/","mail":"svbsc@albertklee.de","mail_alt":"sportzentrale@albertklee.de","fupa_slug":"svbsc-moerlenbach"},"farben":{"brand":"#2f6bff","brand2":"#5b9bff"},"mannschaften":[{"sub":"A","name":"1. Mannschaft","fde":"svbscmoerlenbach"},{"sub":"D2","name":"2. Mannschaft","fde":"svbscmoerlenbachii"}],"personen":{"planer":["Dome","Nico","Ervin"],"planer_start":["Dome","Nico"]},"sportplatz":{"lat":49.5989,"lon":8.7353,"name":"Weschnitztalstadion"},"patch_ab":null});
+window.VEREIN=Object.freeze({"id":"svbsc","marke":"Kaderwerk","texte":{"name":"SV/BSC Mörlenbach","kurz":"SV/BSC","ort":"Mörlenbach","ort_adjektiv":"Mörlenbacher","ort_ascii":"Moerlenbach","schluessel":"moerlenbach","fde_schluessel":"svbscmoerlenbach","website":"sv-moerlenbach.de","vereinsfarben":"Blau-Weiß","kabine_host":"svbsc.albertklee.de","kasse_host":"mannschaftskasse.albertklee.de","app_url":"https://svbsc.kaderwerk.pro/","mail":"svbsc@albertklee.de","mail_alt":"sportzentrale@albertklee.de","fupa_slug":"svbsc-moerlenbach"},"farben":{"brand":"#2f6bff","brand2":"#5b9bff"},"mannschaften":[{"sub":"A","name":"1. Mannschaft","fde":"svbscmoerlenbach"},{"sub":"D2","name":"2. Mannschaft","fde":"svbscmoerlenbachii"}],"personen":{"planer":["Dome","Nico","Ervin"],"planer_start":["Dome","Nico"]},"sportplatz":{"lat":49.5989,"lon":8.7353,"name":"Weschnitztalstadion"},"patch_ab":null});
 /* ================= DATEN ================= */
 const DATA = window.__SVBC_DATA;
 const LIGA_W = {GL:1.55, KOL:1.25, A:1.00, B:0.78, C:0.60, D:0.42};
@@ -2101,7 +2101,7 @@ function openSlotPicker(i,depth){
 }
 
 /* ===== App-Modus: installierbar, offline-fest, aktualisiert sich selbst ===== */
-const APP_BUILD='beta-0.22', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
+const APP_BUILD='beta-0.23', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
 let _appPrompt=null, _appNew=null, _obT=null;
 function appStandalone(){ try{ return !!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
 function appPlatform(){
@@ -14471,6 +14471,1330 @@ function svmPlanErgebnis(p){
   return r; }; }
 
 /* =====================================================================
+   Sportzentrale Beta 0.23 · Rechte je Person, Mannschaften, Jugendtrainer
+   - Rechte kommen vom Server (meine_rechte): Bereiche und Unterbereiche je Person, Rolle als Vorgabe
+   - App blendet aus, was jemand nicht darf; Datenbank prüft dasselbe (can_training, can_scout, Kontakte)
+   - Rechte werden beim Start, alle 5 Minuten und beim Zurückkehren in die App frisch geholt
+   - Admin: je Person Bereiche an und aus schalten, Vorgaben je Rolle, Mannschaft und Funktion
+   - Neue Rolle „Jugendtrainer“: sieht nur die eigene Mannschaft, alles andere schaltet der Admin frei
+   ===================================================================== */
+const SVR={loaded:false,role:null,darf:{},titel:{},parent:{},mann:[],funk:[],kann:{},t:0,sig:''};
+const SVR_TAB={training:'mannschaft',kabine:'mannschaft:abstimmungen',kasse:'kasse',kader:'kader:planung',gespr:'kader:planung',elf:'kader',ejugend:'kader:jugend',sxi:'kader:traumelf',kaderplan:'kader:rollen',
+  scout:'scouting:markt',db:'scouting:markt',blick:'scouting:blick',best:'scouting:beste',bedarf:'scouting:bedarf',kandidaten:'scouting:bedarf',radar:'scouting:radar',gems:'scouting:radar',eye:'scouting:eye',
+  totw:'scouting:totw',jugend:'scouting:ajugend',cmp:'scouting:vergleich',verein:'verein',gegner:'spieltag',play:'wissen',model:'wissen',kpi:'wissen'};
+const SVR_TRV={home:'mannschaft',players:'mannschaft:spieler',bet:'mannschaft:spieler',sessions:'mannschaft:training',games:'mannschaft:spiele',gstat:'mannschaft:spiele',kommend:'mannschaft:spiele',
+  injuries:'mannschaft:verletzungen',urlaub:'mannschaft:abwesenheiten',abw:'mannschaft:abwesenheiten',material:'mannschaft:material',pflege:'mannschaft:massenpflege'};
+const SVR_KBV={abst:'mannschaft:abstimmungen',link:'mannschaft:abstimmungen',kontakte:'mannschaft:kontakte',kasse:'kasse'};
+const SVR_FUNK={haupttrainer:'Haupttrainer',co:'Co-Trainer',betreuer:'Betreuer'};
+const SVR_STUFE={voll:'volle Ausstattung',jugend:'volle Ausstattung',basis:'Basis: ohne Schattenplanung',mini:'Leicht: Anwesenheit und Termine'};
+
+/* Rolle „Jugendtrainer“ in allen Listen */
+SVB.ROLE_T.jugend='Jugendtrainer';
+SV_ROLE_INFO.jugend={t:'Jugendtrainer',d:'Eigene Mannschaft: Kader, Training, Spiele, Entwicklung',yes:['Nur die eigene Mannschaft','Kader, Training und Spiele','Abstimmung per Gruppenlink','Weitere Bereiche schaltet der Admin frei'],no:['Erste Mannschaft, Scouting, Kaderplanung','Kontaktdaten']};
+SV_ROLES.push('jugend'); SV_VORSTAND_INVITE.push('jugend');
+SV_TABBAR.jugend=['home','teams'];
+if(typeof SV_SIDE!=='undefined'){ Object.keys(SV_SIDE).forEach(r=>{ const L=SV_SIDE[r]; if(L.includes('Mannschaften'))return; const i=L.indexOf('Mannschaft'); L.splice(i<0?1:i+1,0,'Mannschaften'); });
+  SV_SIDE.jugend=['Übersicht','Mannschaften','Verein','Wissen','Verwaltung']; }
+if(typeof SV_AUF_STD!=='undefined')SV_AUF_STD.jugend=[];
+SV_TBL.teams=['users','Teams'];
+Object.assign(SV_PAGES,{teams:['Mannschaften','Zweite und Jugend: Kader, Training, Spiele, Abstimmung und Entwicklung je Mannschaft']});
+
+/* ---------- Laden und Zwischenspeicher ---------- */
+function svrKey(){ return 'svbc-rechte-'+((window.__SVBC_USER||{}).id||SVU.id||''); }
+function svrApply(d){
+  if(!d||!d.role)return false;
+  SVR.role=d.role; SVR.darf={}; SVR.titel={}; SVR.parent={};
+  (d.bereiche||[]).forEach(b=>{ SVR.darf[b.key]=!!b.darf; SVR.titel[b.key]=b.titel; SVR.parent[b.key]=b.parent||null; });
+  SVR.mann=d.mannschaften||[]; SVR.funk=d.funktionen||[]; SVR.kann=d.kann||{}; SVR.t=Date.now(); SVR.loaded=true;
+  const sig=JSON.stringify([SVR.role,SVR.darf,SVR.kann,SVR.funk]); const alt=SVR.sig; SVR.sig=sig; return alt&&alt!==sig;
+}
+try{ const c=JSON.parse(localStorage.getItem(svrKey())||'null'); if(c&&c.role===((window.__SVBC_USER||{}).role))svrApply(c); }catch(e){}
+let _svrBusy=null;
+async function svrLoad(force){
+  if(_svrBusy)return _svrBusy; if(!force&&Date.now()-SVR.t<60000&&SVR.loaded)return;
+  _svrBusy=(async()=>{
+    const vorher={kann:Object.assign({},SVR.kann),loaded:SVR.loaded,darf:Object.assign({},SVR.darf)};
+    const {data,error}=await SVB.sb.rpc('meine_rechte'); if(error)throw error;
+    const neu=svrApply(data);
+    try{ localStorage.setItem(svrKey(),JSON.stringify(data)); }catch(e){}
+    if(!vorher.loaded||neu)svrNachAenderung(vorher);
+  })().catch(e=>{ if(!/meine_rechte|function|schema/i.test(String(e&&e.message)))console.warn('Rechte',e); }).finally(()=>{ _svrBusy=null; });
+  return _svrBusy;
+}
+function svrNachAenderung(vorher){
+  try{ sv4NavVis(); }catch(e){} try{ svBuildTabbar(); }catch(e){}
+  try{ document.querySelectorAll('[data-tab="teams"],[data-sheet="teams"]').forEach(b=>b.style.display=svTabAllowed('teams')?'':'none'); sv4NavVis(); }catch(e){}
+  try{ const cur=svCurTab(); if(cur&&cur!=='home'&&!svTabAllowed(cur))goTab('home'); else if(cur==='training'||cur==='kabine')sv4HubBar(cur); }catch(e){}
+  // Neue Fähigkeiten brauchen Daten, die beim Start nicht geladen wurden: einmal sauber neu laden
+  const dazu=vorher.loaded&&(['training','scout','jugend','erste'].some(k=>SVR.kann[k]&&!vorher.kann[k]));
+  if(dazu)svrHinweis();
+}
+function svrHinweis(){
+  if(document.getElementById('svrNeu'))return;
+  const d=document.createElement('div'); d.id='svrNeu'; d.className='svr-neu';
+  d.innerHTML=`<span>${SVI('shield')} Du hast neue Bereiche freigeschaltet bekommen.</span><button class="btn sm" type="button">Jetzt laden</button>`;
+  document.body.appendChild(d); d.querySelector('button').onclick=()=>{ try{ appReload(); }catch(e){ location.reload(); } };
+}
+function svDarf(k){ if(!SVR.loaded)return null; if(SVR.role==='admin')return true; return Object.prototype.hasOwnProperty.call(SVR.darf,k)?SVR.darf[k]:null; }
+function svrTeams(){ if(!SVR.loaded)return []; return SVR.mann.filter(m=>m.id!=='h1'&&svDarf('team:'+m.id)); }
+function svrTeamsAny(){ return svrTeams().length>0; }
+function svrFunk(mid){ const f=SVR.funk.find(x=>x.mannschaft===mid); return f?f.funktion:null; }
+
+/* ---------- App-Prüfungen an den Server angleichen ---------- */
+{ const _ct=canTraining; canTraining=function(){ if(SVR.loaded&&SVR.kann&&'training' in SVR.kann)return !!SVR.kann.training; return svRole()==='jugend'?false:_ct.apply(this,arguments); }; }
+{ const _cs=canScout; canScout=function(){ if(SVR.loaded&&SVR.kann&&'scout' in SVR.kann)return !!SVR.kann.scout; return svRole()==='jugend'?false:_cs.apply(this,arguments); }; }
+{ const _sj=sv4Jugend; sv4Jugend=function(){ if(SVR.loaded&&SVR.kann&&'jugend' in SVR.kann)return !!SVR.kann.jugend; return _sj.apply(this,arguments); }; }
+{ const _kx=kxOk; kxOk=function(){ if(SVR.loaded&&SVR.kann&&'kontakte' in SVR.kann)return !!SVR.kann.kontakte; return _kx.apply(this,arguments); }; }
+{ const _ta=svTabAllowed; svTabAllowed=function(t){
+  if(t==='teams')return svrTeamsAny();
+  const r=_ta.apply(this,arguments);
+  if(t==='admin'||t==='home')return r;
+  if(!SVR.loaded)return svRole()==='jugend'?false:r;
+  if(SVR.role==='admin')return r;
+  if(t==='ejugend')return !!SVR.kann.jugend;
+  const b=SVR_TAB[t]; if(!b)return svRole()==='jugend'?false:r;
+  const d=svDarf(b); if(d===null)return r; if(!d)return false;
+  if(b.startsWith('mannschaft'))return !!SVR.kann.training;
+  if(b.startsWith('kader'))return !!SVR.kann.scout;
+  if(['scouting:blick','scouting:bedarf','scouting:radar','scouting:eye','scouting:totw','scouting:ajugend'].includes(b))return !!SVR.kann.scout||r;
+  return true;
+}; }
+function svrSubOk(k){
+  const [t,v]=String(k).split(':'); if(!SVR.loaded||SVR.role==='admin')return true;
+  const b=t==='training'?(SVR_TRV[v]||'mannschaft'):t==='kabine'?(SVR_KBV[v]||'mannschaft:abstimmungen'):null;
+  if(!b)return svTabAllowed(t);
+  const d=svDarf(b); return d===null?true:d;
+}
+{ const _hb=sv4HubBar; sv4HubBar=function(tab){ const r=_hb.apply(this,arguments);
+  try{ const bar=document.getElementById('hubbar'); if(bar&&SVR.loaded)bar.querySelectorAll('[data-hub]').forEach(b=>{ if(!svrSubOk(b.dataset.hub))b.remove(); }); }catch(e){}
+  return r; }; }
+{ const _go=sv4Go; sv4Go=function(k){ if(!svrSubOk(k)){ kToast('Dieser Bereich ist für dich nicht freigeschaltet'); return; } return _go.apply(this,arguments); }; }
+{ const _tr=trRender; trRender=function(){
+  try{ if(SVR.loaded&&typeof TR!=='undefined'&&!svrSubOk('training:'+(TR.view||'home'))){ const erst=Object.keys(SVR_TRV).find(v=>v!=='home'&&svrSubOk('training:'+v)); if(erst)TR.view=erst; } }catch(e){}
+  return _tr.apply(this,arguments); }; }
+{ const _kr=typeof kbRender==='function'?kbRender:null; if(_kr)kbRender=function(){
+  try{ if(SVR.loaded&&typeof KB!=='undefined'&&!svrSubOk('kabine:'+(KB.view||'abst'))){ if(KB.view!=='kasse'&&svrSubOk('training:players')){ TR.view='players'; return goTab('training'); } } }catch(e){}
+  return _kr.apply(this,arguments); }; }
+
+/* ---------- Start, regelmäßig, beim Zurückkehren ---------- */
+{ const _si=svInit; svInit=function(){
+  const r=_si.apply(this,arguments);
+  try{ if(svRole()==='jugend'){ document.body.classList.add('role-jugend'); } svrNachAenderung({kann:SVR.kann,loaded:false}); }catch(e){}
+  svrLoad(true);
+  setInterval(()=>{ if(document.visibilityState==='visible')svrLoad(true); },300000);
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible')svrLoad(false); });
+  return r; }; }
+
+/* ---------- Übersicht: eigene Mannschaften als erste Kachel ---------- */
+function svrHomeTeams(){
+  const home=document.getElementById('panel-home'); if(!home)return; let box=document.getElementById('svrMeine');
+  const meine=SVR.loaded?SVR.funk.map(f=>Object.assign({},SVR.mann.find(m=>m.id===f.mannschaft)||{},{funktion:f.funktion})).filter(m=>m.id&&m.id!=='h1'):[];
+  if(!meine.length){ if(box)box.remove(); return; }
+  if(!box){ box=document.createElement('div'); box.id='svrMeine'; box.className='card svr-meine'; const ck=document.getElementById('svCockpit'); if(ck)ck.after(box); else home.prepend(box); }
+  box.innerHTML=`<h3 class="trh">${SVI('users')} Deine Mannschaft${meine.length>1?'en':''}</h3><div class="svr-mgrid">${meine.map(m=>`<button type="button" class="svr-m" data-svrm="${svEsc(m.id)}"><b>${svEsc(m.kurz)}</b><span>${svEsc(m.name)}</span><em>${svEsc(SVR_FUNK[m.funktion]||'')}</em></button>`).join('')}</div>`;
+  box.querySelectorAll('[data-svrm]').forEach(b=>b.onclick=()=>{ if(typeof svtOpen==='function')svtOpen(b.dataset.svrm); else goTab('teams'); });
+}
+{ const _rh=renderHome; renderHome=function(){ const r=_rh.apply(this,arguments); try{ svrHomeTeams(); }catch(e){} return r; }; }
+{ const _l=svrApply; svrApply=function(){ const r=_l.apply(this,arguments); try{ if(svCurTab()==='home')svrHomeTeams(); }catch(e){} return r; }; }
+
+/* ---------- Admin: Einladen mit Mannschaft und Funktion ---------- */
+{ const _ar=svAdminRender; svAdminRender=async function(){
+  const r=await _ar.apply(this,arguments);
+  try{ await svrAdminExtras(); }catch(e){ console.warn('Rechte-Verwaltung',e); }
+  return r; }; }
+async function svrAdminExtras(){
+  const P=document.getElementById('panel-admin'); if(!P||!canManage())return;
+  if(!SVR.loaded)await svrLoad(true);
+  const f=P.querySelector('#svInv');
+  if(f&&!f.querySelector('.svr-inv')){
+    const rs=f.querySelector('#svInvRole'), d=document.createElement('div'); d.className='svr-inv';
+    const mOpts=SVR.mann.filter(m=>m.id!=='h1').map(m=>`<option value="${svEsc(m.id)}">${svEsc(m.name)}</option>`).join('');
+    d.innerHTML=`<div><label for="svInvTeam">Mannschaft</label><select id="svInvTeam"><option value="">keine</option>${mOpts}</select></div>
+      <div><label for="svInvFunk">Funktion</label><select id="svInvFunk">${Object.entries(SVR_FUNK).map(([k,t])=>`<option value="${k}">${svEsc(t)}</option>`).join('')}</select></div>`;
+    rs.closest('div').after(d);
+    const sync=()=>{ d.classList.toggle('pflicht',rs.value==='jugend'); };
+    rs.addEventListener('change',sync); sync();
+    // Absenden: Mannschaft und Funktion mitschicken (die Nutzerverwaltung trägt sie gleich ein)
+    const go=f.onsubmit; f.onsubmit=async e=>{
+      const team=f.querySelector('#svInvTeam').value, funk=f.querySelector('#svInvFunk').value;
+      if(rs.value==='jugend'&&!team){ e.preventDefault(); kToast('Bitte die Mannschaft wählen'); return; }
+      SVR._inv=team?{mannschaft:team,funktion:funk}:null; return go.call(f,e);
+    };
+  }
+  // Pro Person: Knopf „Bereiche“ (nur Admin, nicht für Admins selbst)
+  if(isAdmin())P.querySelectorAll('.urow[data-u]').forEach(row=>{ const u=(SV_USERS||[]).find(x=>x.id===row.dataset.u); if(!u||u.role==='admin'||row.querySelector('[data-svrb]'))return;
+    const b=document.createElement('button'); b.type='button'; b.className='iconbtn'; b.dataset.svrb=u.id; b.title='Bereiche und Mannschaften'; b.innerHTML=SVI('layers');
+    const acts=row.querySelector('.acts'); if(acts)acts.prepend(b); b.onclick=()=>svrPerson(u.id); });
+  // Mannschaften und Vorgaben
+  if(!P.querySelector('#svrTeamsCard')){ const c=document.createElement('div'); c.className='card'; c.id='svrTeamsCard'; const team=[...P.querySelectorAll('.card')][1]; if(team)team.after(c); else P.appendChild(c); }
+  await svrTeamsCard();
+  if(isAdmin()&&!P.querySelector('#svrVorgCard')){ const c=document.createElement('div'); c.className='card'; c.id='svrVorgCard'; P.querySelector('#svrTeamsCard').after(c); svrVorgCard(); }
+}
+{ const _adm=SVB.admin; SVB.admin=async function(action,payload){ if(action==='invite'&&SVR._inv){ payload=Object.assign({},payload,SVR._inv); SVR._inv=null; } return _adm.call(this,action,payload); }; }
+
+/* Mannschaften: wer ist wo Trainer, Co-Trainer, Betreuer */
+let SVR_MP=null;
+async function svrTeamsCard(){
+  const c=document.getElementById('svrTeamsCard'); if(!c)return;
+  const {data,error}=await SVB.sb.from('mannschaft_personen').select('mannschaft,user_id,funktion'); if(error){ c.innerHTML=`<div class="empty">Mannschaften konnten nicht geladen werden.</div>`; return; }
+  SVR_MP=data||[]; const nm=id=>{ const u=(SV_USERS||[]).find(x=>x.id===id); return u?(u.name||u.email):'?'; };
+  const teams=SVR.mann.filter(m=>m.id!=='h1');
+  c.innerHTML=`<div class="adm-head"><div><h3 style="margin:0">Mannschaften</h3><p class="note" style="margin:6px 0 0">Wer in einer Mannschaft eingetragen ist, sieht deren Bereich. Zwei Haupttrainer sind möglich. Neue Jugendtrainer lädst du oben mit der Rolle „Jugendtrainer“ ein.</p></div></div>
+    <div class="svr-teams">${teams.map(m=>{ const L=SVR_MP.filter(x=>x.mannschaft===m.id).sort((a,b)=>Object.keys(SVR_FUNK).indexOf(a.funktion)-Object.keys(SVR_FUNK).indexOf(b.funktion));
+      return `<div class="svr-team"><div class="svr-th"><b>${svEsc(m.kurz)}</b><span>${svEsc(m.name)}</span><em>${svEsc(SVR_STUFE[m.stufe]||'')}</em></div>
+        <div class="svr-tp">${L.map(x=>`<span class="svr-p"><i>${svEsc(SVR_FUNK[x.funktion])}</i>${svEsc(nm(x.user_id))}<button type="button" data-svrx="${svEsc(m.id)}|${svEsc(x.user_id)}" aria-label="Austragen" title="Austragen">✕</button></span>`).join('')||'<span class="note small">noch niemand</span>'}
+        <button type="button" class="svr-add" data-svradd="${svEsc(m.id)}">${SVI('plus')} Person</button></div></div>`; }).join('')}</div>`;
+  c.querySelectorAll('[data-svrx]').forEach(b=>b.onclick=async()=>{ const [m,u]=b.dataset.svrx.split('|'); await svrMpSet(u,m,null); });
+  c.querySelectorAll('[data-svradd]').forEach(b=>b.onclick=()=>svrMpAdd(b.dataset.svradd));
+}
+async function svrMpSet(user,team,funk){
+  const {error}=await SVB.sb.rpc('admin_mannschaft_person',{p_user:user,p_mannschaft:team,p_funktion:funk});
+  if(error){ kToast('⚠️ '+String(error.message||error)); return false; }
+  kToast(funk?'✓ Eingetragen':'Ausgetragen'); await svrTeamsCard(); if(user===SVU.id)svrLoad(true); return true;
+}
+function svrMpAdd(team){
+  const m=SVR.mann.find(x=>x.id===team)||{}; const leute=(SV_USERS||[]).filter(u=>u.active);
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">${svEsc(m.name||'')}: Person eintragen</h2><div class="msub">Die Person sieht danach den Bereich dieser Mannschaft. Wer noch keinen Zugang hat, wird oben mit der Rolle „Jugendtrainer“ eingeladen.</div></div></div>
+    <div class="editgrid" style="grid-template-columns:1fr 1fr"><div class="field"><label>Person</label><select id="svrP">${leute.map(u=>`<option value="${svEsc(u.id)}">${svEsc(u.name||u.email)}</option>`).join('')}</select></div>
+    <div class="field"><label>Funktion</label><select id="svrF">${Object.entries(SVR_FUNK).map(([k,t])=>`<option value="${k}">${svEsc(t)}</option>`).join('')}</select></div></div>
+    <div class="btnrow sbact"><button class="btn" id="svrOk">Eintragen</button><button class="btn ghost" id="svrNo">Abbrechen</button></div>`);
+  M.querySelector('#svrNo').onclick=()=>closeOverlay();
+  M.querySelector('#svrOk').onclick=async()=>{ if(await svrMpSet(M.querySelector('#svrP').value,team,M.querySelector('#svrF').value))closeOverlay(); };
+}
+
+/* Bereiche einer Person: ein Schalter je Bereich. Grau hinterlegt = wie die Rolle, farbig = Ausnahme */
+async function svrPerson(id){
+  const u=(SV_USERS||[]).find(x=>x.id===id)||{};
+  const M=svModal(`<div class="mhead"><div class="uav r-${svEsc(u.role||'')}" style="width:46px;height:46px;border-radius:14px">${svEsc(svIni(u.name||u.email||''))}</div><div><h2 style="margin:0">Bereiche von ${svEsc(svFirst(u.name)||u.email||'')}</h2><div class="msub">Rolle: ${svEsc((SV_ROLE_INFO[u.role]||{}).t||u.role||'')}. Schalter an oder aus. Was von der Rolle abweicht, ist markiert und lässt sich zurücksetzen.</div></div></div><div id="svrPB"><div class="note">Lade …</div></div>`);
+  const B=M.querySelector('#svrPB'); let D=null;
+  const laden=async()=>{ const {data,error}=await SVB.sb.rpc('admin_rechte',{p_user:id}); if(error){ B.innerHTML='<div class="empty">'+svEsc(error.message)+'</div>'; return; } D=data; zeichnen(); };
+  const by=()=>Object.fromEntries((D.bereiche||[]).map(b=>[b.key,b]));
+  const ohneEigene=(k)=>{ const X=by(); let p=X[k]&&X[k].parent; while(p){ if(X[p]&&X[p].ausnahme!==null&&X[p].ausnahme!==undefined)return X[p].ausnahme; p=X[p]&&X[p].parent; } return X[k].team?true:!!X[k].vorgabe; };
+  const eff=(k)=>{ const X=by(); return X[k].ausnahme!==null&&X[k].ausnahme!==undefined?X[k].ausnahme:ohneEigene(k); };
+  function zeile(b,sub){ const e=eff(b.key), aus=b.ausnahme!==null&&b.ausnahme!==undefined;
+    return `<div class="svr-row${sub?' sub':''}${aus?' abw':''}"><div class="svr-rt"><b>${svEsc(b.titel)}</b>${b.hinweis&&!sub?`<span>${svEsc(b.hinweis)}</span>`:''}${b.team?'<span class="svr-tag">in der Mannschaft eingetragen</span>':''}${aus?`<button type="button" class="svr-reset" data-svrr="${svEsc(b.key)}">wie Rolle</button>`:''}</div>
+      <button type="button" class="svr-sw${e?' on':''}" role="switch" aria-checked="${e}" aria-label="${svEsc(b.titel)}" data-svrs="${svEsc(b.key)}"><i></i></button></div>`; }
+  function zeichnen(){
+    const L=D.bereiche||[], top=L.filter(b=>!b.parent);
+    B.innerHTML=`<div class="svr-list">${top.map(t=>{ const kids=L.filter(b=>b.parent===t.key);
+      return `<div class="svr-grp">${zeile(t,false)}${kids.length?`<details class="svr-kids"${t.key==='mannschaften'||kids.some(k=>k.ausnahme!==null&&k.ausnahme!==undefined)?' open':''}><summary>${t.key==='mannschaften'?kids.length+' Mannschaften':kids.length+' Unterbereiche'}</summary>${kids.map(k=>zeile(k,true)).join('')}</details>`:''}</div>`; }).join('')}</div>
+      <p class="note small">Änderungen gelten sofort. Die Person sieht sie spätestens nach 5 Minuten oder beim nächsten Öffnen der App.</p>`;
+    B.querySelectorAll('[data-svrs]').forEach(s=>s.onclick=async()=>{ const k=s.dataset.svrs, neu=!eff(k), wieRolle=neu===ohneEigene(k);
+      s.disabled=true; const {error}=await SVB.sb.rpc('admin_zugriff_set',{p_user:id,p_bereich:k,p_an:wieRolle?null:neu});
+      if(error){ kToast('⚠️ '+error.message); s.disabled=false; return; } await laden(); });
+    B.querySelectorAll('[data-svrr]').forEach(s=>s.onclick=async()=>{ const {error}=await SVB.sb.rpc('admin_zugriff_set',{p_user:id,p_bereich:s.dataset.svrr,p_an:null}); if(error)kToast('⚠️ '+error.message); await laden(); });
+  }
+  laden();
+}
+
+/* Vorgaben: welche Rollen einen Bereich ohne Ausnahme haben. Neue Bereiche starten mit Vorstand (Admin hat immer alles) */
+async function svrVorgCard(){
+  const c=document.getElementById('svrVorgCard'); if(!c)return;
+  const {data,error}=await SVB.sb.from('bereiche').select('key,titel,parent,sort,vorgabe').order('sort');
+  if(error){ c.innerHTML='<div class="empty">Bereiche konnten nicht geladen werden.</div>'; return; }
+  const R=[['vorstand','Vorstand'],['planer','Planer'],['trainer','Trainer'],['viewer','Gast'],['jugend','Jugend']];
+  const top=(data||[]).filter(b=>!b.parent&&b.key!=='mannschaften'), kids=k=>(data||[]).filter(b=>b.parent===k);
+  const row=(b,sub)=>`<tr class="${sub?'sub':''}"><th>${svEsc(b.titel)}</th>${R.map(([r])=>`<td><input type="checkbox" aria-label="${svEsc(b.titel)}: ${r}" data-svrv="${svEsc(b.key)}|${r}"${(b.vorgabe||[]).includes(r)?' checked':''}></td>`).join('')}</tr>`;
+  c.innerHTML=`<details class="svr-vorg"><summary><h3 style="margin:0;display:inline">Vorgaben je Rolle</h3> <span class="note small">Was jede Rolle ohne Ausnahme sieht. Neue Bereiche bekommen automatisch nur Admin und Vorstand.</span></summary>
+    <div class="svr-tw"><table class="svr-vt"><thead><tr><th>Bereich</th>${R.map(([,t])=>`<th>${t}</th>`).join('')}</tr></thead><tbody>${top.map(b=>row(b,false)+kids(b.key).map(k=>row(k,true)).join('')).join('')}</tbody></table></div></details>`;
+  c.querySelectorAll('[data-svrv]').forEach(x=>x.onchange=async()=>{ const [k]=x.dataset.svrv.split('|');
+    const rollen=[...c.querySelectorAll(`[data-svrv^="${k}|"]`)].filter(y=>y.checked).map(y=>y.dataset.svrv.split('|')[1]);
+    const {error}=await SVB.sb.rpc('admin_bereich_vorgabe',{p_bereich:k,p_rollen:rollen}); if(error){ kToast('⚠️ '+error.message); x.checked=!x.checked; return; } kToast('✓ Vorgabe gespeichert'); });
+}
+
+/* =====================================================================
+   Sportzentrale Beta 0.24 · Teambereich für die Zweite und alle Jugendmannschaften
+   - Je Mannschaft: Kader je Saison, Termine mit Anwesenheit und Eindruck, Aufstellung, Statistik, Entwicklung, Abstimmung
+   - Stufen: volle Ausstattung (Zweite, A bis C), Basis (D, E: Aufstellung für 7er und 9er), Leicht (F, G, Minikicker)
+   - Akte je Spieler über alle Jahre, Ehemalige wiederfinden, „Für KI kopieren“ ohne Namen
+   - Abstimmung per Gruppenlink: Eltern tippen den Namen des Kindes. Keine Nummern oder Mails von Kindern.
+   ===================================================================== */
+const SVT={team:null,saison:null,view:null,K:[],T:[],A:[],R:[],E:[],busy:false,t:0,sel:null};
+const SVT_V={
+  voll:[['kader','Kader'],['termine','Termine'],['aufstellung','Aufstellung'],['statistik','Statistik'],['entwicklung','Entwicklung'],['abstimmung','Abstimmung']],
+  basis:[['kader','Kader'],['termine','Termine'],['aufstellung','Aufstellung'],['statistik','Statistik'],['entwicklung','Entwicklung'],['abstimmung','Abstimmung']],
+  mini:[['kader','Kinder'],['termine','Termine'],['abstimmung','Abstimmung'],['entwicklung','Übungen']]};
+SVT_V.jugend=SVT_V.voll;
+const SVT_GRUND={krank:'krank',verletzt:'verletzt',urlaub:'Urlaub',schule:'Schule',privat:'privat',ohne:'ohne Grund'};
+const SVT_ART={training:'Training',spiel:'Spiel',turnier:'Turnier',sonst:'Termin'};
+const SVT_THEMA={technik:'Technik',taktik:'Taktik',athletik:'Athletik & Koordination',mental:'Kopf & Einstellung',torwart:'Torwart',sozial:'Team & Verhalten'};
+const SVT_WERTE=[['technik','Technik'],['taktik','Spielverständnis'],['athletik','Athletik'],['einsatz','Trainingsfleiß'],['sozial','Teamverhalten'],['potenzial','Potenzial']];
+const SVT_FORM={11:['4-4-2','4-3-3','4-2-3-1','3-5-2','5-3-2'],9:['3-3-2','3-2-3','2-4-2'],7:['2-3-1','3-2-1','2-2-2']};
+
+/* Übungskatalog: offizielle Quellen (DFB, fussball.de Training & Service), passend zur Altersklasse */
+const SVT_ORD={h:'aktiver-ue-20',a:'a-juniorin',b:'b-juniorin',c:'c-juniorin',d:'d-juniorin',e:'e-juniorin',f:'f-juniorin',g:'bambini',m:'bambini'};
+const SVT_TS='https://training-service.fussball.de/trainer/';
+const SVT_KAT=[
+  {k:'passen-f',t:'technik',n:'Die Grundlagen des Passspiels erlernen',ak:'fgm',u:SVT_TS+'f-juniorin/training-online/trainingseinheiten-detail/die-grundlagen-des-passspiels-erlernen-727/'},
+  {k:'passen-e',t:'technik',n:'Präzise passen, sicher kombinieren',ak:'ed',u:SVT_TS+'e-juniorin/training-online/trainingseinheiten-detail/praezise-passen-sicher-kombinieren-2263/'},
+  {k:'passen-b',t:'technik',n:'Passspiel auf engem Raum, aus Drucksituationen lösen',ak:'cbah',u:SVT_TS+'b-juniorin/training-online/trainingseinheiten-detail/spielerisch-aus-drucksituation-loesen-passspiel-auf-engem-raum-2388/'},
+  {k:'dribbling-e',t:'technik',n:'Dribbling im 1 gegen 1',ak:'fed',u:SVT_TS+'e-juniorin/training-online/trainingseinheiten-detail/dribbling-im-1-gegen-1-69/'},
+  {k:'technik-a',t:'technik',n:'Technik für jedermann',ak:'bah',u:SVT_TS+'a-juniorin/artikel/dfb-training-online-technik-fuer-jedermann-3134/'},
+  {k:'torschuss-e',t:'technik',n:'Mit Torschuss-Wettbewerben Lust aufs Toreschießen wecken',ak:'fedc',u:'https://www.dfb.de/trainer/e-juniorin/training-online/trainingseinheiten-detail/mit-torschuss-wettbewerben-lust-auf-die-saison-wecken-87/'},
+  {k:'kopfball-d',t:'technik',n:'Erlernen des Kopfballspiels (altersgerecht, mit leichtem Ball)',ak:'dcb',u:SVT_TS+'d-juniorin/training-online/trainingseinheiten-detail/erlernen-des-kopfballspiels-172/'},
+  {k:'kopfball-regeln',t:'technik',n:'Kopfball: Empfehlungen der DFB-Kommission je Altersklasse',ak:'mgfedcbah',u:'https://www.fussball.de/newsdetail/kopfball-empfehlungen-der-dfb-kommission/-/article-id/264587'},
+  {k:'kopfball-dfb',t:'technik',n:'Kopfballspiel: Infos, Tipps und Übungen (DFB)',ak:'dcbah',u:'https://www.dfb.de/content/kopfballspiel'},
+  {k:'doppeln-c',t:'taktik',n:'Den Gegner stellen und richtig doppeln',ak:'cbah',u:SVT_TS+'c-juniorin/training-online/trainingseinheiten-detail/den-gegner-stellen-und-richtig-doppeln-2503/'},
+  {k:'koordination-d',t:'athletik',n:'Koordination und Schnelligkeit schulen',ak:'ed',u:SVT_TS+'d-juniorin/training-online/trainingseinheiten-detail/koordination-und-schnelligkeit-schulen-2372/'},
+  {k:'koordination-c',t:'athletik',n:'Koordination im Mannschaftstraining',ak:'cb',u:SVT_TS+'c-juniorin/training-online/trainingseinheiten-detail/die-koordination-im-mannschaftstraining-schulen-2546/'},
+  {k:'kraft-a',t:'athletik',n:'Kleine Spiele mit Koordination und Kraft verbinden',ak:'ah',u:SVT_TS+'a-juniorin/training-online/trainingseinheiten-detail/kleine-spiele-mit-koordination-und-kraft-verbinden-321/'},
+  {k:'schnell-h',t:'athletik',n:'Schnelligkeit mit Ball',ak:'h',u:SVT_TS+'aktiver-ue-20/training-online/trainingseinheiten-detail/schnelligkeit-mit-ball-2419/'},
+  {k:'tw-f',t:'torwart',n:'In Turnieren das Torwartspiel ausprobieren',ak:'fgm',u:SVT_TS+'f-juniorin/training-online/trainingseinheiten-detail/in-turnieren-das-torwartspiel-ausprobieren-2478/'},
+  {k:'tw-d',t:'torwart',n:'Technisch-taktisches Torhütertraining beginnen',ak:'dcbah',u:SVT_TS+'d-juniorin/artikel/technisch-taktisches-torhuetertraining-beginnen-2298/'},
+  {k:'kinder-spielformen',t:'sozial',n:'Die neuen Spielformen im Kinderfußball (Funino, 3 gegen 3)',ak:'mgfe',u:SVT_TS+'f-juniorin/artikel/die-neuen-spielformen-im-kinderfussball-3484/'},
+  {k:'kinder-dfb',t:'sozial',n:'Kinderfußball: Spielformen in G-, F- und E-Jugend (DFB)',ak:'mgfe',u:'https://www.dfb.de/mehr-fussball/kinderfussball'}
+];
+function svtAk(m){ return m==='mini'?'m':String(m||'')[0]; }
+function svtKat(m){ const a=svtAk(m); return SVT_KAT.filter(x=>x.ak.includes(a)); }
+function svtEinheiten(m){ return SVT_TS+(SVT_ORD[svtAk(m)]||'c-juniorin')+'/training-online/'; }
+
+/* ---------- Grundlagen ---------- */
+function svtSaisonJetzt(){ const d=new Date(), y=d.getFullYear()%100, s=d.getMonth()+1>=7?y:y-1; return String(s).padStart(2,'0')+String((s+1)%100).padStart(2,'0'); }
+function svtSaisonAdd(s,n){ const a=(+s.slice(0,2)+n+100)%100; return String(a).padStart(2,'0')+String((a+1)%100).padStart(2,'0'); }
+function svtSL(s){ return '20'+s.slice(0,2)+'/'+s.slice(2); }
+function svtM(id){ return (SVR.mann||[]).find(m=>m.id===id)||{id,name:id,kurz:id,stufe:'voll'}; }
+function svtStufe(){ const s=svtM(SVT.team).stufe; return s==='mini'?'mini':s==='basis'?'basis':'voll'; }
+function svtSpieler(n){ return n?(n.vorname+' '+n.nachname):''; }
+function svtHeute(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function svtAddD(iso,n){ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+function svtDat(iso,lang){ try{ return new Date(iso+'T12:00:00').toLocaleDateString('de-DE',lang?{weekday:'long',day:'numeric',month:'long'}:{weekday:'short',day:'2-digit',month:'2-digit'}); }catch(e){ return iso; } }
+function svtErr(e){ kToast('⚠️ '+String((e&&e.message)||e)); }
+async function svtRpc(fn,args){ const {data,error}=await SVB.sb.rpc(fn,args); if(error)throw error; return data; }
+function svtPanel(){ let P=document.getElementById('panel-teams'); if(P)return P;
+  const ref=document.getElementById('panel-training')||document.querySelector('.panel'); if(!ref)return null;
+  P=document.createElement('section'); P.className='panel'; P.id='panel-teams'; ref.parentNode.insertBefore(P,ref.nextSibling); return P; }
+{ const _gt=goTab; goTab=function(tab){ if(tab==='teams')svtPanel(); const r=_gt.apply(this,arguments); try{ if(svCurTab()==='teams')svtRender(); }catch(e){ console.warn('Teams',e); } return r; }; }
+function svtOpen(id){ SVT.team=id; SVT.view=null; SVT.t=0; goTab('teams'); }
+
+async function svtLoad(force){
+  if(!SVT.team)return; if(SVT.busy)return; if(!force&&SVT.t&&Date.now()-SVT.t<30000&&SVT._k===SVT.team+SVT.saison)return;
+  SVT.busy=true;
+  try{
+    const sb=SVB.sb, m=SVT.team, s=SVT.saison;
+    const [k,t]=await Promise.all([sb.from('team_kader').select('*,vereinsspieler(*)').eq('mannschaft',m).eq('saison',s),
+      sb.from('team_termine').select('*').eq('mannschaft',m).eq('saison',s).order('datum').order('zeit')]);
+    if(k.error)throw k.error; if(t.error)throw t.error;
+    SVT.K=(k.data||[]).filter(x=>x.vereinsspieler).sort((a,b)=>(a.status==='abgang')-(b.status==='abgang')||(a.nr||99)-(b.nr||99)||svtSpieler(a.vereinsspieler).localeCompare(svtSpieler(b.vereinsspieler),'de'));
+    SVT.T=t.data||[];
+    const ids=SVT.T.map(x=>x.id), A=[], R=[];
+    for(let i=0;i<ids.length;i+=60){ const part=ids.slice(i,i+60);
+      const [a,r]=await Promise.all([sb.from('team_anwesenheit').select('*').in('termin',part),sb.from('team_rueckmeldung').select('*').in('termin',part)]);
+      if(a.error)throw a.error; if(r.error)throw r.error; A.push(...(a.data||[])); R.push(...(r.data||[])); }
+    SVT.A=A; SVT.R=R;
+    const sp=SVT.K.map(x=>x.spieler); if(sp.length){ const e=await sb.from('entwicklung').select('*').in('spieler',sp).order('erstellt_am',{ascending:false}); SVT.E=e.error?[]:(e.data||[]); } else SVT.E=[];
+    SVT.t=Date.now(); SVT._k=m+s;
+  }catch(e){ console.warn('Teams laden',e); SVT.err=String(e.message||e); }
+  finally{ SVT.busy=false; }
+}
+
+/* Kennzahlen je Spieler für die Saison */
+function svtStat(sid){
+  const heute=svtHeute(), tr=SVT.T.filter(t=>t.art==='training'&&!t.abgesagt&&t.datum<=heute), trIds=new Set(tr.map(t=>t.id));
+  const erfasst=new Set(SVT.A.filter(a=>trIds.has(a.termin)).map(a=>a.termin));
+  const my=SVT.A.filter(a=>a.spieler===sid), inTr=my.filter(a=>erfasst.has(a.termin));
+  const da=inTr.filter(a=>a.status!=='weg').length, spaet=inTr.filter(a=>a.status==='spaet').length, ohne=inTr.filter(a=>a.status==='weg'&&a.grund==='ohne').length;
+  const sp=new Set(SVT.T.filter(t=>t.art!=='training').map(t=>t.id)), einsatz=my.filter(a=>sp.has(a.termin)&&['start','ein'].includes(a.einsatz)).length;
+  const tore=my.reduce((s,a)=>s+(a.tore||0),0), ein=my.filter(a=>a.eindruck), avg=ein.length?ein.reduce((s,a)=>s+a.eindruck,0)/ein.length:null;
+  // Trend: letzte 6 erfassten Trainings
+  const letzte=[...erfasst].map(id=>SVT.T.find(t=>t.id===id)).sort((a,b)=>b.datum.localeCompare(a.datum)).slice(0,6).map(t=>t.id);
+  const l6=letzte.length?letzte.filter(id=>my.some(a=>a.termin===id&&a.status!=='weg')).length/letzte.length:null;
+  return {n:erfasst.size,da,spaet,ohne,quote:erfasst.size?da/erfasst.size:null,einsatz,tore,avg,nEin:ein.length,l6};
+}
+function svtEinChip(avg){ if(avg==null)return '<span class="svt-e n">–</span>'; const c=avg<=2.4?'p':avg>=4.5?'m':'o'; return `<span class="svt-e ${c}" title="Ø Eindruck ${avg.toFixed(1)}">${c==='p'?'+':c==='m'?'−':'○'}</span>`; }
+function svtPct(x){ return x==null?'–':Math.round(x*100)+' %'; }
+
+/* ---------- Rahmen ---------- */
+async function svtRender(){
+  const P=svtPanel(); if(!P)return;
+  const teams=svrTeams();
+  if(!SVR.loaded){ P.innerHTML='<div class="card"><div class="empty">Lade …</div></div>'; await svrLoad(true); return svtRender(); }
+  if(!teams.length){ P.innerHTML='<div class="card"><div class="empty">Für dich ist noch keine Mannschaft freigeschaltet. Der Admin trägt dich unter Verwaltung, Mannschaften ein.</div></div>'; return; }
+  if(!SVT.team||!teams.some(t=>t.id===SVT.team)){ const eig=SVR.funk.map(f=>f.mannschaft).find(id=>teams.some(t=>t.id===id)); SVT.team=eig||teams[0].id; }
+  if(!SVT.saison)SVT.saison=svtSaisonJetzt();
+  const st=svtStufe(), V=SVT_V[st]; if(!SVT.view||!V.some(([k])=>k===SVT.view))SVT.view=V[0][0];
+  const m=svtM(SVT.team), f=svrFunk(SVT.team), jetzt=svtSaisonJetzt();
+  const saisons=[svtSaisonAdd(jetzt,1),jetzt,svtSaisonAdd(jetzt,-1),svtSaisonAdd(jetzt,-2),svtSaisonAdd(jetzt,-3)];
+  P.innerHTML=`<div class="svt-top">
+      ${teams.length>1?`<div class="svt-chips" role="tablist" aria-label="Mannschaft">${teams.map(t=>`<button type="button" role="tab" class="${t.id===SVT.team?'on':''}" data-svtm="${svEsc(t.id)}">${svEsc(t.kurz)}</button>`).join('')}</div>`:''}
+      <div class="svt-head"><div><h2>${svEsc(m.name)}</h2><p>${f?`<span class="svt-f">${svEsc(SVR_FUNK[f])}</span> `:''}${svEsc(SVR_STUFE[m.stufe]||'')}</p></div>
+        <select id="svtS" aria-label="Saison">${saisons.map(s=>`<option value="${s}"${s===SVT.saison?' selected':''}>Saison ${svtSL(s)}</option>`).join('')}</select></div>
+      <div class="svt-seg" role="tablist">${V.map(([k,l])=>`<button type="button" role="tab" class="${k===SVT.view?'on':''}" data-svtv="${k}">${svEsc(l)}</button>`).join('')}</div></div>
+    <div id="svtB"><div class="card"><div class="empty">Lade …</div></div></div>`;
+  P.querySelectorAll('[data-svtm]').forEach(b=>b.onclick=()=>{ SVT.team=b.dataset.svtm; SVT.view=null; SVT.t=0; svtRender(); });
+  P.querySelectorAll('[data-svtv]').forEach(b=>b.onclick=()=>{ SVT.view=b.dataset.svtv; svtRender(); });
+  P.querySelector('#svtS').onchange=e=>{ SVT.saison=e.target.value; SVT.t=0; svtRender(); };
+  await svtLoad(); svtBody();
+}
+function svtBody(){
+  const B=document.getElementById('svtB'); if(!B)return;
+  if(SVT.err&&!SVT.t){ B.innerHTML=`<div class="card"><div class="empty">Konnte nicht laden: ${svEsc(SVT.err)}</div></div>`; return; }
+  const f={kader:svtKader,termine:svtTermine,aufstellung:svtAufstellung,statistik:svtStatistik,entwicklung:svtEntwicklung,abstimmung:svtAbstimmung,ehemalige:svtEhemalige}[SVT.view]||svtKader;
+  try{ f(B); }catch(e){ console.warn(e); B.innerHTML='<div class="card"><div class="empty">Fehler beim Anzeigen.</div></div>'; }
+}
+async function svtReload(){ SVT.t=0; await svtLoad(true); svtBody(); }
+
+/* ---------- Kader ---------- */
+function svtKader(B){
+  const mini=svtStufe()==='mini', h=SVT.team.startsWith('h'), aktiv=SVT.K.filter(k=>k.status!=='abgang');
+  B.innerHTML=`<div class="card"><div class="svt-ch"><h3 class="trh">${SVI('users')} ${mini?'Kinder':'Kader'} ${svtSL(SVT.saison)} <small>${aktiv.length}</small></h3>
+      <div class="btnrow"><button class="btn sm" id="svtNeu" type="button">${SVI('plus')} ${mini?'Kind':'Spieler'}</button>
+      <button class="btn sm ghost" id="svtAuf" type="button">${SVI('move')} ${h?'Aus der A-Jugend':'Aufrücken'}</button>
+      <button class="btn sm ghost" id="svtVor" type="button">${SVI('refresh')} Aus ${svtSL(svtSaisonAdd(SVT.saison,-1))}</button>
+      ${h&&canScout()?`<button class="btn sm ghost" id="svtDs" type="button">${SVI('db')} Aus dem Datenbestand</button>`:''}
+      ${mini?'':`<button class="btn sm ghost" id="svtEhem" type="button">${SVI('eye')} Ehemalige</button>`}</div></div>
+    ${SVT.K.length?`<div class="svt-tw"><table class="svt-t"><thead><tr><th>#</th><th>Name</th><th>Jg.</th>${mini?'':'<th>Pos.</th><th>Fuß</th>'}<th title="Trainingsbeteiligung">Training</th>${mini?'':'<th title="Einsätze">Sp.</th><th>Tore</th><th title="Ø Eindruck">Ein.</th>'}</tr></thead><tbody>
+      ${SVT.K.map(k=>{ const v=k.vereinsspieler, s=svtStat(k.spieler), warn=s.n>=6&&s.quote<.6;
+        return `<tr data-svtp="${svEsc(k.spieler)}" class="${k.status==='abgang'?'off':''}"><td>${k.nr||''}</td><td><b>${svEsc(svtSpieler(v))}</b>${v.talent?' <span class="svt-star" title="Talent">★</span>':''}${k.status==='gast'?' <span class="svt-tag">Gast</span>':''}${k.status==='abgang'?' <span class="svt-tag">Abgang</span>':''}</td>
+          <td>${v.jahrgang||''}</td>${mini?'':`<td>${svEsc(k.position||v.position||'')}</td><td>${v.fuss?svEsc(v.fuss[0].toUpperCase()):''}${v.schwach?`<span class="svt-wf" title="Schwacher Fuß ${v.schwach} von 5">${'•'.repeat(v.schwach)}</span>`:''}</td>`}
+          <td class="${warn?'svt-warn':''}">${svtPct(s.quote)}${s.ohne>=3?` <span class="svt-tag r" title="unentschuldigt">${s.ohne}× o.G.</span>`:''}</td>
+          ${mini?'':`<td>${s.einsatz||''}</td><td>${s.tore||''}</td><td>${svtEinChip(s.avg)}</td>`}</tr>`; }).join('')}</tbody></table></div>`
+      :`<div class="empty">Noch niemand im Kader. Leg ${mini?'die Kinder':'die Spieler'} an oder übernimm sie aus der Vorsaison.</div>`}
+    <p class="note small">Nur Namen, Jahrgang und Sportliches. Keine Telefonnummern oder Mails von Kindern.</p></div>`;
+  B.querySelectorAll('[data-svtp]').forEach(r=>r.onclick=()=>svtSpielerModal(r.dataset.svtp));
+  B.querySelector('#svtNeu').onclick=()=>svtSpielerForm(null);
+  B.querySelector('#svtAuf').onclick=svtAufruecken;
+  B.querySelector('#svtVor').onclick=svtVorsaison;
+  const ds=B.querySelector('#svtDs'); if(ds)ds.onclick=svtDatenbestand;
+  const eh=B.querySelector('#svtEhem'); if(eh)eh.onclick=()=>{ SVT.view='ehemalige'; svtBody(); };
+}
+function svtSpielerForm(sid){
+  const k=sid?SVT.K.find(x=>x.spieler===sid):null, v=k?k.vereinsspieler:{}, mini=svtStufe()==='mini';
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">${sid?svEsc(svtSpieler(v))+' bearbeiten':mini?'Kind anlegen':'Spieler anlegen'}</h2><div class="msub">${svEsc(svtM(SVT.team).name)} · Saison ${svtSL(SVT.saison)}</div></div></div>
+    <form id="svtF" class="editgrid svt-form" autocomplete="off">
+      <div class="field"><label>Vorname</label><input name="vorname" required maxlength="30" value="${svEsc(v.vorname||'')}"></div>
+      <div class="field"><label>Nachname</label><input name="nachname" required maxlength="40" value="${svEsc(v.nachname||'')}"></div>
+      <div class="field"><label>Jahrgang</label><input name="jahrgang" type="number" inputmode="numeric" min="1950" max="2030" value="${svEsc(v.jahrgang||'')}"></div>
+      <div class="field"><label>Rückennummer</label><input name="nr" type="number" inputmode="numeric" min="1" max="99" value="${svEsc((k&&k.nr)||'')}"></div>
+      ${mini?'':`<div class="field"><label>Position</label><input name="position" maxlength="24" placeholder="z.B. IV, ZM, ST, TW" value="${svEsc((k&&k.position)||v.position||'')}"></div>
+      <div class="field"><label>Starker Fuß</label><select name="fuss"><option value="">offen</option>${['rechts','links','beide'].map(x=>`<option${v.fuss===x?' selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="field"><label>Schwacher Fuß</label><select name="schwach"><option value="">offen</option>${[1,2,3,4,5].map(x=>`<option value="${x}"${v.schwach===x?' selected':''}>${x} ${['kaum','schwach','ordentlich','gut','beidfüßig'][x-1]}</option>`).join('')}</select></div>`}
+      <div class="field" style="grid-column:1/-1"><label>Notiz (sportlich)</label><textarea name="notiz" maxlength="1000" rows="2">${svEsc(v.notiz||'')}</textarea></div>
+      ${mini?'':`<label class="svt-cb"><input type="checkbox" name="talent"${v.talent?' checked':''}> Talent merken (taucht auch bei Ehemaligen oben auf)</label>`}
+      <div class="btnrow sbact" style="grid-column:1/-1"><button class="btn" type="submit">Speichern</button><button class="btn ghost" type="button" id="svtX">Abbrechen</button></div></form>`);
+  M.querySelector('#svtX').onclick=()=>closeOverlay();
+  M.querySelector('#svtF').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target), p={mannschaft:SVT.team,saison:SVT.saison};
+    ['vorname','nachname','jahrgang','nr','fuss','schwach','notiz'].forEach(x=>{ if(fd.has(x))p[x]=String(fd.get(x)).trim(); });
+    if(fd.has('position'))p.kposition=p.position=String(fd.get('position')).trim();
+    if(!mini)p.talent=fd.has('talent'); if(sid)p.id=sid;
+    try{ await svtRpc('team_spieler_save',{p}); kToast('✓ Gespeichert'); closeOverlay(); await svtReload(); }catch(err){ svtErr(err); } };
+}
+async function svtAufruecken(){
+  let L=[]; try{ L=await svtRpc('team_aufruecken',{p_m:SVT.team,p_saison:SVT.saison})||[]; }catch(e){ return svtErr(e); }
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">Aufrücken in die ${svEsc(svtM(SVT.team).kurz)}</h2><div class="msub">Passende Jahrgänge aus den Mannschaften darunter (letzte und laufende Saison), die noch nicht im Kader stehen.</div></div></div>
+    ${L.length?`<div class="svt-pick">${L.map(x=>`<label><input type="checkbox" value="${svEsc(x.id)}" checked> <b>${svEsc(x.name)}</b> <span>Jg. ${svEsc(x.jahrgang||'?')} · zuletzt ${svEsc(x.von||'')}</span></label>`).join('')}</div>
+      <div class="btnrow sbact"><button class="btn" id="svtOk">Übernehmen</button><button class="btn ghost" id="svtX">Abbrechen</button></div>`:'<div class="empty">Niemand gefunden. Jahrgänge fehlen vielleicht bei den Spielern der unteren Mannschaft.</div>'}`);
+  const ok=M.querySelector('#svtOk'); if(!ok)return; M.querySelector('#svtX').onclick=()=>closeOverlay();
+  ok.onclick=async()=>{ const ids=[...M.querySelectorAll('input:checked')].map(i=>i.value); if(!ids.length)return closeOverlay();
+    try{ const n=await svtRpc('team_kader_add',{p_m:SVT.team,p_saison:SVT.saison,p_spieler:ids,p_status:'aktiv'}); kToast('✓ '+n+' übernommen'); closeOverlay(); await svtReload(); }catch(e){ svtErr(e); } };
+}
+async function svtVorsaison(){
+  const vs=svtSaisonAdd(SVT.saison,-1);
+  const {data,error}=await SVB.sb.from('team_kader').select('spieler,status,vereinsspieler(vorname,nachname,jahrgang,abgang_am)').eq('mannschaft',SVT.team).eq('saison',vs);
+  if(error)return svtErr(error); const schon=new Set(SVT.K.map(k=>k.spieler)), jg=svtJgOk();
+  const L=(data||[]).filter(x=>x.vereinsspieler&&!x.vereinsspieler.abgang_am&&x.status!=='abgang'&&!schon.has(x.spieler));
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">Kader aus ${svtSL(vs)} übernehmen</h2><div class="msub">Wer altersmäßig weiter passt, ist vorausgewählt.</div></div></div>
+    ${L.length?`<div class="svt-pick">${L.map(x=>{ const v=x.vereinsspieler, passt=!v.jahrgang||jg.includes(v.jahrgang); return `<label><input type="checkbox" value="${svEsc(x.spieler)}"${passt?' checked':''}> <b>${svEsc(svtSpieler(v))}</b> <span>Jg. ${svEsc(v.jahrgang||'?')}${passt?'':' · rückt eigentlich auf'}</span></label>`; }).join('')}</div>
+      <div class="btnrow sbact"><button class="btn" id="svtOk">Übernehmen</button><button class="btn ghost" id="svtX">Abbrechen</button></div>`:'<div class="empty">In der Vorsaison ist niemand (mehr) offen.</div>'}`);
+  const ok=M.querySelector('#svtOk'); if(!ok)return; M.querySelector('#svtX').onclick=()=>closeOverlay();
+  ok.onclick=async()=>{ const ids=[...M.querySelectorAll('input:checked')].map(i=>i.value); if(!ids.length)return closeOverlay();
+    try{ const n=await svtRpc('team_kader_add',{p_m:SVT.team,p_saison:SVT.saison,p_spieler:ids,p_status:'aktiv'}); kToast('✓ '+n+' übernommen'); closeOverlay(); await svtReload(); }catch(e){ svtErr(e); } };
+}
+function svtJgOk(){ const y=2000+(+SVT.saison.slice(0,2)), m=SVT.team, a=svtAk(m);
+  const off={a:[18,17],b:[16,15],c:[14,13],d:[12,11],e:[10,9],f:[8,7],g:[6,5],m:[4,3,2]}[a]; if(!off)return Array.from({length:60},(_,i)=>y-19-i); return off.map(o=>y-o); }
+/* Zweite: Spieler aus dem Datenbestand der Ersten (eigene Spieler der Zweiten) übernehmen, nur mit Scouting-Recht */
+function svtDatenbestand(){
+  const P=(typeof players!=='undefined'?players:[]).filter(p=>p.own&&p.kader===2&&!p.isJugend);
+  const schon=new Set(SVT.K.map(k=>k.vereinsspieler.extern_id).filter(Boolean));
+  const L=P.filter(p=>!schon.has(p.id)).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">Spieler der Zweiten aus dem Datenbestand</h2><div class="msub">Name, Jahrgang, Position und Fuß werden übernommen und bleiben mit dem Profil verknüpft.</div></div></div>
+    ${L.length?`<div class="svt-pick">${L.map(p=>`<label><input type="checkbox" value="${svEsc(p.id)}" checked> <b>${svEsc(p.name)}</b> <span>${svEsc(p.pos||'')}${p.geb?' · Jg. '+svEsc(String(p.geb).slice(0,4)):''}</span></label>`).join('')}</div>
+      <div class="btnrow sbact"><button class="btn" id="svtOk">Übernehmen</button><button class="btn ghost" id="svtX">Abbrechen</button></div>`:'<div class="empty">Alle Spieler der Zweiten stehen schon im Kader.</div>'}`);
+  const ok=M.querySelector('#svtOk'); if(!ok)return; M.querySelector('#svtX').onclick=()=>closeOverlay();
+  ok.onclick=async()=>{ ok.disabled=true; let n=0; for(const i of [...M.querySelectorAll('input:checked')]){ const p=L.find(x=>x.id===i.value); if(!p)continue; const t=p.name.trim().split(/\s+/);
+      const fuss=/links/i.test(p.fuss||'')?'links':/beid/i.test(p.fuss||'')?'beide':/rechts/i.test(p.fuss||'')?'rechts':'';
+      try{ await svtRpc('team_spieler_save',{p:{mannschaft:SVT.team,saison:SVT.saison,vorname:t.slice(0,-1).join(' ')||t[0],nachname:t.length>1?t[t.length-1]:'?',jahrgang:p.geb?String(p.geb).slice(0,4):'',position:p.pos||'',kposition:p.pos||'',fuss,extern_id:p.id}}); n++; }catch(e){ svtErr(e); break; } }
+    kToast('✓ '+n+' übernommen'); closeOverlay(); await svtReload(); };
+}
+
+/* Spieler: Akte über alle Jahre, Entwicklung, Saisonbericht */
+async function svtSpielerModal(sid){
+  const k=SVT.K.find(x=>x.spieler===sid); if(!k)return; const v=k.vereinsspieler, mini=svtStufe()==='mini';
+  const M=svModal(`<div class="mhead"><div class="uav" style="width:46px;height:46px;border-radius:14px">${svEsc(svIni(svtSpieler(v)))}</div><div><h2 style="margin:0">${svEsc(svtSpieler(v))}${v.talent?' <span class="svt-star">★</span>':''}</h2>
+      <div class="msub">${[v.jahrgang?'Jg. '+v.jahrgang:'',k.position||v.position,v.fuss?'Fuß '+v.fuss+(v.schwach?' · schwacher Fuß '+v.schwach+'/5':''):''].filter(Boolean).map(svEsc).join(' · ')}</div></div></div>
+    <div class="btnrow"><button class="btn sm ghost" id="svtEd" type="button">Bearbeiten</button>${mini?'':`<button class="btn sm ghost" id="svtKi" type="button">${SVI('copy')} Für KI kopieren</button>`}
+      <button class="btn sm ghost" id="svtAb" type="button">Abgang</button><button class="btn sm ghost" id="svtRaus" type="button">Aus dem Kader</button></div>
+    ${v.notiz?`<p class="note">${svEsc(v.notiz)}</p>`:''}
+    <div id="svtAkte"><div class="note">Lade Akte …</div></div>`);
+  M.querySelector('#svtEd').onclick=()=>svtSpielerForm(sid);
+  M.querySelector('#svtAb').onclick=()=>svtAbgang(sid);
+  M.querySelector('#svtRaus').onclick=async()=>{ try{ await svtRpc('team_kader_raus',{p_m:SVT.team,p_saison:SVT.saison,p_spieler:sid}); kToast('Aus dem Kader genommen. Die Akte bleibt erhalten.'); closeOverlay(); await svtReload(); }catch(e){ svtErr(e); } };
+  let akte=null; try{ akte=await svtRpc('spieler_akte',{p_spieler:sid}); }catch(e){ M.querySelector('#svtAkte').innerHTML='<div class="empty">'+svEsc(e.message)+'</div>'; return; }
+  const ki=M.querySelector('#svtKi'); if(ki)ki.onclick=()=>kCopy(svtKiText(akte));
+  const A=M.querySelector('#svtAkte'), S=akte.saisons||[];
+  A.innerHTML=`<h4 class="svt-h4">Laufbahn im Verein</h4>
+    <div class="svt-tw"><table class="svt-t"><thead><tr><th>Saison</th><th>Team</th><th>Training</th><th>o.G.</th>${mini?'':'<th>Sp.</th><th>Tore</th><th>Ein.</th>'}</tr></thead><tbody>
+    ${S.map(s=>`<tr><td>${svtSL(s.saison)}</td><td>${svEsc(s.kurz)}${s.status==='gast'?' (Gast)':''}</td><td>${s.trainings?Math.round(s.da/s.trainings*100)+' % <small>'+s.da+'/'+s.trainings+'</small>':'–'}</td><td>${s.ohne||''}</td>
+      ${mini?'':`<td>${s.spiele||''}</td><td>${s.tore||''}</td><td>${s.eindruecke?svtEinChip(+s.eindruck):'–'}</td>`}</tr>`).join('')}</tbody></table></div>
+    ${mini?'':`<h4 class="svt-h4">Entwicklungsziele <button class="btn sm ghost" id="svtZ" type="button">${SVI('plus')} Ziel</button></h4>
+    ${(akte.entwicklung||[]).map(e=>svtZielHtml(e)).join('')||'<p class="note">Noch keine Ziele.</p>'}
+    <h4 class="svt-h4">Saisonbericht ${svtSL(SVT.saison)}</h4><div id="svtBer"></div>
+    ${(akte.berichte||[]).filter(b=>!(b.saison===SVT.saison&&b.mannschaft===SVT.team)).map(b=>`<details class="svt-alt"><summary>Bericht ${svtSL(b.saison)} · ${svEsc(svtM(b.mannschaft).kurz)}</summary>${SVT_WERTE.map(([w,l])=>b.werte&&b.werte[w]?`<span class="svt-wv">${svEsc(l)} <b>${b.werte[w]}</b></span>`:'').join('')}<p>${svEsc(b.text||'')}</p></details>`).join('')}`}`;
+  if(mini)return;
+  M.querySelector('#svtZ').onclick=()=>svtZielForm(sid,null,()=>svtSpielerModal(sid));
+  A.querySelectorAll('[data-svtz]').forEach(b=>b.onclick=()=>svtZielForm(sid,(akte.entwicklung||[]).find(e=>e.id===b.dataset.svtz),()=>svtSpielerModal(sid)));
+  const ber=(akte.berichte||[]).find(b=>b.saison===SVT.saison&&b.mannschaft===SVT.team)||{werte:{},text:''}, W=Object.assign({},ber.werte||{});
+  const bb=A.querySelector('#svtBer');
+  bb.innerHTML=`<div class="svt-werte">${SVT_WERTE.map(([w,l])=>`<div><span>${svEsc(l)}</span><div class="svt-5" data-w="${w}">${[1,2,3,4,5].map(n=>`<button type="button" class="${W[w]>=n?'on':''}" data-n="${n}" aria-label="${svEsc(l)} ${n}">${n}</button>`).join('')}</div></div>`).join('')}</div>
+    <textarea id="svtBT" rows="3" maxlength="1500" placeholder="Wie hat sich der Spieler entwickelt? Stärken, woran er arbeiten sollte.">${svEsc(ber.text||'')}</textarea>
+    <div class="btnrow"><button class="btn sm" id="svtBS" type="button">Bericht speichern</button></div>`;
+  bb.querySelectorAll('.svt-5').forEach(g=>g.querySelectorAll('button').forEach(b=>b.onclick=()=>{ const n=+b.dataset.n; W[g.dataset.w]=W[g.dataset.w]===n?undefined:n; g.querySelectorAll('button').forEach(x=>x.classList.toggle('on',W[g.dataset.w]>=+x.dataset.n)); }));
+  bb.querySelector('#svtBS').onclick=async()=>{ const w={}; Object.entries(W).forEach(([a,b])=>{ if(b)w[a]=b; });
+    try{ await svtRpc('team_bericht_save',{p_spieler:sid,p_saison:SVT.saison,p_m:SVT.team,p_werte:w,p_text:bb.querySelector('#svtBT').value}); kToast('✓ Bericht gespeichert'); }catch(e){ svtErr(e); } };
+}
+function svtZielHtml(e){ const kat=(e.uebungen||[]).map(k=>SVT_KAT.find(x=>x.k===k)).filter(Boolean);
+  return `<div class="svt-ziel s-${svEsc(e.status)}"><div><b>${svEsc(e.ziel)}</b><span>${svEsc(SVT_THEMA[e.thema]||e.thema)} · ${{offen:'offen',laeuft:'läuft',erreicht:'erreicht',abgebrochen:'abgebrochen'}[e.status]||''}${e.faellig?' · bis '+svtDat(e.faellig):''}${e.saison?' · '+svtSL(e.saison):''}</span>
+    ${e.massnahmen?`<p>${svEsc(e.massnahmen)}</p>`:''}${kat.length?`<div class="svt-links">${kat.map(x=>`<a href="${svEsc(x.u)}" target="_blank" rel="noopener">${svEsc(x.n)}</a>`).join('')}</div>`:''}</div>
+    <button type="button" class="btn sm ghost" data-svtz="${svEsc(e.id)}">Bearbeiten</button></div>`; }
+function svtZielForm(sid,e,nachher){
+  e=e||{thema:'technik',status:'offen',uebungen:[]}; const kat=svtKat(SVT.team), sel=new Set(e.uebungen||[]);
+  const spOpts=sid?'':`<div class="field" style="grid-column:1/-1"><label>Spieler</label><select name="spieler">${SVT.K.filter(k=>k.status!=='abgang').map(k=>`<option value="${svEsc(k.spieler)}">${svEsc(svtSpieler(k.vereinsspieler))}</option>`).join('')}</select></div>`;
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">${e.id?'Ziel bearbeiten':'Neues Entwicklungsziel'}</h2><div class="msub">Übungen aus offiziellen Quellen (DFB, fussball.de) passend zur Altersklasse.</div></div></div>
+    <form id="svtZF" class="editgrid svt-form">${spOpts}
+      <div class="field"><label>Bereich</label><select name="thema">${Object.entries(SVT_THEMA).map(([k,t])=>`<option value="${k}"${e.thema===k?' selected':''}>${svEsc(t)}</option>`).join('')}</select></div>
+      <div class="field"><label>Status</label><select name="status">${[['offen','offen'],['laeuft','läuft'],['erreicht','erreicht'],['abgebrochen','abgebrochen']].map(([k,t])=>`<option value="${k}"${e.status===k?' selected':''}>${t}</option>`).join('')}</select></div>
+      <div class="field" style="grid-column:1/-1"><label>Ziel</label><input name="ziel" required maxlength="200" placeholder="z.B. Mit links sicher passen" value="${svEsc(e.ziel||'')}"></div>
+      <div class="field" style="grid-column:1/-1"><label>Was wir dafür tun</label><textarea name="massnahmen" rows="2" maxlength="800" placeholder="z.B. 10 Minuten Extra-Passen links nach jedem Training">${svEsc(e.massnahmen||'')}</textarea></div>
+      <div class="field"><label>Bis wann</label><input name="faellig" type="date" value="${svEsc(e.faellig||'')}"></div>
+      <div class="field" style="grid-column:1/-1"><label>Übungen</label><div class="svt-pick sm">${kat.map(x=>`<label><input type="checkbox" name="u" value="${x.k}"${sel.has(x.k)?' checked':''}> ${svEsc(x.n)} <span>${svEsc(SVT_THEMA[x.t])}</span></label>`).join('')}</div></div>
+      <div class="btnrow sbact" style="grid-column:1/-1"><button class="btn" type="submit">Speichern</button>${e.id?'<button class="btn ghost" type="button" id="svtZD">Löschen</button>':''}<button class="btn ghost" type="button" id="svtX">Abbrechen</button></div></form>`);
+  M.querySelector('#svtX').onclick=()=>nachher?nachher():closeOverlay();
+  const del=M.querySelector('#svtZD'); if(del)del.onclick=async()=>{ try{ await svtRpc('entwicklung_delete',{p_id:e.id}); kToast('Ziel gelöscht'); await svtReload(); nachher?nachher():closeOverlay(); }catch(x){ svtErr(x); } };
+  M.querySelector('#svtZF').onsubmit=async ev=>{ ev.preventDefault(); const fd=new FormData(ev.target);
+    const p={id:e.id||'',spieler:sid||fd.get('spieler'),mannschaft:SVT.team,saison:SVT.saison,thema:fd.get('thema'),status:fd.get('status'),ziel:fd.get('ziel'),massnahmen:fd.get('massnahmen'),faellig:fd.get('faellig'),uebungen:fd.getAll('u')};
+    try{ await svtRpc('entwicklung_save',{p}); kToast('✓ Ziel gespeichert'); await svtReload(); nachher?nachher():closeOverlay(); }catch(x){ svtErr(x); } };
+}
+function svtAbgang(sid){
+  const k=SVT.K.find(x=>x.spieler===sid), v=k.vereinsspieler;
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">Abgang: ${svEsc(svtSpieler(v))}</h2><div class="msub">Der Spieler bleibt mit seiner ganzen Akte erhalten und steht danach unter „Ehemalige“.</div></div></div>
+    <form id="svtAF" class="editgrid svt-form"><div class="field"><label>Seit</label><input name="d" type="date" required value="${svEsc(v.abgang_am||svtHeute())}"></div>
+      <div class="field"><label>Neuer Verein (falls bekannt)</label><input name="v" maxlength="80" value="${svEsc(v.abgang_verein||'')}"></div>
+      <div class="field" style="grid-column:1/-1"><label>Grund</label><input name="g" maxlength="120" placeholder="z.B. Wechsel zu einem NLZ, Umzug, hört auf" value="${svEsc(v.abgang_grund||'')}"></div>
+      <div class="btnrow sbact" style="grid-column:1/-1"><button class="btn" type="submit">Speichern</button>${v.abgang_am?'<button class="btn ghost" type="button" id="svtAZ">Abgang zurücknehmen</button>':''}<button class="btn ghost" type="button" id="svtX">Abbrechen</button></div></form>`);
+  M.querySelector('#svtX').onclick=()=>closeOverlay();
+  const z=M.querySelector('#svtAZ'); if(z)z.onclick=async()=>{ try{ await svtRpc('team_spieler_abgang',{p_spieler:sid,p_datum:null,p_grund:null,p_verein:null}); closeOverlay(); await svtReload(); }catch(e){ svtErr(e); } };
+  M.querySelector('#svtAF').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target);
+    try{ await svtRpc('team_spieler_abgang',{p_spieler:sid,p_datum:fd.get('d'),p_grund:fd.get('g'),p_verein:fd.get('v')}); kToast('✓ Abgang eingetragen'); closeOverlay(); await svtReload(); }catch(err){ svtErr(err); } };
+}
+/* Text für die eigene KI des Vereins: ohne Namen, nur Sportliches */
+function svtKiText(a){
+  const v=a.spieler||{}, L=[];
+  L.push('Bitte beurteile die Entwicklung eines Jugendspielers unseres Vereins über die Jahre. Name weggelassen. Was fällt auf, wo liegen Stärken, woran sollte er arbeiten, wie ist sein Trainingsfleiß?');
+  L.push(`Jahrgang ${v.jahrgang||'?'}, Position ${v.position||'?'}, starker Fuß ${v.fuss||'?'}${v.schwach?', schwacher Fuß '+v.schwach+' von 5':''}${v.talent?', vom Trainer als Talent markiert':''}.`);
+  (a.saisons||[]).forEach(s=>L.push(`Saison ${svtSL(s.saison)}, ${s.name}: Training ${s.trainings?Math.round(s.da/s.trainings*100)+' % ('+s.da+' von '+s.trainings+', '+(s.ohne||0)+'x ohne Grund, '+(s.spaet||0)+'x zu spät)':'nicht erfasst'}, ${s.spiele||0} Einsätze, ${s.tore||0} Tore${s.eindruecke?', Eindruck der Trainer im Schnitt '+(+s.eindruck<=2.4?'positiv':+s.eindruck>=4.5?'negativ':'neutral')+' ('+s.eindruecke+' Bewertungen)':''}.`));
+  (a.berichte||[]).forEach(b=>L.push(`Saisonbericht ${svtSL(b.saison)}: ${SVT_WERTE.filter(([w])=>b.werte&&b.werte[w]).map(([w,l])=>l+' '+b.werte[w]+'/5').join(', ')}${b.text?'. '+b.text:''}`));
+  (a.entwicklung||[]).forEach(e=>L.push(`Ziel (${SVT_THEMA[e.thema]||e.thema}, ${e.status}): ${e.ziel}${e.massnahmen?'. Maßnahme: '+e.massnahmen:''}`));
+  return L.join('\n');
+}
+
+/* ---------- Ehemalige ---------- */
+async function svtEhemalige(B){
+  B.innerHTML='<div class="card"><div class="empty">Lade …</div></div>';
+  let L=[]; try{ L=await svtRpc('team_ehemalige',{})||[]; }catch(e){ B.innerHTML='<div class="card"><div class="empty">'+svEsc(e.message)+'</div></div>'; return; }
+  const J=new Date().getFullYear(), P=typeof players!=='undefined'&&canScout()?players:[];
+  const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'');
+  const treffer=x=>{ if(!P.length||!x.jahrgang||J-x.jahrgang<18)return null; const n=norm(x.vorname+x.nachname);
+    return P.find(p=>!p.own&&norm(p.name)===n&&(!p.geb||String(p.geb).slice(0,4)==String(x.jahrgang)))||null; };
+  B.innerHTML=`<div class="card"><div class="svt-ch"><h3 class="trh">${SVI('eye')} Ehemalige <small>${L.length}</small></h3><button class="btn sm ghost" id="svtZur" type="button">Zurück zum Kader</button></div>
+    <p class="note">Spieler, die den Verein verlassen haben. Talente stehen oben. Bei Erwachsenen zeigt die App, wo sie laut Datenbestand heute spielen (nur fürs Scouting-Team).</p>
+    ${L.length?`<div class="svt-ehem">${L.map(x=>{ const t=treffer(x); return `<div class="svt-eh"><div><b>${svEsc(x.vorname+' '+x.nachname)}</b>${x.talent?' <span class="svt-star">★</span>':''}<span>Jg. ${svEsc(x.jahrgang||'?')} · zuletzt ${svEsc(x.zuletzt||'')} · weg seit ${svEsc(x.abgang_am?svtDat(x.abgang_am):'')}${x.abgang_verein?' · zu '+svEsc(x.abgang_verein):''}</span>${x.abgang_grund?`<em>${svEsc(x.abgang_grund)}</em>`:''}
+      ${t?`<button type="button" class="svt-heute" data-svto="${svEsc(t.id)}">Heute: ${svEsc(t.club)}${t.liga?' ('+svEsc(t.liga)+')':''}${t.tore!=null?', '+t.tore+' Tore':''}</button>`:''}</div></div>`; }).join('')}</div>`:'<div class="empty">Noch keine Abgänge eingetragen.</div>'}</div>`;
+  B.querySelector('#svtZur').onclick=()=>{ SVT.view='kader'; svtBody(); };
+  B.querySelectorAll('[data-svto]').forEach(b=>b.onclick=()=>{ try{ openModal(b.dataset.svto); }catch(e){} });
+}
+
+/* ---------- Termine und Anwesenheit ---------- */
+function svtTermine(B){
+  const heute=svtHeute(), kommend=SVT.T.filter(t=>t.datum>=heute), vorbei=SVT.T.filter(t=>t.datum<heute).reverse();
+  const row=t=>{ const a=SVT.A.filter(x=>x.termin===t.id), r=SVT.R.filter(x=>x.termin===t.id), da=a.filter(x=>x.status!=='weg').length;
+    const info=a.length?`<span class="svt-cnt">${da}/${a.length} da</span>`:r.length?`<span class="svt-cnt">${r.filter(x=>x.antwort==='ja').length} ✓ · ${r.filter(x=>x.antwort==='nein').length} ✗</span>`:(t.datum<heute&&!t.abgesagt?'<span class="svt-cnt warn">nicht erfasst</span>':'');
+    return `<button type="button" class="svt-trow a-${t.art}${t.abgesagt?' off':''}" data-svtt="${svEsc(t.id)}"><span class="svt-d">${svEsc(svtDat(t.datum))}${t.zeit?' · '+svEsc(t.zeit.slice(0,5)):''}</span>
+      <b>${svEsc(SVT_ART[t.art])}${t.gegner?' gegen '+svEsc(t.gegner):''}${t.titel?' · '+svEsc(t.titel):''}${t.abgesagt?' (abgesagt)':''}</b>${t.tore_wir!=null&&t.tore_gegner!=null?`<span class="svt-erg">${t.tore_wir}:${t.tore_gegner}</span>`:''}${info}</button>`; };
+  B.innerHTML=`<div class="card"><div class="svt-ch"><h3 class="trh">${SVI('clock')} Termine</h3><div class="btnrow">
+      <button class="btn sm" id="svtNT" type="button">${SVI('plus')} Training</button><button class="btn sm ghost" id="svtNS" type="button">${SVI('plus')} Spiel</button>
+      <button class="btn sm ghost" id="svtSer" type="button">${SVI('refresh')} Trainingszeiten</button></div></div>
+    <h4 class="svt-h4">Demnächst</h4>${kommend.slice(0,20).map(row).join('')||'<p class="note">Keine Termine geplant. Leg die Trainingszeiten einmal als Serie an.</p>'}
+    ${vorbei.length?`<h4 class="svt-h4">Vergangen</h4>${vorbei.slice(0,40).map(row).join('')}`:''}</div>`;
+  B.querySelectorAll('[data-svtt]').forEach(b=>b.onclick=()=>svtTermin(b.dataset.svtt));
+  B.querySelector('#svtNT').onclick=()=>svtTerminForm({art:'training'});
+  B.querySelector('#svtNS').onclick=()=>svtTerminForm({art:'spiel'});
+  B.querySelector('#svtSer').onclick=svtSerie;
+}
+function svtTerminForm(t){
+  const neu=!t.id;
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">${neu?'Neuer Termin':'Termin bearbeiten'}</h2></div></div>
+    <form id="svtTF" class="editgrid svt-form"><div class="field"><label>Art</label><select name="art">${Object.entries(SVT_ART).map(([k,l])=>`<option value="${k}"${t.art===k?' selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="field"><label>Datum</label><input name="datum" type="date" required value="${svEsc(t.datum||svtHeute())}"></div>
+      <div class="field"><label>Uhrzeit</label><input name="zeit" type="time" value="${svEsc((t.zeit||'').slice(0,5))}"></div>
+      <div class="field"><label>Gegner</label><input name="gegner" maxlength="80" value="${svEsc(t.gegner||'')}"></div>
+      <div class="field"><label>Heim/Auswärts</label><select name="heim"><option value="">–</option><option value="true"${t.heim===true?' selected':''}>Heim</option><option value="false"${t.heim===false?' selected':''}>Auswärts</option></select></div>
+      <div class="field"><label>Ort</label><input name="ort" maxlength="80" value="${svEsc(t.ort||'')}"></div>
+      <div class="field" style="grid-column:1/-1"><label>Titel oder Hinweis</label><input name="titel" maxlength="80" placeholder="z.B. Hallenturnier, Treffpunkt 9:15" value="${svEsc(t.titel||'')}"></div>
+      ${neu?'':`<div class="field"><label>Tore wir</label><input name="tore_wir" type="number" min="0" max="99" value="${svEsc(t.tore_wir??'')}"></div><div class="field"><label>Tore Gegner</label><input name="tore_gegner" type="number" min="0" max="99" value="${svEsc(t.tore_gegner??'')}"></div>`}
+      <div class="btnrow sbact" style="grid-column:1/-1"><button class="btn" type="submit">Speichern</button>${neu?'':`<button class="btn ghost" type="button" id="svtTA">${t.abgesagt?'Wieder ansetzen':'Absagen'}</button><button class="btn ghost" type="button" id="svtTD">Löschen</button>`}<button class="btn ghost" type="button" id="svtX">Abbrechen</button></div></form>`);
+  M.querySelector('#svtX').onclick=()=>closeOverlay();
+  const ab=M.querySelector('#svtTA'); if(ab)ab.onclick=async()=>{ try{ await svtRpc('team_termin_save',{p:{id:t.id,abgesagt:!t.abgesagt}}); closeOverlay(); await svtReload(); }catch(e){ svtErr(e); } };
+  const del=M.querySelector('#svtTD'); if(del)del.onclick=async()=>{ if(del.dataset.sure!=='1'){ del.dataset.sure='1'; del.textContent='Wirklich löschen?'; return; } try{ await svtRpc('team_termin_delete',{p_id:t.id}); closeOverlay(); await svtReload(); }catch(e){ svtErr(e); } };
+  M.querySelector('#svtTF').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target), p={mannschaft:SVT.team,saison:SVT.saison};
+    for(const [k,v] of fd.entries())p[k]=String(v); if(p.heim==='')delete p.heim; if(t.id)p.id=t.id;
+    try{ await svtRpc('team_termin_save',{p}); kToast('✓ Gespeichert'); closeOverlay(); await svtReload(); }catch(err){ svtErr(err); } };
+}
+function svtSerie(){
+  const heute=svtHeute(), ende='20'+SVT.saison.slice(2)+'-06-30';
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">Trainingszeiten</h2><div class="msub">Legt die Trainings als Serie an. Tage, an denen schon ein Training steht, bleiben unberührt.</div></div></div>
+    <form id="svtSF" class="editgrid svt-form"><div class="field" style="grid-column:1/-1"><label>Wochentage</label><div class="chips">${['Mo','Di','Mi','Do','Fr','Sa','So'].map((d,i)=>`<label class="svt-day"><input type="checkbox" name="tag" value="${i+1}"> ${d}</label>`).join('')}</div></div>
+      <div class="field"><label>Uhrzeit</label><input name="zeit" type="time" required value="17:30"></div>
+      <div class="field"><label>Ab</label><input name="von" type="date" required value="${heute}"></div>
+      <div class="field"><label>Bis</label><input name="bis" type="date" required value="${svtAddD(heute,56)<ende?svtAddD(heute,56):ende}"></div>
+      <div class="btnrow sbact" style="grid-column:1/-1"><button class="btn" type="submit">Anlegen</button><button class="btn ghost" type="button" id="svtX">Abbrechen</button></div></form>`);
+  M.querySelector('#svtX').onclick=()=>closeOverlay();
+  M.querySelector('#svtSF').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target), tage=fd.getAll('tag').map(Number); if(!tage.length){ kToast('Bitte mindestens einen Tag wählen'); return; }
+    try{ const n=await svtRpc('team_termin_serie',{p_m:SVT.team,p_saison:SVT.saison,p_tage:tage,p_zeit:fd.get('zeit'),p_von:fd.get('von'),p_bis:fd.get('bis')}); kToast('✓ '+n+' Trainings angelegt'); closeOverlay(); await svtReload(); }catch(err){ svtErr(err); } };
+}
+/* Anwesenheit eines Termins: vorbelegt aus den Rückmeldungen der Eltern */
+function svtTermin(tid){
+  const t=SVT.T.find(x=>x.id===tid); if(!t)return; const mini=svtStufe()==='mini', spiel=t.art!=='training';
+  const K=SVT.K.filter(k=>k.status!=='abgang'), st={};
+  K.forEach(k=>{ const a=SVT.A.find(x=>x.termin===tid&&x.spieler===k.spieler), r=SVT.R.find(x=>x.termin===tid&&x.spieler===k.spieler);
+    st[k.spieler]=a?{status:a.status,grund:a.grund,eindruck:a.eindruck,einsatz:a.einsatz,tore:a.tore}:{status:r?(r.antwort==='nein'?'weg':r.antwort==='ja'?'da':''):'',grund:r&&r.grund||null,vor:!!r}; });
+  const rm=k=>{ const r=SVT.R.find(x=>x.termin===tid&&x.spieler===k); return r?`<span class="svt-rm ${r.antwort}" title="Rückmeldung ${r.via==='link'?'über den Link':'vom Trainer'}">${r.antwort==='ja'?'✓ zugesagt':r.antwort==='nein'?'✗ '+svEsc(SVT_GRUND[r.grund]||'abgesagt'):'? vielleicht'}</span>`:''; };
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">${svEsc(SVT_ART[t.art])}${t.gegner?' gegen '+svEsc(t.gegner):''}</h2><div class="msub">${svEsc(svtDat(t.datum,true))}${t.zeit?' · '+svEsc(t.zeit.slice(0,5))+' Uhr':''}${t.ort?' · '+svEsc(t.ort):''}</div></div></div>
+    <div class="btnrow"><button class="btn sm ghost" id="svtTE" type="button">Termin bearbeiten</button><button class="btn sm ghost" id="svtAlle" type="button">Alle da</button></div>
+    <div class="svt-anw" id="svtAW"></div>
+    <div class="btnrow sbact"><button class="btn" id="svtAS" type="button">${SVI('check')} Speichern</button><button class="btn ghost" id="svtX" type="button">Schließen</button></div>`);
+  const W=M.querySelector('#svtAW');
+  const draw=()=>{ W.innerHTML=K.map(k=>{ const s=st[k.spieler], id=svEsc(k.spieler);
+    return `<div class="svt-ar${s.vor?' vor':''}"><div class="svt-an"><b>${svEsc(svtSpieler(k.vereinsspieler))}</b>${rm(k.spieler)}</div>
+      <div class="svt-seg3" data-p="${id}">${[['da','da'],['spaet','spät'],['weg','fehlt']].filter(([x])=>!(mini&&x==='spaet')).map(([x,l])=>`<button type="button" class="${s.status===x?'on '+x:''}" data-s="${x}">${l}</button>`).join('')}</div>
+      ${s.status==='weg'?`<select data-g="${id}" aria-label="Grund">${Object.entries(SVT_GRUND).map(([g,l])=>`<option value="${g}"${(s.grund||'ohne')===g?' selected':''}>${l}</option>`).join('')}</select>`:''}
+      ${!mini&&s.status&&s.status!=='weg'?`<div class="svt-ei" data-p="${id}">${[[2,'+'],[3,'○'],[5,'−']].map(([n,l])=>`<button type="button" class="${s.eindruck===n?'on e'+n:''}" data-e="${n}" aria-label="Eindruck ${l}">${l}</button>`).join('')}</div>`:''}
+      ${spiel&&!mini&&s.status&&s.status!=='weg'?`<select data-x="${id}" aria-label="Einsatz"><option value="">Einsatz</option>${[['start','Startelf'],['ein','eingewechselt'],['bank','Bank'],['nicht','nicht gespielt']].map(([x,l])=>`<option value="${x}"${s.einsatz===x?' selected':''}>${l}</option>`).join('')}</select><input data-t="${id}" type="number" min="0" max="30" inputmode="numeric" placeholder="Tore" value="${svEsc(s.tore??'')}" aria-label="Tore">`:''}</div>`; }).join('')||'<div class="empty">Noch niemand im Kader.</div>';
+    W.querySelectorAll('.svt-seg3 [data-s]').forEach(b=>b.onclick=()=>{ const p=b.parentNode.dataset.p; st[p].status=st[p].status===b.dataset.s?'':b.dataset.s; st[p].vor=false; draw(); });
+    W.querySelectorAll('.svt-ei [data-e]').forEach(b=>b.onclick=()=>{ const p=b.parentNode.dataset.p, n=+b.dataset.e; st[p].eindruck=st[p].eindruck===n?null:n; draw(); });
+    W.querySelectorAll('[data-g]').forEach(s=>s.onchange=()=>{ st[s.dataset.g].grund=s.value; });
+    W.querySelectorAll('[data-x]').forEach(s=>s.onchange=()=>{ st[s.dataset.x].einsatz=s.value||null; });
+    W.querySelectorAll('[data-t]').forEach(s=>s.oninput=()=>{ st[s.dataset.t].tore=s.value===''?null:+s.value; }); };
+  draw();
+  M.querySelector('#svtX').onclick=()=>closeOverlay();
+  M.querySelector('#svtTE').onclick=()=>svtTerminForm(t);
+  M.querySelector('#svtAlle').onclick=()=>{ K.forEach(k=>{ if(!st[k.spieler].status){ st[k.spieler].status='da'; st[k.spieler].vor=false; } }); draw(); };
+  M.querySelector('#svtAS').onclick=async()=>{
+    const hatte=new Set(SVT.A.filter(a=>a.termin===tid).map(a=>a.spieler));
+    const p=K.filter(k=>st[k.spieler].status||hatte.has(k.spieler)).map(k=>{ const s=st[k.spieler]; return {spieler:k.spieler,status:s.status||null,grund:s.status==='weg'?(s.grund||'ohne'):null,eindruck:s.status&&s.status!=='weg'?s.eindruck:null,einsatz:spiel?s.einsatz:null,tore:spiel?s.tore:null}; });
+    try{ await svtRpc('team_anwesenheit_save',{p_termin:tid,p}); kToast('✓ Anwesenheit gespeichert'); closeOverlay(); await svtReload(); }catch(e){ svtErr(e); } };
+}
+
+/* ---------- Aufstellung (volle Ausstattung und Basis) ---------- */
+function svtSpielerZahl(){ const a=svtAk(SVT.team); return a==='e'?7:a==='d'?9:11; }
+async function svtAufstellung(B){
+  const heute=svtHeute(), spiele=SVT.T.filter(t=>t.art!=='training'&&!t.abgesagt), naechstes=spiele.find(t=>t.datum>=heute)||spiele[spiele.length-1];
+  if(!spiele.length){ B.innerHTML='<div class="card"><div class="empty">Noch kein Spiel eingetragen. Unter Termine ein Spiel anlegen, dann hier die Aufstellung planen.</div></div>'; return; }
+  if(!SVT.sel||!spiele.some(t=>t.id===SVT.sel))SVT.sel=naechstes.id;
+  const t=spiele.find(x=>x.id===SVT.sel), n=svtSpielerZahl();
+  const {data}=await SVB.sb.from('team_aufstellung').select('*').eq('termin',t.id).maybeSingle();
+  const A=data||{formation:SVT_FORM[n][0],slots:{},bank:[]}; let form=SVT_FORM[n].includes(A.formation)?A.formation:SVT_FORM[n][0]; const slots=Object.assign({},A.slots||{}), bank=new Set(A.bank||[]);
+  const K=SVT.K.filter(k=>k.status!=='abgang'), rm=id=>{ const r=SVT.R.find(x=>x.termin===t.id&&x.spieler===id); return r?r.antwort:''; };
+  const draw=()=>{
+    const reihen=[1,...form.split('-').map(Number)], used=new Set(Object.values(slots).filter(Boolean)); let i=0;
+    const opt=cur=>`<option value="">–</option>`+K.map(k=>{ const a=rm(k.spieler); return `<option value="${svEsc(k.spieler)}"${cur===k.spieler?' selected':''}${used.has(k.spieler)&&cur!==k.spieler?' disabled':''}>${svEsc(svtSpieler(k.vereinsspieler))}${a==='ja'?' ✓':a==='nein'?' ✗':''}</option>`; }).join('');
+    const rows=reihen.map(z=>{ const cells=[]; for(let j=0;j<z;j++){ const key=String(i++); cells.push(`<select class="svt-slot" data-svts="${key}" aria-label="Position ${key}">${opt(slots[key]||'')}</select>`); } return `<div class="svt-reihe">${cells.join('')}</div>`; });
+    B.innerHTML=`<div class="card"><div class="svt-ch"><h3 class="trh">${SVI('pitch')} Aufstellung</h3>
+        <select id="svtSp" aria-label="Spiel">${spiele.map(s=>`<option value="${svEsc(s.id)}"${s.id===t.id?' selected':''}>${svEsc(svtDat(s.datum))}${s.gegner?' · '+svEsc(s.gegner):''}</option>`).join('')}</select>
+        <select id="svtFo" aria-label="Formation">${SVT_FORM[n].map(f=>`<option${f===form?' selected':''}>${f}</option>`).join('')}</select></div>
+      <p class="note small">${n}er-Feld. ✓ zugesagt, ✗ abgesagt (aus den Rückmeldungen). Sturm oben, Torwart unten.</p>
+      <div class="svt-feld">${rows.reverse().join('')}</div>
+      <h4 class="svt-h4">Bank</h4><div class="svt-bank">${K.filter(k=>!used.has(k.spieler)).map(k=>`<button type="button" class="${bank.has(k.spieler)?'on':''}" data-b="${svEsc(k.spieler)}">${svEsc(svtSpieler(k.vereinsspieler))}${rm(k.spieler)==='nein'?' ✗':''}</button>`).join('')}</div>
+      <div class="btnrow sbact"><button class="btn" id="svtAufS" type="button">${SVI('check')} Speichern</button></div></div>`;
+    B.querySelector('#svtSp').onchange=e=>{ SVT.sel=e.target.value; svtAufstellung(B); };
+    B.querySelector('#svtFo').onchange=e=>{ form=e.target.value; draw(); };
+    B.querySelectorAll('[data-svts]').forEach(s=>s.onchange=()=>{ if(s.value)bank.delete(s.value); slots[s.dataset.svts]=s.value||undefined; draw(); });
+    B.querySelectorAll('[data-b]').forEach(b=>b.onclick=()=>{ const id=b.dataset.b; bank.has(id)?bank.delete(id):bank.add(id); b.classList.toggle('on'); });
+    B.querySelector('#svtAufS').onclick=async()=>{ const s={}; const max=reihen.reduce((a,b)=>a+b,0); Object.entries(slots).forEach(([k,v])=>{ if(v&&+k<max)s[k]=v; });
+      try{ await svtRpc('team_aufstellung_save',{p_termin:t.id,p_formation:form,p_slots:s,p_bank:[...bank].filter(x=>!Object.values(s).includes(x)),p_notiz:null}); kToast('✓ Aufstellung gespeichert'); }catch(e){ svtErr(e); } };
+  };
+  draw();
+}
+
+/* ---------- Statistik ---------- */
+function svtStatistik(B){
+  const R=SVT.K.filter(k=>k.status!=='abgang').map(k=>({k,s:svtStat(k.spieler)}));
+  const sort=SVT.statSort||'quote'; R.sort((a,b)=>sort==='name'?svtSpieler(a.k.vereinsspieler).localeCompare(svtSpieler(b.k.vereinsspieler),'de'):sort==='ein'?((a.s.avg??9)-(b.s.avg??9)):sort==='tore'?(b.s.tore-a.s.tore):((b.s.quote??-1)-(a.s.quote??-1)));
+  const tr=SVT.T.filter(t=>t.art==='training'&&t.datum<=svtHeute()&&!t.abgesagt), erf=new Set(SVT.A.map(a=>a.termin)), nErf=tr.filter(t=>erf.has(t.id)).length;
+  const auff=R.filter(x=>x.s.n>=6&&(x.s.quote<.6||x.s.ohne>=3||(x.s.l6!=null&&x.s.quote!=null&&x.s.l6<x.s.quote-.25)));
+  B.innerHTML=`<div class="card"><h3 class="trh">${SVI('chart')} Statistik ${svtSL(SVT.saison)} <small>${nErf} von ${tr.length} Trainings erfasst</small></h3>
+    ${auff.length?`<div class="svt-hint"><b>Auffällig:</b> ${auff.map(x=>`${svEsc(svtSpieler(x.k.vereinsspieler))} (${x.s.quote<.6?'nur '+svtPct(x.s.quote)+' Training':x.s.ohne>=3?x.s.ohne+'× ohne Grund':'zuletzt deutlich seltener da'})`).join(', ')}</div>`:''}
+    <div class="svt-tw"><table class="svt-t"><thead><tr><th data-so="name">Name</th><th data-so="quote">Training</th><th>letzte 6</th><th>spät</th><th>o.G.</th><th>Sp.</th><th data-so="tore">Tore</th><th data-so="ein">Ein.</th></tr></thead><tbody>
+    ${R.map(({k,s})=>`<tr data-svtp="${svEsc(k.spieler)}"><td><b>${svEsc(svtSpieler(k.vereinsspieler))}</b></td><td class="${s.n>=6&&s.quote<.6?'svt-warn':''}">${svtPct(s.quote)} <small>${s.da}/${s.n}</small></td><td>${svtPct(s.l6)}</td><td>${s.spaet||''}</td><td>${s.ohne||''}</td><td>${s.einsatz||''}</td><td>${s.tore||''}</td><td>${svtEinChip(s.avg)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="note small">Training zählt nur Einheiten, bei denen die Anwesenheit erfasst ist. Die Akte eines Spielers zeigt alle Jahre im Verein.</p></div>`;
+  B.querySelectorAll('[data-so]').forEach(th=>{ th.style.cursor='pointer'; th.onclick=()=>{ SVT.statSort=th.dataset.so; svtStatistik(B); }; });
+  B.querySelectorAll('[data-svtp]').forEach(r=>r.onclick=()=>svtSpielerModal(r.dataset.svtp));
+}
+
+/* ---------- Entwicklung und Übungen ---------- */
+function svtEntwicklung(B){
+  const mini=svtStufe()==='mini', kat=svtKat(SVT.team), E=SVT.E, nm=id=>{ const k=SVT.K.find(x=>x.spieler===id); return k?svtSpieler(k.vereinsspieler):''; };
+  const offen=E.filter(e=>e.status==='offen'||e.status==='laeuft');
+  B.innerHTML=`${mini?'':`<div class="card"><div class="svt-ch"><h3 class="trh">${SVI('sprout')} Entwicklungsziele <small>${offen.length} offen</small></h3><button class="btn sm" id="svtZN" type="button">${SVI('plus')} Ziel</button></div>
+      ${offen.map(e=>`<div class="svt-zw"><span class="svt-zn">${svEsc(nm(e.spieler))}</span>${svtZielHtml(e)}</div>`).join('')||'<p class="note">Noch keine offenen Ziele. Ein Ziel je Spieler reicht für den Anfang, z.B. „schwacher Fuß“ oder „Kopfball“.</p>'}</div>`}
+    <div class="card"><h3 class="trh">${SVI('book')} Übungen für die ${svEsc(svtM(SVT.team).kurz)}</h3>
+      <p class="note">Offizielle Trainingseinheiten und Empfehlungen von DFB und fussball.de, passend zur Altersklasse. Öffnet in einem neuen Fenster.</p>
+      ${Object.entries(SVT_THEMA).map(([t,l])=>{ const L=kat.filter(x=>x.t===t); return L.length?`<h4 class="svt-h4">${svEsc(l)}</h4><div class="svt-links">${L.map(x=>`<a href="${svEsc(x.u)}" target="_blank" rel="noopener">${svEsc(x.n)}</a>`).join('')}</div>`:''; }).join('')}
+      <h4 class="svt-h4">Alle Einheiten der Altersklasse</h4><div class="svt-links"><a href="${svEsc(svtEinheiten(SVT.team))}" target="_blank" rel="noopener">DFB Training online: ${svEsc(svtM(SVT.team).kurz)}</a></div></div>`;
+  const zn=B.querySelector('#svtZN'); if(zn)zn.onclick=()=>svtZielForm(null,null,null);
+  B.querySelectorAll('[data-svtz]').forEach(b=>b.onclick=()=>svtZielForm(null,E.find(e=>e.id===b.dataset.svtz),null));
+}
+
+/* ---------- Abstimmung per Gruppenlink ---------- */
+async function svtAbstimmung(B){
+  const m=svtM(SVT.team), an=!!m.abstimmung, heute=svtHeute(), bis=svtAddD(heute,14);
+  const T=SVT.T.filter(t=>t.datum>=heute&&t.datum<=bis&&!t.abgesagt), K=SVT.K.filter(k=>k.status!=='abgang');
+  let link=''; if(an){ try{ const tok=await svtRpc('team_gruppenlink',{p_m:SVT.team,p_neu:false}); link=svtLinkUrl(tok); }catch(e){ svtErr(e); } }
+  const txt=`Zu- und Absagen für die ${m.name}: Link öffnen, Namen des Kindes antippen, fertig.\n${link}`;
+  B.innerHTML=`<div class="card"><div class="svt-ch"><h3 class="trh">${SVI('send')} Abstimmung per Gruppenlink</h3>
+      <button type="button" class="svr-sw${an?' on':''}" role="switch" aria-checked="${an}" aria-label="Abstimmung" id="svtAb"><i></i></button></div>
+    <p class="note">Ein Link für die Eltern-Gruppe. Eltern tippen den Namen ihres Kindes und sagen zu oder ab, mit Grund (krank, verletzt, Urlaub). Es werden keine Nummern oder Mails gespeichert. ${m.stufe==='voll'?'':'Für jüngere Jahrgänge ist das freiwillig.'}</p>
+    ${an&&link?`<div class="linkbox"><code>${svEsc(link)}</code><div class="btnrow"><a class="btn" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">${SVI('chat')} In die Gruppe</a><button class="btn ghost" id="svtLC" type="button">${SVI('copy')} Kopieren</button><button class="btn ghost" id="svtLN" type="button">${SVI('refresh')} Neuer Link</button></div>
+      <p class="note small">„Neuer Link“ macht den alten sofort ungültig, z.B. wenn er in falsche Hände geraten ist.</p></div>`:''}</div>
+    ${an?`<div class="card"><h3 class="trh">${SVI('clock')} Die nächsten 14 Tage</h3>${T.map(t=>{ const R=SVT.R.filter(r=>r.termin===t.id), ja=R.filter(r=>r.antwort==='ja'), nein=R.filter(r=>r.antwort==='nein'), offen=K.filter(k=>!R.some(r=>r.spieler===k.spieler));
+      const nm=id=>{ const k=K.find(x=>x.spieler===id); return k?svtSpieler(k.vereinsspieler):'?'; };
+      return `<details class="svt-abst"><summary><b>${svEsc(svtDat(t.datum))} · ${svEsc(SVT_ART[t.art])}${t.gegner?' gegen '+svEsc(t.gegner):''}</b><span><i class="ja">${ja.length} ✓</i><i class="nein">${nein.length} ✗</i><i>${offen.length} offen</i></span></summary>
+        <p><b>Dabei:</b> ${ja.map(r=>svEsc(nm(r.spieler))).join(', ')||'–'}</p><p><b>Abgesagt:</b> ${nein.map(r=>svEsc(nm(r.spieler))+' ('+svEsc(SVT_GRUND[r.grund]||'')+')').join(', ')||'–'}</p><p><b>Offen:</b> ${offen.map(k=>svEsc(svtSpieler(k.vereinsspieler))).join(', ')||'–'}</p>
+        <button type="button" class="btn sm ghost" data-svtt="${svEsc(t.id)}">Anwesenheit öffnen</button></details>`; }).join('')||'<p class="note">Keine Termine in den nächsten 14 Tagen.</p>'}</div>`:''}`;
+  B.querySelector('#svtAb').onclick=async()=>{ try{ await svtRpc('team_abstimmung_set',{p_m:SVT.team,p_an:!an}); await svrLoad(true); svtAbstimmung(B); }catch(e){ svtErr(e); } };
+  const lc=B.querySelector('#svtLC'); if(lc)lc.onclick=()=>kCopy(txt);
+  const ln=B.querySelector('#svtLN'); if(ln)ln.onclick=async()=>{ if(ln.dataset.sure!=='1'){ ln.dataset.sure='1'; ln.textContent='Alten Link wirklich ungültig machen?'; return; } try{ await svtRpc('team_gruppenlink',{p_m:SVT.team,p_neu:true}); kToast('✓ Neuer Link erstellt'); svtAbstimmung(B); }catch(e){ svtErr(e); } };
+  B.querySelectorAll('[data-svtt]').forEach(b=>b.onclick=()=>svtTermin(b.dataset.svtt));
+}
+function svtLinkUrl(tok){ return location.origin+location.pathname.replace(/[^/]*$/,'')+'team.html#m='+tok; }
+
+/* =====================================================================
+   Sportzentrale Beta 0.23 · Wischen überall, wo es sich anbietet
+   Gleiche Regel wie in den Spielerlisten: nach RECHTS wischen = raus / weg, nach LINKS = weiter / ja.
+   Beim Ziehen steht immer dran, was passiert. Alles lässt sich rückgängig machen.
+   - Bedarf: Kandidat rechts = raus aus dem Bedarf, links = nächste Stufe (Beobachten, Shortlist, Kontakt)
+   - Bedarf: Vorschlag oder interne Lösung links = als Kandidat übernehmen, rechts = ausblenden
+   - Teams: Spieler rechts = aus dem Kader, links = Talent merken
+   - Teams: Termin rechts = absagen (oder wieder ansetzen), links = alle da (vergangene Einheit)
+   - Teams: Entwicklungsziel links = erreicht, rechts = löschen
+   ===================================================================== */
+const SWX={on:null,just:0,reg:[]};
+function swxAdd(sel,what){ SWX.reg.push({sel,what}); }
+function swxFind(t){ for(const r of SWX.reg){ const el=t.closest&&t.closest(r.sel); if(el)return {el,r}; } return null; }
+const swxSel=()=>SWX.reg.map(r=>r.sel).join(',');
+// Diese Einträge regelt ab jetzt dieses Modul (nicht mehr die Spielerlisten-Regel)
+{ const _w=sw45What; sw45What=function(el){ if(el.matches('.bk4r,.sg4c'))return null; return _w.apply(this,arguments); }; }
+
+function swxBg(el,A){
+  const par=el.parentElement; if(!par)return null;
+  if(getComputedStyle(par).position==='static')par.style.position='relative';
+  const bg=document.createElement('div'); bg.className='sw45bg swxbg';
+  bg.style.cssText=`top:${el.offsetTop}px;left:${el.offsetLeft}px;width:${el.offsetWidth}px;height:${el.offsetHeight}px;border-radius:${getComputedStyle(el).borderRadius}`;
+  bg.innerHTML=`${A.r?`<span class="sw45r t-${A.r.tone||'no'}"><b>${A.r.ic||''}</b>${svEsc(A.r.t)}</span>`:''}${A.l?`<span class="sw45l t-${A.l.tone||'ok'}">${svEsc(A.l.t)}<b>${A.l.ic||''}</b></span>`:''}`;
+  par.insertBefore(bg,el); return bg;
+}
+document.addEventListener('pointerdown',e=>{
+  if(e.button>0||SWX.on)return;
+  const f=swxFind(e.target); if(!f)return;
+  if(e.target.closest('input,select,textarea,[contenteditable],.noswipe'))return;
+  SWX.on={el:f.el,r:f.r,x:e.clientX,y:e.clientY,t:performance.now(),dx:0,axis:null,id:e.pointerId,bg:null,A:null,passed:false};
+},true);
+document.addEventListener('pointermove',e=>{
+  const S=SWX.on; if(!S||e.pointerId!==S.id)return;
+  const dx=e.clientX-S.x, dy=e.clientY-S.y;
+  if(!S.axis){ if(Math.abs(dx)<9&&Math.abs(dy)<9)return;
+    if(Math.abs(dx)>Math.abs(dy)*1.25){ let A=null; try{ A=S.r.what(S.el); }catch(x){} if(!A||(!A.l&&!A.r)){ SWX.on=null; return; }
+      S.A=A; S.axis='x'; S.bg=swxBg(S.el,A); S.el.classList.add('sw45drag'); document.body.classList.add('sw45nosel'); try{ S.el.setPointerCapture(e.pointerId); }catch(x){} }
+    else { SWX.on=null; return; } }
+  e.preventDefault();
+  const W=S.el.offsetWidth||300; let d=dx; if(d<0&&!S.A.l)d*=0.25; if(d>0&&!S.A.r)d*=0.25;
+  S.dx=d; S.el.style.transform=`translate3d(${d}px,0,0)`;
+  const pass=Math.abs(d)>Math.min(140,W*0.3); if(S.bg){ S.bg.classList.toggle('go-r',d>0); S.bg.classList.toggle('go-l',d<0); S.bg.classList.toggle('pass',pass); }
+  if(pass!==S.passed){ S.passed=pass; if(pass)try{ svHaptic('light'); }catch(x){} }
+},{passive:false,capture:true});
+function swxEnd(e,cancel){
+  const S=SWX.on; if(!S||(e&&e.pointerId!==S.id))return; SWX.on=null; if(S.axis!=='x')return;
+  document.body.classList.remove('sw45nosel'); SWX.just=Date.now();
+  const el=S.el, W=el.offsetWidth||300, v=Math.abs(S.dx)/Math.max(1,performance.now()-S.t), dir=S.dx>0?'r':'l', act=S.A[dir];
+  const ok=!cancel&&act&&(Math.abs(S.dx)>Math.min(140,W*0.3)||(v>0.6&&Math.abs(S.dx)>48));
+  el.classList.remove('sw45drag');
+  const zurueck=()=>{ el.classList.add('sw45back'); el.style.transform=''; setTimeout(()=>{ el.classList.remove('sw45back'); if(S.bg)S.bg.remove(); },300); };
+  if(!ok)return zurueck();
+  if(!act.out){ zurueck(); setTimeout(()=>swxRun(act),260); return; }
+  try{ svSound('swoosh'); }catch(x){}
+  el.style.height=el.offsetHeight+'px'; el.classList.add('sw45out'); el.style.transform=`translate3d(${(dir==='r'?1:-1)*W*1.15}px,0,0)`;
+  if(S.bg)S.bg.classList.add('fade'); setTimeout(()=>{ el.classList.add('sw45zu'); if(S.bg)S.bg.remove(); },200);
+  setTimeout(()=>swxRun(act),440);
+}
+async function swxRun(act){ try{ await act.fn(); }catch(e){ kToast('⚠️ '+String((e&&e.message)||e)); } }
+document.addEventListener('pointerup',e=>swxEnd(e,false),true);
+document.addEventListener('pointercancel',e=>swxEnd(e,true),true);
+window.addEventListener('click',e=>{ if(Date.now()-SWX.just<400&&e.target.closest&&SWX.reg.length&&e.target.closest(swxSel())){ e.stopPropagation(); e.preventDefault(); } },true);
+// Einmaliger Tipp je Liste (auf Touch-Geräten), danach nur noch die kleine Zeile über der Liste
+function swxTipp(key,text){ try{ if(!matchMedia('(pointer: coarse)').matches)return; const k='swxTipp-'+key; if(localStorage.getItem(k))return; localStorage.setItem(k,'1'); setTimeout(()=>kToast('Tipp: '+text),700); }catch(e){} }
+function swxZeile(links,rechts){ return `<p class="swx-hint"><span>← ${svEsc(links)}</span><span>${svEsc(rechts)} →</span></p>`; }
+
+/* ---------- Bedarf: Kandidaten ---------- */
+const SWX_WEITER={kandidat:'beobachten',beobachten:'shortlist',shortlist:'kontakt'};
+const SWX_STL=Object.fromEntries(SC4_ST.concat([['verworfen','Verworfen']]));
+function swxBedarf(){ return SC4.open&&SV4.bed.find(b=>b.id===SC4.open); }
+swxAdd('.bk4r',el=>{
+  const b=swxBedarf(), s=el.querySelector('[data-bks]'); if(!b||!s||!sv4Can())return null;
+  const pid=s.dataset.bks, row=SV4.bk.find(x=>x.bedarf_id===b.id&&x.player_id===pid); if(!row)return null; const p=sv4P(pid)||{name:'Spieler'};
+  const next=SWX_WEITER[row.status];
+  return {
+    r:{ic:'✕',t:'Raus aus dem Bedarf',tone:'no',out:true,fn:async()=>{
+      const alt=Object.assign({},row); const {error}=await SVB.sb.from('bedarf_kandidaten').delete().eq('bedarf_id',b.id).eq('player_id',pid); if(error)throw error;
+      SV4.bk=SV4.bk.filter(x=>!(x.bedarf_id===b.id&&x.player_id===pid)); sv4Bump(); sc4Bedarf();
+      kToast(p.name+' ist raus aus „'+b.titel+'“','Rückgängig',async()=>{ const {data,error:e2}=await SVB.sb.from('bedarf_kandidaten').insert({bedarf_id:b.id,player_id:pid,quelle:alt.quelle||'manuell',status:alt.status}).select().single(); if(e2)return kToast('⚠️ '+e2.message); SV4.bk.push(data); sv4Bump(); sc4Bedarf(); }); }},
+    l:next?{ic:'→',t:SWX_STL[next],tone:'ok',fn:async()=>{
+      const {error}=await SVB.sb.from('bedarf_kandidaten').update({status:next}).eq('bedarf_id',b.id).eq('player_id',pid); if(error)throw error;
+      const alt=row.status; row.status=next; sv4Bump(); sc4Bedarf(); try{ svSound('success'); }catch(x){}
+      kToast(p.name+': '+SWX_STL[next],'Rückgängig',async()=>{ await SVB.sb.from('bedarf_kandidaten').update({status:alt}).eq('bedarf_id',b.id).eq('player_id',pid); row.status=alt; sv4Bump(); sc4Bedarf(); }); }}:null };
+});
+/* Vorschläge und interne Lösungen: übernehmen oder ausblenden */
+function swxHid(bid){ try{ return new Set(JSON.parse(localStorage.getItem('svBedHide-'+bid)||'[]')); }catch(e){ return new Set(); } }
+function swxHidSet(bid,S){ try{ localStorage.setItem('svBedHide-'+bid,JSON.stringify([...S].slice(-200))); }catch(e){} }
+swxAdd('.sg4c[data-badd]',el=>{
+  const b=swxBedarf(); if(!b||!sv4Can())return null; const pid=el.dataset.badd, p=sv4P(pid)||{name:'Spieler'};
+  return {
+    l:{ic:'+',t:'Als Kandidat',tone:'ok',out:true,fn:async()=>{ await sc4Add(b.id,pid,el.dataset.bq||'manuell'); sc4Bedarf(); }},
+    r:{ic:'✕',t:'Ausblenden',tone:'no',out:true,fn:async()=>{ const H=swxHid(b.id); H.add(pid); swxHidSet(b.id,H); sc4Bedarf();
+      kToast(p.name+' ausgeblendet','Rückgängig',()=>{ const H2=swxHid(b.id); H2.delete(pid); swxHidSet(b.id,H2); sc4Bedarf(); }); }} };
+});
+// Wer schon Kandidat ist oder ausgeblendet wurde, taucht unten nicht nochmal auf
+{ const _in=sc4Intern; sc4Intern=function(b){ const have=new Set(SV4.bk.filter(x=>x.bedarf_id===b.id).map(x=>x.player_id)), H=swxHid(b.id);
+  return _in.call(this,b).filter(({p})=>!have.has(p.id)&&!H.has(p.id)); }; }
+{ const _ca=sc4Cands; sc4Cands=function(b,n){ const H=swxHid(b.id); return _ca.call(this,b,(n||6)+H.size).filter(p=>!H.has(p.id)).slice(0,n||6); }; }
+// Kandidatenliste: kleine Zeile, was Wischen macht, und der Wert bekommt eine Beschriftung
+{ const _d=sc4Detail; sc4Detail=function(b){ let h=_d.apply(this,arguments);
+  if(SV4.bk.some(x=>x.bedarf_id===b.id))h=h.replace('<div class="bk4l">',swxZeile('nächste Stufe','raus')+'<div class="bk4l">');
+  if(/class="sg4"/.test(h))h=h.replace(/(<h5 class="bd4h">Vorschläge nach Suchprofil<\/h5>)/,'$1'+swxZeile('als Kandidat','ausblenden'));
+  return h; }; }
+{ const _b=sc4Bedarf; sc4Bedarf=function(){ const r=_b.apply(this,arguments); try{ if(swxBedarf()&&SV4.bk.some(x=>x.bedarf_id===SC4.open))swxTipp('bedarf','Kandidat nach links wischen = nächste Stufe, nach rechts = raus aus dem Bedarf'); }catch(e){} return r; }; }
+
+/* ---------- Teams: Kader als Karten, Termine, Ziele ---------- */
+swxAdd('.svt-kc[data-svtp]',el=>{
+  const sid=el.dataset.svtp, k=SVT.K.find(x=>x.spieler===sid); if(!k||k.status==='abgang')return null; const v=k.vereinsspieler, nm=svtSpieler(v);
+  return {
+    r:{ic:'✕',t:'Aus dem Kader',tone:'no',out:true,fn:async()=>{ await svtRpc('team_kader_raus',{p_m:SVT.team,p_saison:SVT.saison,p_spieler:sid}); await svtReload();
+      kToast(nm+' aus dem Kader genommen','Rückgängig',async()=>{ await svtRpc('team_kader_add',{p_m:SVT.team,p_saison:SVT.saison,p_spieler:[sid],p_status:k.status==='gast'?'gast':'aktiv'}); await svtReload(); }); }},
+    l:svtStufe()==='mini'?null:{ic:'★',t:v.talent?'Talent entfernen':'Talent merken',tone:'ok',fn:async()=>{ await svtRpc('team_spieler_save',{p:{id:sid,mannschaft:SVT.team,saison:SVT.saison,talent:!v.talent}}); await svtReload(); kToast(v.talent?'Talent-Stern entfernt':'★ '+nm+' als Talent gemerkt'); }} };
+});
+swxAdd('.svt-trow[data-svtt]',el=>{
+  const t=SVT.T.find(x=>x.id===el.dataset.svtt); if(!t)return null; const heute=svtHeute(), vorbei=t.datum<=heute, erfasst=SVT.A.some(a=>a.termin===t.id);
+  return {
+    r:t.datum>=heute?{ic:t.abgesagt?'↩':'✕',t:t.abgesagt?'Wieder ansetzen':'Absagen',tone:t.abgesagt?'back':'no',fn:async()=>{ await svtRpc('team_termin_save',{p:{id:t.id,abgesagt:!t.abgesagt}}); await svtReload();
+      kToast(t.abgesagt?'Termin wieder angesetzt':SVT_ART[t.art]+' am '+svtDat(t.datum)+' abgesagt','Rückgängig',async()=>{ await svtRpc('team_termin_save',{p:{id:t.id,abgesagt:t.abgesagt}}); await svtReload(); }); }}:null,
+    l:vorbei&&!erfasst&&!t.abgesagt?{ic:'✓',t:'Alle da',tone:'ok',fn:async()=>{
+      const p=SVT.K.filter(k=>k.status!=='abgang').map(k=>{ const r=SVT.R.find(x=>x.termin===t.id&&x.spieler===k.spieler); return r&&r.antwort==='nein'?{spieler:k.spieler,status:'weg',grund:r.grund||'ohne'}:{spieler:k.spieler,status:'da'}; });
+      await svtRpc('team_anwesenheit_save',{p_termin:t.id,p}); await svtReload(); kToast('✓ Anwesenheit erfasst: alle da'+(p.some(x=>x.status==='weg')?' außer den Absagen':''),'Ändern',()=>svtTermin(t.id)); }}:null };
+});
+swxAdd('.svt-ziel',el=>{
+  const b=el.querySelector('[data-svtz]'); if(!b)return null; const e=SVT.E.find(x=>x.id===b.dataset.svtz); if(!e)return null;
+  return {
+    l:e.status!=='erreicht'?{ic:'✓',t:'Erreicht',tone:'ok',fn:async()=>{ await svtRpc('entwicklung_save',{p:{id:e.id,status:'erreicht'}}); await svtReload(); try{ svSound('success'); }catch(x){}
+      kToast('🎉 Ziel erreicht: '+e.ziel,'Rückgängig',async()=>{ await svtRpc('entwicklung_save',{p:{id:e.id,status:e.status}}); await svtReload(); }); }}:null,
+    r:{ic:'✕',t:'Löschen',tone:'no',out:true,fn:async()=>{ await svtRpc('entwicklung_delete',{p_id:e.id}); await svtReload();
+      kToast('Ziel gelöscht','Rückgängig',async()=>{ await svtRpc('entwicklung_save',{p:{spieler:e.spieler,mannschaft:e.mannschaft,saison:e.saison,thema:e.thema,ziel:e.ziel,massnahmen:e.massnahmen,uebungen:e.uebungen,status:e.status,faellig:e.faellig}}); await svtReload(); }); }} };
+});
+// Kader auf dem Handy als Karten (wischbar, alles auf einen Blick), am Rechner als Tabelle
+{ const _k=svtKader; svtKader=function(B){ _k.apply(this,arguments);
+  if(!matchMedia('(max-width: 700px)').matches||!SVT.K.length)return;
+  const tw=B.querySelector('.svt-tw'); if(!tw)return; const mini=svtStufe()==='mini';
+  const kc=SVT.K.map(k=>{ const v=k.vereinsspieler, s=svtStat(k.spieler), warn=s.n>=6&&s.quote<.6;
+    return `<div class="svt-kc${k.status==='abgang'?' off':''}" data-svtp="${svEsc(k.spieler)}" role="button" tabindex="0"><span class="svt-kn">${k.nr||''}</span>
+      <div class="svt-kb"><b>${svEsc(svtSpieler(v))}${v.talent?' <span class="svt-star">★</span>':''}</b>
+        <span>${[v.jahrgang?'Jg. '+v.jahrgang:'',mini?'':(k.position||v.position||''),mini||!v.fuss?'':'Fuß '+v.fuss[0].toUpperCase()+(v.schwach?' · schwach '+v.schwach+'/5':''),k.status==='gast'?'Gast':k.status==='abgang'?'Abgang':''].filter(Boolean).map(svEsc).join(' · ')}</span></div>
+      <div class="svt-kz"><b class="${warn?'svt-warn':''}">${svtPct(s.quote)}</b><small>Training</small></div>${mini?'':svtEinChip(s.avg)}</div>`; }).join('');
+  tw.outerHTML=swxZeile(mini?'':'Talent merken','aus dem Kader')+`<div class="svt-kl">${kc}</div>`;
+  B.querySelectorAll('.svt-kc[data-svtp]').forEach(r=>{ r.onclick=()=>{ if(Date.now()-SWX.just>400)svtSpielerModal(r.dataset.svtp); }; r.onkeydown=e=>{ if(e.key==='Enter')svtSpielerModal(r.dataset.svtp); }; });
+  swxTipp('kader','Spieler nach rechts wischen = aus dem Kader, nach links = Talent merken');
+}; }
+{ const _t=svtTermine; svtTermine=function(B){ _t.apply(this,arguments); const h=B.querySelector('.svt-h4'); if(h&&SVT.T.length)h.insertAdjacentHTML('beforebegin',swxZeile('alle da (vorbei)','absagen')); }; }
+
+/* =====================================================================
+   Sportzentrale Beta 0.25 · Sponsoring
+   - Übersicht: Partner, Summe je Saison, freie Plätze, was als Nächstes ansteht, wer lange nichts gehört hat
+   - Sponsoren: Stand von der Idee bis zum Partner, wer wann angeschrieben wurde (ein Tipp), wischen = Stand weiter / abgesagt
+   - Ausrüstung: Trikots und Anzüge je Mannschaft, wo ein Sponsor gesucht wird
+   - Ablage: Links in jede Cloud (Google Drive, iCloud, OneDrive, Dropbox), Vorlagen des Vereins
+   - Partnervertrag vor Ort: Stufe, Laufzeit, Extras, Summe rechnet sich selbst, Unterschrift auf Handy oder Tablet, PDF entsteht in der App
+   Bankdaten des Partners sieht nur, wer „Bankdaten sehen“ darf. Das PDF für alle anderen zeigt die IBAN gekürzt.
+   ===================================================================== */
+const SPO={loaded:false,busy:false,S:[],K:[],L:[],A:[],V:[],D:[],verein:{},view:'uebersicht',flt:'offen',q:'',t:0};
+const SPO_ST=[['idee','Idee'],['angeschrieben','Angeschrieben'],['gespraech','Gespräch'],['angebot','Angebot'],['partner','Partner'],['abgesagt','Abgesagt'],['pausiert','Pausiert']];
+const SPO_STL=Object.fromEntries(SPO_ST);
+const SPO_WEITER={idee:'angeschrieben',angeschrieben:'gespraech',gespraech:'angebot',angebot:'partner'};
+const SPO_STUFE={supporter:{t:'SVM Supporter',p:189,d:'Supporter-Tafel, Nennung auf Website und Partnerwall.'},club:{t:'Club Partner',p:496,d:'Bande am Sportplatz, Social-Media-Nennung, Partnerkarte.'},
+  premium:{t:'Premium Partner',p:896,d:'Große Bande, regelmäßiger Content, SVM Business Netzwerk.',max:16},p1896:{t:'1896 Partner',p:1896,d:'Innerer Partnerkreis, Matchday-Sponsoring inklusive, Vorwahlrecht.',max:8}};
+const SPO_LZ={1:['1 Saison','regulär',0],2:['2 Saisons','−5 % und Preisgarantie',.05],3:['3 Saisons','−10 % und garantierter Platz',.10]};
+const SPO_EX={sotd:['Sponsor of the Day','ein Heimspiel',149],trikot:['Trikotsatz-Patenschaft Jugend','',350],business:['Business Treff','als Gastgeber',250]};
+const SPO_ART={mail:['✉️','Mail'],anruf:['📞','Anruf'],treffen:['🤝','Treffen'],brief:['📮','Brief'],whatsapp:['💬','WhatsApp'],angebot:['📄','Angebot'],vertrag:['✍️','Vertrag'],sonst:['•','Notiz']};
+const SPO_AUS={trikot1:'Trikotsatz 1',trikot2:'Trikotsatz 2',anzug:'Trainingsanzug'};
+const SPO_LINKART={ordner:'Ordner',vorlage:'Vorlage',praesentation:'Präsentation',vertrag:'Vertrag',logo:'Logo',sonst:'Link'};
+function spoEur(v,dez){ return (Math.round((+v||0)*100)/100).toLocaleString('de-DE',{style:'currency',currency:'EUR',minimumFractionDigits:dez?2:0,maximumFractionDigits:dez?2:0}); }
+function spoAnbieter(u){ u=String(u||''); return /drive\.google|docs\.google/.test(u)?'Google Drive':/icloud\.com/.test(u)?'iCloud':/1drv\.ms|onedrive|sharepoint/.test(u)?'OneDrive':/dropbox\.com/.test(u)?'Dropbox':'Web'; }
+function spoDat(d){ try{ return new Date(String(d).slice(0,10)+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}); }catch(e){ return d; } }
+function spoTage(d){ return Math.round((Date.now()-new Date(String(d).slice(0,10)+'T12:00:00').getTime())/86400000); }
+function spoLetzter(sid){ return SPO.K.find(k=>k.sponsor===sid)||null; }
+function spoDarf(k){ return svDarf(k)===true; }
+
+SVR_TAB.sponsoring='sponsoring';
+if(typeof SV_SIDE!=='undefined')Object.keys(SV_SIDE).forEach(r=>{ const L=SV_SIDE[r]; if(L.includes('Sponsoring'))return; const i=L.indexOf('Verein'); L.splice(i<0?L.length-1:i+1,0,'Sponsoring'); });
+{ const _ta=svTabAllowed; svTabAllowed=function(t){ if(t==='sponsoring')return spoDarf('sponsoring'); return _ta.apply(this,arguments); }; }
+SV_TBL.sponsoring=['heart','Sponsoring'];
+Object.assign(SV_PAGES,{sponsoring:['Sponsoring','Sponsoren, Kontakte, Ausrüstung, Ablage und Partnerverträge']});
+function spoPanel(){ let P=document.getElementById('panel-sponsoring'); if(P)return P;
+  const ref=document.getElementById('panel-verein')||document.querySelector('.panel'); if(!ref)return null;
+  P=document.createElement('section'); P.className='panel'; P.id='panel-sponsoring'; ref.parentNode.insertBefore(P,ref.nextSibling); return P; }
+{ const _gt=goTab; goTab=function(tab){ if(tab==='sponsoring')spoPanel(); const r=_gt.apply(this,arguments); try{ if(svCurTab()==='sponsoring')spoRender(); }catch(e){ console.warn('Sponsoring',e); } return r; }; }
+
+async function spoLoad(force){
+  if(SPO.busy||(!force&&SPO.loaded&&Date.now()-SPO.t<30000))return; SPO.busy=true;
+  try{ const sb=SVB.sb;
+    const [s,k,l,a,v,d,vd]=await Promise.all([sb.from('sponsoren').select('*').order('firma'),sb.from('sponsor_kontakte').select('*').order('am',{ascending:false}).order('erstellt_am',{ascending:false}).limit(2000),
+      sb.from('sponsor_links').select('*').order('erstellt_am'),sb.from('ausruestung').select('*'),sb.from('sponsor_vertraege').select('*').order('erstellt_am',{ascending:false}),
+      sb.from('sponsor_dokumente').select('id,vertrag,sponsor,art,name,erstellt_am'),sb.from('verein_daten').select('daten').maybeSingle()]);
+    for(const x of [s,k,l,a,v,d]){ if(x.error)throw x.error; }
+    SPO.S=s.data||[]; SPO.K=k.data||[]; SPO.L=l.data||[]; SPO.A=a.data||[]; SPO.V=v.data||[]; SPO.D=d.data||[]; SPO.verein=(vd.data&&vd.data.daten)||{};
+    SPO.loaded=true; SPO.t=Date.now(); SPO.err=null;
+  }catch(e){ SPO.err=String(e.message||e); console.warn('Sponsoring laden',e); } finally{ SPO.busy=false; }
+}
+async function spoReload(){ await spoLoad(true); spoBody(); }
+
+async function spoRender(){
+  const P=spoPanel(); if(!P)return;
+  if(!spoDarf('sponsoring')){ P.innerHTML='<div class="card"><div class="empty">Sponsoring ist für dich nicht freigeschaltet.</div></div>'; return; }
+  const V=[['uebersicht','Übersicht'],['sponsoren','Sponsoren'],['ausruestung','Ausrüstung'],['ablage','Ablage']];
+  P.innerHTML=`<div class="svt-top"><div class="svt-head"><div><h2>Sponsoring</h2><p>Stand, Kontakte, Ausrüstung und Verträge an einem Ort</p></div>
+      ${spoDarf('sponsoring:vertrag')?`<button class="btn" id="spoVert" type="button">✍️ Partnervertrag</button>`:''}</div>
+    <div class="svt-seg spo-seg" role="tablist">${V.map(([k,l])=>`<button type="button" role="tab" class="${k===SPO.view?'on':''}" data-spov="${k}">${l}</button>`).join('')}</div></div><div id="spoB"><div class="card"><div class="empty">Lade …</div></div></div>`;
+  P.querySelectorAll('[data-spov]').forEach(b=>b.onclick=()=>{ SPO.view=b.dataset.spov; P.querySelectorAll('[data-spov]').forEach(x=>x.classList.toggle('on',x===b)); spoBody(); });
+  const vb=P.querySelector('#spoVert'); if(vb)vb.onclick=()=>spoVertrag(null);
+  await spoLoad(); spoBody();
+}
+function spoBody(){ const B=document.getElementById('spoB'); if(!B)return;
+  if(SPO.err&&!SPO.loaded){ B.innerHTML=`<div class="card"><div class="empty">Konnte nicht laden: ${svEsc(SPO.err)}</div></div>`; return; }
+  try{ ({uebersicht:spoUebersicht,sponsoren:spoListe,ausruestung:spoAusruestung,ablage:spoAblage}[SPO.view]||spoUebersicht)(B); }catch(e){ console.warn(e); B.innerHTML='<div class="card"><div class="empty">Fehler beim Anzeigen.</div></div>'; } }
+
+/* ---------- Übersicht ---------- */
+function spoAktiv(saison){ const s=+saison.slice(0,2); return SPO.V.filter(v=>v.status==='aktiv'&&+v.beginn.slice(0,2)<=s&&+v.beginn.slice(0,2)+v.saisons-1>=s); }
+function spoUebersicht(B){
+  const s=svtSaisonJetzt(), akt=spoAktiv(s), sum=akt.reduce((a,v)=>a+(+v.netto_saison||0),0), heute=svtHeute();
+  const frei=k=>SPO_STUFE[k].max-akt.filter(v=>v.stufe===k).length;
+  const cnt=st=>SPO.S.filter(x=>x.status===st).length;
+  const faellig=SPO.S.filter(x=>x.faellig&&x.faellig<=svtAddD(heute,7)&&!['abgesagt','partner'].includes(x.status)||(x.naechster&&!x.faellig&&!['abgesagt','partner','pausiert'].includes(x.status))).sort((a,b)=>String(a.faellig||'9').localeCompare(String(b.faellig||'9')));
+  const still=SPO.S.filter(x=>['angeschrieben','angebot'].includes(x.status)).map(x=>({x,l:spoLetzter(x.id)})).filter(o=>!o.l||spoTage(o.l.am)>=14);
+  const ende=SPO.V.filter(v=>v.status==='aktiv'&&+v.beginn.slice(0,2)+v.saisons-1===+s.slice(0,2));
+  const zeile=(x,extra)=>`<button type="button" class="spo-z" data-spos="${svEsc(x.id)}"><b>${svEsc(x.firma)}</b><span>${extra}</span><i class="spo-st s-${x.status}">${svEsc(SPO_STL[x.status])}</i></button>`;
+  B.innerHTML=`<div class="spo-kpis"><div class="spo-kpi"><b>${cnt('partner')}</b><span>Partner, davon ${akt.length} mit Vertrag in der App</span></div><div class="spo-kpi"><b>${spoEur(sum)}</b><span>netto ${svtSL(s)} aus Verträgen in der App</span></div>
+      <div class="spo-kpi"><b>${frei('premium')}<small> / 16</small></b><span>Premium frei</span></div><div class="spo-kpi"><b>${frei('p1896')}<small> / 8</small></b><span>1896 frei</span></div></div>
+    <div class="card"><h3 class="trh">Stand</h3><div class="spo-pipe">${SPO_ST.filter(([k])=>k!=='pausiert').map(([k,l])=>`<button type="button" data-spof="${k}" class="s-${k}"><b>${cnt(k)}</b><span>${l}</span></button>`).join('')}</div>
+      <p class="note small">${SPO.S.filter(x=>x.bestand).length} Bestandssponsoren. Antippen zeigt die Liste.</p></div>
+    <div class="card"><h3 class="trh">${SVI('clock')} Als Nächstes</h3>${faellig.slice(0,12).map(x=>zeile(x,`${svEsc(x.naechster||'Nächster Schritt offen')}${x.faellig?' · bis '+spoDat(x.faellig):''}`)).join('')||'<p class="note">Nichts fällig. Beim Sponsor „Nächster Schritt“ eintragen, dann steht es hier.</p>'}</div>
+    ${still.length?`<div class="card"><h3 class="trh">${SVI('bell')} Lange nichts gehört</h3>${still.slice(0,10).map(o=>zeile(o.x,o.l?`${SPO_ART[o.l.art][0]} zuletzt vor ${spoTage(o.l.am)} Tagen`:'noch kein Kontakt eingetragen')).join('')}</div>`:''}
+    ${ende.length?`<div class="card"><h3 class="trh">${SVI('refresh')} Verlängerung fällig</h3><p class="note">Laut Vertrag spätestens 8 Wochen vor Saisonende anfragen. Bestandspartner haben Vorrang.</p>${ende.map(v=>{ const x=SPO.S.find(y=>y.id===v.sponsor); return x?zeile(x,`${svEsc(SPO_STUFE[v.stufe].t)} · endet mit ${svtSL(s)}`):''; }).join('')}</div>`:''}`;
+  B.querySelectorAll('[data-spos]').forEach(b=>b.onclick=()=>spoSponsor(b.dataset.spos));
+  B.querySelectorAll('[data-spof]').forEach(b=>b.onclick=()=>{ SPO.flt=b.dataset.spof; SPO.view='sponsoren'; document.querySelectorAll('[data-spov]').forEach(x=>x.classList.toggle('on',x.dataset.spov==='sponsoren')); spoBody(); });
+}
+
+/* ---------- Sponsoren ---------- */
+function spoListe(B){
+  const F=[['offen','In Arbeit'],['bestand','Bestand'],['partner','Partner'],['alle','Alle'],...SPO_ST.filter(([k])=>!['partner'].includes(k)).map(([k,l])=>[k,l])];
+  const q=SPO.q.trim().toLowerCase();
+  const L=SPO.S.filter(x=>SPO.flt==='alle'||(SPO.flt==='offen'?['idee','angeschrieben','gespraech','angebot'].includes(x.status):SPO.flt==='bestand'?x.bestand:x.status===SPO.flt))
+    .filter(x=>!q||(x.firma+' '+(x.ansprechpartner||'')+' '+(x.branche||'')+' '+(x.notiz||'')).toLowerCase().includes(q));
+  B.innerHTML=`<div class="card"><div class="svt-ch"><input type="search" class="svm-such spo-q" id="spoQ" placeholder="Firma, Ansprechpartner, Branche …" value="${svEsc(SPO.q)}"><button class="btn sm" id="spoNeu" type="button">${SVI('plus')} Sponsor</button></div>
+    <div class="chips4 spo-f">${F.map(([k,l])=>`<button type="button" class="${SPO.flt===k?'on':''}" data-spoff="${k}">${l}</button>`).join('')}</div>
+    ${swxZeile('Stand weiter','abgesagt')}
+    <div class="spo-l">${L.map(x=>{ const l=spoLetzter(x.id); return `<div class="spo-r" data-spor="${svEsc(x.id)}" role="button" tabindex="0"><div><b>${svEsc(x.firma)}${x.bestand?' <span class="svt-tag">Bestand</span>':''}</b>
+        <span>${[x.ansprechpartner,x.branche].filter(Boolean).map(svEsc).join(' · ')}${l?`${x.ansprechpartner||x.branche?' · ':''}${SPO_ART[l.art][0]} ${spoDat(l.am)}`:''}</span>${x.naechster?`<em>→ ${svEsc(x.naechster)}${x.faellig?' · bis '+spoDat(x.faellig):''}</em>`:''}</div>
+        <i class="spo-st s-${x.status}">${svEsc(SPO_STL[x.status])}</i></div>`; }).join('')||'<div class="empty">Keine Sponsoren in dieser Auswahl.</div>'}</div></div>`;
+  const qi=B.querySelector('#spoQ'); qi.oninput=()=>{ SPO.q=qi.value; const pos=qi.selectionStart; spoListe(B); const n=document.getElementById('spoQ'); n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} };
+  B.querySelector('#spoNeu').onclick=()=>spoForm(null);
+  B.querySelectorAll('[data-spoff]').forEach(b=>b.onclick=()=>{ SPO.flt=b.dataset.spoff; spoListe(B); });
+  B.querySelectorAll('[data-spor]').forEach(r=>{ r.onclick=()=>{ if(Date.now()-SWX.just>400)spoSponsor(r.dataset.spor); }; r.onkeydown=e=>{ if(e.key==='Enter')spoSponsor(r.dataset.spor); }; });
+}
+async function spoStatus(x,st,log){
+  const {error}=await SVB.sb.from('sponsoren').update({status:st,geaendert_am:new Date().toISOString()}).eq('id',x.id); if(error)throw error;
+  if(log)await SVB.sb.from('sponsor_kontakte').insert({sponsor:x.id,art:'sonst',notiz:'Stand: '+SPO_STL[st]});
+}
+swxAdd('.spo-r[data-spor]',el=>{
+  const x=SPO.S.find(s=>s.id===el.dataset.spor); if(!x)return null; const next=SPO_WEITER[x.status];
+  return {
+    l:next&&next!=='partner'?{ic:'→',t:SPO_STL[next],tone:'ok',fn:async()=>{ const alt=x.status; await spoStatus(x,next,true); await spoReload();
+      kToast(x.firma+': '+SPO_STL[next],'Rückgängig',async()=>{ await spoStatus(x,alt,false); await spoReload(); }); }}:null,
+    r:x.status!=='abgesagt'?{ic:'✕',t:'Abgesagt',tone:'no',fn:async()=>{ const alt=x.status; await spoStatus(x,'abgesagt',true); await spoReload();
+      kToast(x.firma+': abgesagt','Rückgängig',async()=>{ await spoStatus(x,alt,false); await spoReload(); }); }}:null };
+});
+
+function spoSponsor(id){
+  const x=SPO.S.find(s=>s.id===id); if(!x)return; const K=SPO.K.filter(k=>k.sponsor===id), L=SPO.L.filter(l=>l.sponsor===id), V=SPO.V.filter(v=>v.sponsor===id);
+  const M=svModal(`<div class="mhead"><div class="spo-av">${svEsc(x.firma.slice(0,2).toUpperCase())}</div><div><h2 style="margin:0">${svEsc(x.firma)}</h2>
+      <div class="msub">${[x.ansprechpartner&&(x.ansprechpartner+(x.funktion?' ('+x.funktion+')':'')),x.branche,x.bestand?'Bestandssponsor':''].filter(Boolean).map(svEsc).join(' · ')}</div></div></div>
+    <div class="spo-stbar">${SPO_ST.map(([k,l])=>`<button type="button" class="${x.status===k?'on s-'+k:''}" data-spost="${k}">${l}</button>`).join('')}</div>
+    <div class="spo-kont"><span>Kontakt eintragen:</span>${['mail','anruf','treffen','whatsapp','brief','angebot'].map(a=>`<button type="button" data-spoka="${a}">${SPO_ART[a][0]} ${SPO_ART[a][1]}</button>`).join('')}</div>
+    <div class="spo-kn" id="spoKN" hidden><input id="spoKNt" maxlength="1000" placeholder="Kurze Notiz (freiwillig), z.B. Präsentation geschickt"><input id="spoKNd" type="date" value="${svtHeute()}"><button class="btn sm" id="spoKNs" type="button">Eintragen</button></div>
+    <div class="spo-info">${[x.email?`<a href="mailto:${svEsc(x.email)}">${svEsc(x.email)}</a>`:'',x.telefon?`<a href="tel:${svEsc(x.telefon)}">${svEsc(x.telefon)}</a>`:'',x.web?`<a href="${svEsc(/^https?:/.test(x.web)?x.web:'https://'+x.web)}" target="_blank" rel="noopener">${svEsc(x.web)}</a>`:'',[x.strasse,x.ort].filter(Boolean).map(svEsc).join(', ')].filter(Boolean).join(' · ')||'<span class="note">Noch keine Kontaktdaten.</span>'}</div>
+    ${x.naechster?`<p class="spo-next">→ <b>${svEsc(x.naechster)}</b>${x.faellig?' · bis '+spoDat(x.faellig):''}</p>`:''}${x.notiz?`<p class="note">${svEsc(x.notiz)}</p>`:''}
+    <div class="btnrow"><button class="btn sm ghost" id="spoEd" type="button">Bearbeiten</button>${spoDarf('sponsoring:vertrag')?`<button class="btn sm" id="spoVt" type="button">✍️ Vertrag abschließen</button>`:''}</div>
+    ${V.length?`<h4 class="svt-h4">Verträge</h4>${V.map(v=>{ const Ds=SPO.D.filter(d=>d.vertrag===v.id); return `<div class="spo-v"><div><b>${svEsc(v.nr)} · ${svEsc(SPO_STUFE[v.stufe].t)}</b><span>${svtSL(v.beginn)}, ${v.saisons} Saison${v.saisons>1?'s':''} · ${spoEur(v.netto_saison,true)} netto je Saison · ${v.zahlung==='sepa'?'SEPA':'Rechnung'} · unterschrieben ${spoDat(v.unterschrieben_am)}</span></div>
+      <div class="btnrow">${Ds.map(d=>`<button class="btn sm ghost" type="button" data-spodoc="${svEsc(d.id)}">${SVI('download')} ${d.art==='vertrag_voll'?'PDF mit Bankdaten':'PDF'}</button>`).join('')}</div></div>`; }).join('')}`:''}
+    <h4 class="svt-h4">Ablage <button class="btn sm ghost" id="spoLA" type="button">${SVI('plus')} Link</button></h4>
+    ${L.map(l=>spoLinkHtml(l)).join('')||'<p class="note small">Links zu Präsentation, Logo oder Angebot, egal in welcher Cloud.</p>'}
+    <h4 class="svt-h4">Verlauf</h4><div class="spo-log">${K.map(k=>`<div><span>${spoDat(k.am)}</span><b>${SPO_ART[k.art][0]} ${svEsc(SPO_ART[k.art][1])}</b>${k.notiz?`<em>${svEsc(k.notiz)}</em>`:''}</div>`).join('')||'<p class="note small">Noch nichts eingetragen.</p>'}</div>`);
+  M.querySelectorAll('[data-spost]').forEach(b=>b.onclick=async()=>{ try{ await spoStatus(x,b.dataset.spost,true); await spoLoad(true); spoSponsor(id); spoBody(); }catch(e){ kToast('⚠️ '+e.message); } });
+  let art=null; const kn=M.querySelector('#spoKN');
+  M.querySelectorAll('[data-spoka]').forEach(b=>b.onclick=()=>{ art=b.dataset.spoka; M.querySelectorAll('[data-spoka]').forEach(y=>y.classList.toggle('on',y===b)); kn.hidden=false; M.querySelector('#spoKNt').focus(); });
+  M.querySelector('#spoKNs').onclick=async()=>{ if(!art)return; try{
+      const {error}=await SVB.sb.from('sponsor_kontakte').insert({sponsor:id,art,am:M.querySelector('#spoKNd').value||svtHeute(),notiz:M.querySelector('#spoKNt').value.trim()||null}); if(error)throw error;
+      if(x.status==='idee'&&['mail','brief','whatsapp','anruf'].includes(art))await spoStatus(x,'angeschrieben',false);
+      if(art==='angebot'&&['idee','angeschrieben','gespraech'].includes(x.status))await spoStatus(x,'angebot',false);
+      if(art==='treffen'&&['idee','angeschrieben'].includes(x.status))await spoStatus(x,'gespraech',false);
+      kToast('✓ '+SPO_ART[art][1]+' eingetragen'); await spoLoad(true); spoSponsor(id); spoBody(); }catch(e){ kToast('⚠️ '+e.message); } };
+  M.querySelector('#spoEd').onclick=()=>spoForm(x);
+  const vt=M.querySelector('#spoVt'); if(vt)vt.onclick=()=>spoVertrag(x);
+  M.querySelector('#spoLA').onclick=()=>spoLinkForm(id,()=>spoSponsor(id));
+  spoLinkWire(M,()=>spoSponsor(id));
+  M.querySelectorAll('[data-spodoc]').forEach(b=>b.onclick=()=>spoDokument(b.dataset.spodoc));
+}
+function spoForm(x){
+  x=x||{status:'idee'};
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">${x.id?svEsc(x.firma)+' bearbeiten':'Neuer Sponsor'}</h2></div></div>
+    <form id="spoF" class="editgrid svt-form" autocomplete="off">
+      <div class="field" style="grid-column:1/-1"><label>Firma *</label><input name="firma" required maxlength="120" value="${svEsc(x.firma||'')}"></div>
+      <div class="field"><label>Ansprechpartner</label><input name="ansprechpartner" maxlength="80" value="${svEsc(x.ansprechpartner||'')}"></div>
+      <div class="field"><label>Funktion</label><input name="funktion" maxlength="60" value="${svEsc(x.funktion||'')}"></div>
+      <div class="field"><label>E-Mail</label><input name="email" type="email" maxlength="120" value="${svEsc(x.email||'')}"></div>
+      <div class="field"><label>Telefon</label><input name="telefon" type="tel" maxlength="40" value="${svEsc(x.telefon||'')}"></div>
+      <div class="field"><label>Straße, Nr.</label><input name="strasse" maxlength="120" value="${svEsc(x.strasse||'')}"></div>
+      <div class="field"><label>PLZ, Ort</label><input name="ort" maxlength="80" value="${svEsc(x.ort||'')}"></div>
+      <div class="field"><label>Website / Instagram</label><input name="web" maxlength="160" value="${svEsc(x.web||'')}"></div>
+      <div class="field"><label>Branche</label><input name="branche" maxlength="60" value="${svEsc(x.branche||'')}"></div>
+      <div class="field"><label>Stand</label><select name="status">${SPO_ST.map(([k,l])=>`<option value="${k}"${x.status===k?' selected':''}>${l}</option>`).join('')}</select></div>
+      <label class="svt-cb"><input type="checkbox" name="bestand"${x.bestand?' checked':''}> Bestandssponsor</label>
+      <div class="field"><label>Nächster Schritt</label><input name="naechster" maxlength="200" placeholder="z.B. Präsentation schicken" value="${svEsc(x.naechster||'')}"></div>
+      <div class="field"><label>Bis wann</label><input name="faellig" type="date" value="${svEsc(x.faellig||'')}"></div>
+      <div class="field" style="grid-column:1/-1"><label>Notiz</label><textarea name="notiz" rows="3" maxlength="2000">${svEsc(x.notiz||'')}</textarea></div>
+      <div class="btnrow sbact" style="grid-column:1/-1"><button class="btn" type="submit">Speichern</button>${x.id?'<button class="btn ghost" type="button" id="spoDel">Löschen</button>':''}<button class="btn ghost" type="button" id="spoX">Abbrechen</button></div></form>`);
+  M.querySelector('#spoX').onclick=()=>x.id?spoSponsor(x.id):closeOverlay();
+  const del=M.querySelector('#spoDel'); if(del)del.onclick=async()=>{ if(del.dataset.sure!=='1'){ del.dataset.sure='1'; del.textContent='Wirklich löschen?'; return; }
+    const {error}=await SVB.sb.from('sponsoren').delete().eq('id',x.id); if(error)return kToast('⚠️ '+(/foreign|violates/.test(error.message)?'Mit Vertrag nicht löschbar. Stand auf „Pausiert“ setzen.':error.message)); closeOverlay(); spoReload(); };
+  M.querySelector('#spoF').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target), r={};
+    ['firma','ansprechpartner','funktion','email','telefon','strasse','ort','web','branche','status','naechster','faellig','notiz'].forEach(k=>{ const v=String(fd.get(k)||'').trim(); r[k]=v||null; });
+    r.firma=r.firma||''; r.status=r.status||'idee'; r.bestand=fd.has('bestand'); r.geaendert_am=new Date().toISOString();
+    const q=x.id?SVB.sb.from('sponsoren').update(r).eq('id',x.id).select().single():SVB.sb.from('sponsoren').insert(r).select().single();
+    const {data,error}=await q; if(error)return kToast('⚠️ '+(/duplicate|unique/.test(error.message)?'Diese Firma gibt es schon':error.message));
+    kToast('✓ Gespeichert'); await spoLoad(true); spoBody(); spoSponsor(data.id); };
+}
+/* Links: jede Cloud, die App merkt sich nur den Link */
+function spoLinkHtml(l){ return `<div class="spo-link"><a href="${svEsc(l.url)}" target="_blank" rel="noopener"><b>${svEsc(l.titel)}</b><span>${svEsc(SPO_LINKART[l.art]||'Link')} · ${svEsc(spoAnbieter(l.url))}</span></a><button type="button" class="svt-x" data-spolx="${svEsc(l.id)}" aria-label="Link entfernen">✕</button></div>`; }
+function spoLinkWire(M,nachher){ M.querySelectorAll('[data-spolx]').forEach(b=>b.onclick=async()=>{ const l=SPO.L.find(y=>y.id===b.dataset.spolx); const {error}=await SVB.sb.from('sponsor_links').delete().eq('id',b.dataset.spolx); if(error)return kToast('⚠️ '+error.message);
+  await spoLoad(true); nachher&&nachher(); kToast('Link entfernt','Rückgängig',async()=>{ if(l){ await SVB.sb.from('sponsor_links').insert({sponsor:l.sponsor,titel:l.titel,url:l.url,art:l.art}); await spoLoad(true); nachher&&nachher(); } }); }); }
+function spoLinkForm(sid,nachher){
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">Link ablegen</h2><div class="msub">Freigabe-Link aus Google Drive, iCloud, OneDrive, Dropbox oder einer Website. Die Datei bleibt, wo sie ist.</div></div></div>
+    <form id="spoLF" class="editgrid svt-form"><div class="field" style="grid-column:1/-1"><label>Link *</label><input name="url" type="url" required placeholder="https://…" maxlength="600"></div>
+      <div class="field"><label>Titel *</label><input name="titel" required maxlength="120" placeholder="z.B. Präsentation 2026"></div>
+      <div class="field"><label>Art</label><select name="art">${Object.entries(SPO_LINKART).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></div>
+      <p class="note small" id="spoLAn" style="grid-column:1/-1"></p>
+      <div class="btnrow sbact" style="grid-column:1/-1"><button class="btn" type="submit">Speichern</button><button class="btn ghost" type="button" id="spoX">Abbrechen</button></div></form>`);
+  const u=M.querySelector('[name=url]'); u.oninput=()=>{ M.querySelector('#spoLAn').textContent=u.value?'Erkannt: '+spoAnbieter(u.value):''; };
+  M.querySelector('#spoX').onclick=()=>nachher?nachher():closeOverlay();
+  M.querySelector('#spoLF').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target), url=String(fd.get('url')).trim();
+    if(!/^https:\/\//.test(url))return kToast('Bitte einen Link mit https:// einfügen');
+    const {error}=await SVB.sb.from('sponsor_links').insert({sponsor:sid,url,titel:String(fd.get('titel')).trim(),art:fd.get('art')}); if(error)return kToast('⚠️ '+error.message);
+    kToast('✓ Link abgelegt'); await spoLoad(true); nachher?nachher():(closeOverlay(),spoBody()); };
+}
+
+/* ---------- Ausrüstung je Mannschaft ---------- */
+function spoAusruestung(B){
+  const teams=[{id:'h1',kurz:'I',name:'1. Mannschaft'}].concat((SVR.mann||[]).filter(m=>m.id!=='h1')), A=SPO.A;
+  const offen=A.filter(a=>a.bedarf&&!/nicht erforderlich/i.test(a.bedarf)&&!/über den Verein/i.test(a.notiz||''));
+  const jahre=[...new Set(offen.map(a=>a.jahr).filter(Boolean))].sort();
+  const zelle=(m,art)=>{ const a=A.find(x=>x.mannschaft===m&&x.art===art);
+    if(!a)return `<button type="button" class="spo-a leer" data-spoa="${m}|${art}">+</button>`;
+    const such=a.bedarf&&!a.sponsor&&!/nicht erforderlich/i.test(a.bedarf);
+    return `<button type="button" class="spo-a${such?' such':a.sponsor?' ok':''}" data-spoa="${m}|${art}">${a.sponsor?`<b>${svEsc(a.sponsor)}</b>`:a.vorhanden?'<b>vorhanden</b>':''}${a.bedarf?`<span>${svEsc(a.bedarf)}</span>`:''}${such?'<em>Sponsor gesucht</em>':''}${a.jahr||a.betrag?`<small>${a.jahr||''}${a.betrag?' · '+spoEur(a.betrag):''}</small>`:''}</button>`; };
+  B.innerHTML=`<div class="card"><h3 class="trh">${SVI('shield')} Ausrüstung und Werbeflächen</h3>
+      <p class="note">Wer trägt welchen Sponsor, wo fehlt etwas. „Sponsor gesucht“ ist ein Aufhänger für eine Trikotsatz-Patenschaft (350 € je Saison als Zusatzoption im Partnervertrag). Antippen zum Bearbeiten.</p>
+      ${jahre.length?`<div class="spo-kpis sm">${jahre.map(j=>{ const L=offen.filter(a=>a.jahr===j); return `<div class="spo-kpi"><b>${spoEur(L.reduce((s,a)=>s+(+a.betrag||0),0))}</b><span>offener Bedarf ${j} (${L.length})</span></div>`; }).join('')}</div>`:''}
+      <div class="svt-tw"><table class="spo-at"><thead><tr><th>Team</th>${Object.values(SPO_AUS).map(t=>`<th>${t}</th>`).join('')}</tr></thead><tbody>
+      ${teams.map(m=>`<tr><th>${svEsc(m.kurz)}<small>${svEsc(m.name)}</small></th>${Object.keys(SPO_AUS).map(k=>`<td>${zelle(m.id,k)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+  B.querySelectorAll('[data-spoa]').forEach(b=>b.onclick=()=>{ const [m,art]=b.dataset.spoa.split('|'); spoAusForm(m,art); });
+}
+function spoAusForm(m,art){
+  const a=SPO.A.find(x=>x.mannschaft===m&&x.art===art)||{mannschaft:m,art}, team=m==='h1'?'1. Mannschaft':svtM(m).name;
+  const M=svModal(`<div class="mhead"><div><h2 style="margin:0">${svEsc(team)}: ${svEsc(SPO_AUS[art])}</h2></div></div>
+    <form id="spoAF" class="editgrid svt-form"><div class="field"><label>Vorhanden</label><select name="vorhanden"><option value="">offen</option><option value="true"${a.vorhanden===true?' selected':''}>ja</option><option value="false"${a.vorhanden===false?' selected':''}>nein</option></select></div>
+      <div class="field"><label>Sponsor</label><input name="sponsor" list="spoSL" maxlength="120" value="${svEsc(a.sponsor||'')}"><datalist id="spoSL">${SPO.S.map(s=>`<option value="${svEsc(s.firma)}">`).join('')}</datalist></div>
+      <div class="field" style="grid-column:1/-1"><label>Bedarf</label><input name="bedarf" maxlength="200" placeholder="z.B. kompletter Trikotsatz" value="${svEsc(a.bedarf||'')}"></div>
+      <div class="field"><label>Priorität</label><select name="prio"><option value="">–</option>${['hoch','mittel','niedrig'].map(p=>`<option${a.prio===p?' selected':''}>${p}</option>`).join('')}</select></div>
+      <div class="field"><label>Anzahl</label><input name="anzahl" type="number" min="0" max="200" value="${svEsc(a.anzahl??'')}"></div>
+      <div class="field"><label>Jahr</label><input name="jahr" type="number" min="2020" max="2040" value="${svEsc(a.jahr??'')}"></div>
+      <div class="field"><label>Kosten (€)</label><input name="betrag" type="number" min="0" step="0.01" value="${svEsc(a.betrag??'')}"></div>
+      <div class="field" style="grid-column:1/-1"><label>Notiz</label><input name="notiz" maxlength="300" value="${svEsc(a.notiz||'')}"></div>
+      <div class="btnrow sbact" style="grid-column:1/-1"><button class="btn" type="submit">Speichern</button><button class="btn ghost" type="button" id="spoX">Abbrechen</button></div></form>`);
+  M.querySelector('#spoX').onclick=()=>closeOverlay();
+  M.querySelector('#spoAF').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target), num=k=>{ const v=String(fd.get(k)||'').trim(); return v===''?null:+v; };
+    const sp=String(fd.get('sponsor')||'').trim(), s=SPO.S.find(x=>x.firma.toLowerCase()===sp.toLowerCase());
+    const r={mannschaft:m,art,vorhanden:fd.get('vorhanden')===''?null:fd.get('vorhanden')==='true',sponsor:sp||null,sponsor_id:s?s.id:null,bedarf:String(fd.get('bedarf')||'').trim()||null,prio:fd.get('prio')||null,anzahl:num('anzahl'),jahr:num('jahr'),betrag:num('betrag'),notiz:String(fd.get('notiz')||'').trim()||null};
+    const {error}=await SVB.sb.from('ausruestung').upsert(r,{onConflict:'mannschaft,art'}); if(error)return kToast('⚠️ '+error.message); kToast('✓ Gespeichert'); closeOverlay(); spoReload(); };
+}
+
+/* ---------- Ablage und Vereinsdaten ---------- */
+function spoAblage(B){
+  const G=SPO.L.filter(l=>!l.sponsor), vd=SPO.verein||{};
+  B.innerHTML=`<div class="card"><div class="svt-ch"><h3 class="trh">${SVI('file')} Ablage des Vereins</h3><button class="btn sm" id="spoLN" type="button">${SVI('plus')} Link</button></div>
+      <p class="note">Die Dateien bleiben in eurer Cloud, egal ob Google Drive, iCloud, OneDrive oder Dropbox. Die App merkt sich nur den Link, jeder mit Zugriff auf den Ordner kann ihn öffnen. Eine direkte Anbindung an Google Drive (Dateien suchen und ablegen aus der App) folgt, sobald dafür ein Google-Cloud-Projekt angelegt ist.</p>
+      ${['ordner','vorlage','praesentation','vertrag','logo','sonst'].map(a=>{ const L=G.filter(l=>l.art===a); return L.length?`<h4 class="svt-h4">${SPO_LINKART[a]}</h4>${L.map(spoLinkHtml).join('')}`:''; }).join('')||'<p class="note">Noch keine Links.</p>'}</div>
+    ${isAdmin()?`<div class="card"><details class="svr-vorg"${vd.iban&&vd.glaeubiger_id?'':' open'}><summary><h3 class="trh" style="display:inline">Vereinsdaten für Verträge</h3></summary>
+      <p class="note">Stehen im Partnervertrag. Bankverbindung und Gläubiger-ID bitte selbst eintragen, sonst bleiben die Felder im PDF leer.</p>
+      <form id="spoVD" class="editgrid svt-form">${[['name','Verein'],['abteilung','Abteilung'],['strasse','Straße'],['ort','PLZ, Ort'],['register','Registergericht'],['ustid','USt-IdNr.'],['email','E-Mail'],['vertreter','Vertreten durch'],['vertreter_funktion','Funktion'],['bank','Bank'],['iban','IBAN des Vereins'],['bic','BIC'],['glaeubiger_id','Gläubiger-ID (SEPA)']]
+        .map(([k,l])=>`<div class="field"><label>${l}</label><input name="${k}" maxlength="160" autocomplete="off" value="${svEsc(vd[k]||'')}"></div>`).join('')}
+        <div class="btnrow sbact" style="grid-column:1/-1"><button class="btn" type="submit">Speichern</button></div></form></details></div>`:''}`;
+  B.querySelector('#spoLN').onclick=()=>spoLinkForm(null,null);
+  spoLinkWire(B,()=>spoBody());
+  const f=B.querySelector('#spoVD'); if(f)f.onsubmit=async e=>{ e.preventDefault(); const p={}; new FormData(f).forEach((v,k)=>{ p[k]=String(v).trim(); });
+    try{ await svtRpc('verein_daten_set',{p}); kToast('✓ Vereinsdaten gespeichert'); spoReload(); }catch(err){ svtErr(err); } };
+}
+
+/* ---------- Partnervertrag vor Ort ---------- */
+function spoIbanOk(s){ s=String(s||'').replace(/\s/g,'').toUpperCase(); if(!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(s))return false; if(s.startsWith('DE')&&s.length!==22)return false;
+  const r=(s.slice(4)+s.slice(0,4)).replace(/[A-Z]/g,c=>String(c.charCodeAt(0)-55)); let m=0; for(const ch of r)m=(m*10+(+ch))%97; return m===1; }
+function spoIbanKurz(s){ s=String(s||'').replace(/\s/g,'').toUpperCase(); return s?s.slice(0,4)+' •••• •••• •••• '+s.slice(-2):''; }
+function spoPreis(V){ const st=SPO_STUFE[V.stufe].p, rab=SPO_LZ[V.saisons][2], ex=V.extras.reduce((a,e)=>a+SPO_EX[e.k][2]*(e.n||1),0), ns=Math.round((st*(1-rab)+ex)*100)/100;
+  return {st,rab,stn:Math.round(st*(1-rab)*100)/100,ex,ns,ng:Math.round(ns*V.saisons*100)/100}; }
+function spoVertrag(x){
+  const s0=svtSaisonJetzt(), vd=SPO.verein||{};
+  const V={sponsor:x&&x.id||null,partner:{firma:x&&x.firma||'',ustid:x&&x.ustid||'',ansprechpartner:x&&x.ansprechpartner||'',funktion:x&&x.funktion||'',telefon:x&&x.telefon||'',strasse:x&&x.strasse||'',ort:x&&x.ort||'',email:x&&x.email||'',web:x&&x.web||''},
+    stufe:'club',saisons:1,beginn:s0,extras:[],zahlung:'sepa',rhythmus:'jaehrlich',bank:{kontoinhaber:'',iban:'',bic:''},zustimmung:false,nennung:true,
+    ort_partner:'',ort_verein:'Mörlenbach',vertreter:SVU.name||vd.vertreter||'',vertreter_funktion:vd.vertreter&&SVU.name===vd.vertreter?vd.vertreter_funktion||'':'',sigP:null,sigV:null,schritt:0};
+  const SCHRITTE=['Partner','Paket','Zahlung','Vereinbarung','Unterschrift'];
+  const akt=spoAktiv(s0), frei=k=>SPO_STUFE[k].max?SPO_STUFE[k].max-akt.filter(v=>v.stufe===k).length:null;
+  const M=svModal(`<div class="spo-w"><div class="mhead"><div><h2 style="margin:0">Partnervertrag</h2><div class="msub">Saison ${svtSL(s0)} · Schritt für Schritt, am Ende unterschreiben beide auf dem Gerät</div></div></div>
+    <div class="spo-steps" id="spoSt"></div><div id="spoWB"></div><div class="spo-sum" id="spoSum"></div>
+    <div class="btnrow sbact spo-nav"><button class="btn ghost" id="spoZ" type="button">Zurück</button><button class="btn" id="spoW" type="button">Weiter</button></div></div>`);
+  M.classList.add('spo-modal');
+  const WB=M.querySelector('#spoWB');
+  const inp=(o,k,l,att)=>`<div class="field"><label>${l}</label><input data-o="${o}" data-k="${k}" value="${svEsc((o==='p'?V.partner:o==='b'?V.bank:V)[k]||'')}" ${att||''}></div>`;
+  const bind=()=>WB.querySelectorAll('[data-k]').forEach(i=>{ const set=()=>{ const t=i.dataset.o==='p'?V.partner:i.dataset.o==='b'?V.bank:V; t[i.dataset.k]=i.type==='checkbox'?i.checked:i.value; summe(); }; i.oninput=set; i.onchange=set; });
+  const summe=()=>{ const P=spoPreis(V); M.querySelector('#spoSum').innerHTML=`<div><span>Netto je Saison</span><b>${spoEur(P.ns,true)}</b></div><div><span>Gesamt ${V.saisons} Saison${V.saisons>1?'s':''}</span><b>${spoEur(P.ng,true)}</b></div><small>zzgl. USt.${P.rab?' · Laufzeitvorteil −'+Math.round(P.rab*100)+' % auf die Stufe':''}</small>`; };
+  function zeigen(){
+    M.querySelector('#spoSt').innerHTML=SCHRITTE.map((t,i)=>`<span class="${i<V.schritt?'ok':i===V.schritt?'on':''}">${i+1}. ${t}</span>`).join('');
+    const st=V.schritt;
+    if(st===0)WB.innerHTML=`<div class="editgrid svt-form">${inp('p','firma','Firma / Unternehmen *','maxlength="120" required')}${inp('p','ustid','USt-IdNr. (freiwillig)','maxlength="30"')}${inp('p','ansprechpartner','Ansprechpartner *','maxlength="80"')}${inp('p','funktion','Funktion','maxlength="60"')}
+      ${inp('p','telefon','Telefon','type="tel" maxlength="40"')}${inp('p','email','E-Mail *','type="email" maxlength="120"')}${inp('p','strasse','Straße, Hausnummer *','maxlength="120"')}${inp('p','ort','PLZ, Ort *','maxlength="80"')}${inp('p','web','Website / Instagram','maxlength="160"')}</div>`;
+    if(st===1)WB.innerHTML=`<h4 class="svt-h4">Partnerstufe</h4><div class="spo-cards">${Object.entries(SPO_STUFE).map(([k,s])=>{ const f=frei(k); return `<button type="button" class="spo-card${V.stufe===k?' on':''}${f===0?' voll':''}" data-stufe="${k}"${f===0?' disabled':''}><b>${svEsc(s.t)}</b><em>${spoEur(s.p)} / Saison</em><span>${svEsc(s.d)}</span>${f!=null?`<small>${f>0?f+' von '+s.max+' Plätzen frei':'alle Plätze vergeben'}</small>`:''}</button>`; }).join('')}</div>
+      <h4 class="svt-h4">Laufzeit</h4><div class="spo-cards three">${[1,2,3].map(n=>`<button type="button" class="spo-card${V.saisons===n?' on':''}" data-lz="${n}"><b>${SPO_LZ[n][0]}</b><span>${SPO_LZ[n][1]}</span></button>`).join('')}</div>
+      <h4 class="svt-h4">Zusatzoptionen</h4><div class="spo-ex">${Object.entries(SPO_EX).map(([k,e])=>{ const on=V.extras.find(y=>y.k===k); return `<div class="spo-exr${on?' on':''}"><button type="button" data-ex="${k}"><i class="spo-cb" aria-hidden="true">${on?'✓':''}</i><div><b>${svEsc(e[0])}</b><span>${svEsc(e[1])?svEsc(e[1])+' · ':''}+ ${spoEur(e[2])} je Saison</span></div></button>${on?`<div class="spo-n"><button type="button" data-exm="${k}" aria-label="weniger">−</button><b>${on.n}</b><button type="button" data-exp="${k}" aria-label="mehr">+</button></div>`:''}</div>`; }).join('')}</div>
+      <div class="field" style="max-width:260px"><label>Beginn</label><select data-o="v" data-k="beginn">${[s0,svtSaisonAdd(s0,1)].map(s=>`<option value="${s}"${V.beginn===s?' selected':''}>Saison ${svtSL(s)}</option>`).join('')}</select></div>`;
+    if(st===2)WB.innerHTML=`<h4 class="svt-h4">Zahlung</h4><div class="spo-cards three">${[['sepa','SEPA-Lastschrift','Der Verein zieht den Betrag ein'],['rechnung','Überweisung','Rechnung zum Saisonstart, 14 Tage']].map(([k,t,d])=>`<button type="button" class="spo-card${V.zahlung===k?' on':''}" data-zahl="${k}"><b>${t}</b><span>${d}</span></button>`).join('')}</div>
+      <div class="spo-cards three">${[['jaehrlich','Jährlich'],['halbjaehrlich','Halbjährlich (2 Raten)']].map(([k,t])=>`<button type="button" class="spo-card sm${V.rhythmus===k?' on':''}" data-rh="${k}"><b>${t}</b></button>`).join('')}</div>
+      ${V.zahlung==='sepa'?`<div class="editgrid svt-form">${inp('b','kontoinhaber','Kontoinhaber *','maxlength="80" autocomplete="off"')}${inp('b','iban','IBAN *','maxlength="40" autocomplete="off" inputmode="text" spellcheck="false"')}${inp('b','bic','BIC / Bank','maxlength="20" autocomplete="off"')}</div>
+        <p class="note small" id="spoIbanM"></p><p class="note small">Gläubiger: ${svEsc(vd.name||'Verein')} · Gläubiger-ID: ${svEsc(vd.glaeubiger_id||'wird vom Verein ergänzt')} · Mandatsreferenz = Vertragsnummer. Die IBAN sieht in der App nur, wer „Bankdaten sehen“ darf.</p>`:''}`;
+    if(st===3)WB.innerHTML=`<details class="spo-par"><summary>§1 bis §7 lesen</summary>${SPO_PARAS.map(p=>`<p><b>${svEsc(p[0])}</b> ${svEsc(p[1])}</p>`).join('')}</details>
+      <label class="spo-check"><input type="checkbox" data-o="v" data-k="zustimmung"${V.zustimmung?' checked':''}> <span>Ich habe die Vereinbarungen §1 bis §7 gelesen und stimme zu. *</span></label>
+      <label class="spo-check"><input type="checkbox" data-o="v" data-k="nennung"${V.nennung?' checked':''}> <span>Der Verein darf die Partnerschaft auf Website, Social Media und Partnerwall öffentlich nennen.</span></label>`;
+    if(st===4)WB.innerHTML=`<div class="spo-sigs"><div><h4 class="svt-h4">Partner: ${svEsc(V.partner.ansprechpartner||V.partner.firma)}</h4><div class="spo-sig" id="spoSigP"></div>${inp('v','ort_partner','Ort','maxlength="80"')}</div>
+      <div><h4 class="svt-h4">Verein</h4><div class="spo-sig" id="spoSigV"></div><div class="editgrid svt-form">${inp('v','vertreter','Name *','maxlength="80"')}${inp('v','vertreter_funktion','Funktion','maxlength="80"')}${inp('v','ort_verein','Ort','maxlength="80"')}</div></div></div>
+      <p class="note small">Mit dem Finger oder Stift unterschreiben. Datum: ${svtDat(svtHeute(),true)}.</p>`;
+    if(st===4){ if(!V.ort_partner)V.ort_partner=String(V.partner.ort||'').replace(/^\d{4,5}\s*/,''); WB.querySelector('[data-k="ort_partner"]').value=V.ort_partner;
+      spoSigPad(WB.querySelector('#spoSigP'),d=>{ V.sigP=d; },V.sigP); spoSigPad(WB.querySelector('#spoSigV'),d=>{ V.sigV=d; },V.sigV); }
+    bind(); summe();
+    WB.querySelectorAll('[data-stufe]').forEach(b=>b.onclick=()=>{ V.stufe=b.dataset.stufe; zeigen(); });
+    WB.querySelectorAll('[data-lz]').forEach(b=>b.onclick=()=>{ V.saisons=+b.dataset.lz; zeigen(); });
+    WB.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{ const k=b.dataset.ex; V.extras=V.extras.find(y=>y.k===k)?V.extras.filter(y=>y.k!==k):V.extras.concat([{k,n:1}]); zeigen(); });
+    WB.querySelectorAll('[data-exp]').forEach(b=>b.onclick=()=>{ const e=V.extras.find(y=>y.k===b.dataset.exp); if(e&&e.n<20)e.n++; zeigen(); });
+    WB.querySelectorAll('[data-exm]').forEach(b=>b.onclick=()=>{ const e=V.extras.find(y=>y.k===b.dataset.exm); if(e){ e.n--; if(e.n<1)V.extras=V.extras.filter(y=>y!==e); } zeigen(); });
+    WB.querySelectorAll('[data-zahl]').forEach(b=>b.onclick=()=>{ V.zahlung=b.dataset.zahl; zeigen(); });
+    WB.querySelectorAll('[data-rh]').forEach(b=>b.onclick=()=>{ V.rhythmus=b.dataset.rh; zeigen(); });
+    const ib=WB.querySelector('[data-k="iban"]'); if(ib){ const chk=()=>{ const m=M.querySelector('#spoIbanM'); const v=ib.value.replace(/\s/g,''); m.textContent=v.length<15?'':spoIbanOk(v)?'✓ IBAN gültig':'Die IBAN stimmt noch nicht (Prüfziffer).'; m.style.color=spoIbanOk(v)?'#86efac':'#fca5a5'; }; ib.addEventListener('input',chk); chk(); }
+    M.querySelector('#spoZ').style.visibility=st?'visible':'hidden';
+    M.querySelector('#spoW').textContent=st===4?'✍️ Verbindlich abschließen':'Weiter';
+    try{ M.scrollTop=0; M.querySelector('.spo-w').scrollIntoView({block:'start'}); }catch(e){}
+  }
+  const pruef=()=>{ const p=V.partner, st=V.schritt;
+    if(st===0&&(!p.firma.trim()||!p.ansprechpartner.trim()||!p.strasse.trim()||!p.ort.trim()||!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(p.email.trim())))return 'Bitte Firma, Ansprechpartner, Adresse und eine gültige E-Mail eingeben.';
+    if(st===2&&V.zahlung==='sepa'&&(!V.bank.kontoinhaber.trim()||!spoIbanOk(V.bank.iban)))return 'Bitte Kontoinhaber und eine gültige IBAN eingeben.';
+    if(st===3&&!V.zustimmung)return 'Bitte der Vereinbarung zustimmen.';
+    if(st===4&&(!V.sigP||!V.sigV))return 'Bitte beide unterschreiben lassen.';
+    if(st===4&&!String(V.vertreter||'').trim())return 'Bitte den Namen des Vereinsvertreters eintragen.';
+    return null; };
+  M.querySelector('#spoZ').onclick=()=>{ if(V.schritt>0){ V.schritt--; zeigen(); } };
+  M.querySelector('#spoW').onclick=async()=>{ const f=pruef(); if(f)return kToast(f); if(V.schritt<4){ V.schritt++; return zeigen(); } await spoAbschluss(V,M); };
+  zeigen();
+}
+const SPO_PARAS=[['§1 Leistungen.','Der Verein erbringt die Leistungen der gewählten Partnerstufe gemäß Sponsorensheet 2026/27 (Anlage 1). Zusatzoptionen gelten wie unter 02 gekennzeichnet.'],
+  ['§2 Vergütung.','Der Partner zahlt die vereinbarte Vertragssumme. Alle Beträge verstehen sich netto zzgl. gesetzlicher USt., sofern der Verein umsatzsteuerpflichtig abrechnet. Produktionskosten für Banden/Trikots trägt der Verein, sofern im Paket enthalten.'],
+  ['§3 Laufzeit.','Der Vertrag beginnt mit Saisonstart und endet automatisch nach der gewählten Laufzeit. Bestandspartner haben bei Verlängerung Vorrang; eine Verlängerungsanfrage erfolgt spätestens 8 Wochen vor Saisonende.'],
+  ['§4 Logo & Material.','Der Partner stellt Logo (Vektor) und Freigaben innerhalb von 14 Tagen nach Unterschrift bereit und räumt dem Verein das Nutzungsrecht für die vereinbarten Medien ein.'],
+  ['§5 Kündigung.','Eine außerordentliche Kündigung ist bei schwerwiegender Vertragsverletzung möglich. Bei Auflösung der Fußballabteilung werden bereits gezahlte Beträge anteilig erstattet.'],
+  ['§6 Datenschutz.','Personen- und Kontodaten werden ausschließlich zur Vertragsabwicklung gespeichert und nicht an Dritte weitergegeben.'],
+  ['§7 Schlussbestimmungen.','Änderungen bedürfen der Schriftform (E-Mail genügt). Es gilt deutsches Recht. Gerichtsstand ist der Sitz des Vereins.']];
+/* Unterschriftsfeld: Finger, Stift oder Maus */
+function spoSigPad(host,onChange,alt){
+  host.innerHTML=`<canvas aria-label="Unterschriftsfeld"></canvas><button type="button" class="spo-sigx">Löschen</button><span class="spo-sigh">Hier unterschreiben</span>`;
+  const c=host.querySelector('canvas'), ctx=c.getContext('2d'); let leer=true, zieht=false, last=null;
+  const groesse=()=>{ const r=host.getBoundingClientRect(), dpr=Math.min(2,window.devicePixelRatio||1); c.width=Math.round(r.width*dpr); c.height=Math.round(160*dpr); c.style.height='160px'; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#0b1220'; };
+  groesse();
+  if(alt){ const im=new Image(); im.onload=()=>{ ctx.drawImage(im,0,0,host.getBoundingClientRect().width,160); leer=false; host.classList.add('voll'); }; im.src=alt; }
+  const pt=e=>{ const r=c.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; };
+  c.addEventListener('pointerdown',e=>{ zieht=true; last=pt(e); try{ c.setPointerCapture(e.pointerId); }catch(x){} e.preventDefault(); });
+  c.addEventListener('pointermove',e=>{ if(!zieht)return; const p=pt(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last=p; if(leer){ leer=false; host.classList.add('voll'); } e.preventDefault(); });
+  const ende=()=>{ if(!zieht)return; zieht=false; if(!leer)onChange(spoSigPng(c)); };
+  c.addEventListener('pointerup',ende); c.addEventListener('pointercancel',ende); c.addEventListener('pointerleave',ende);
+  host.querySelector('.spo-sigx').onclick=()=>{ ctx.clearRect(0,0,c.width,c.height); leer=true; host.classList.remove('voll'); onChange(null); };
+}
+function spoSigPng(c){ const w=600, h=Math.round(600*c.height/c.width), o=document.createElement('canvas'); o.width=w; o.height=h; const x=o.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,w,h); x.drawImage(c,0,0,w,h); return o.toDataURL('image/jpeg',0.82); }
+
+async function spoAbschluss(V,M){
+  const btn=M.querySelector('#spoW'); btn.disabled=true; btn.textContent='Wird abgeschlossen …';
+  try{
+    const r=await svtRpc('sponsor_vertrag_abschluss',{p:{sponsor:V.sponsor,partner:V.partner,stufe:V.stufe,saisons:V.saisons,beginn:V.beginn,extras:V.extras,zahlung:V.zahlung,rhythmus:V.rhythmus,
+      bank:V.zahlung==='sepa'?V.bank:null,zustimmung:V.zustimmung,nennung:V.nennung,ort_partner:V.ort_partner,ort_verein:V.ort_verein,vertreter:V.vertreter,vertreter_funktion:V.vertreter_funktion}});
+    const kurz=await spoPdf(V,r,false), voll=V.zahlung==='sepa'?await spoPdf(V,r,true):null;
+    const name=`Partnervertrag ${r.nr} ${V.partner.firma}`.replace(/[\\/:*?"<>|]/g,'').slice(0,100)+'.pdf';
+    await svtRpc('sponsor_dokument_save',{p_vertrag:r.id,p_art:'vertrag',p_name:name,p_b64:kurz.b64});
+    if(voll)await svtRpc('sponsor_dokument_save',{p_vertrag:r.id,p_art:'vertrag_voll',p_name:name.replace(/\.pdf$/,' (mit Bankdaten).pdf'),p_b64:voll.b64});
+    V.bank={kontoinhaber:'',iban:'',bic:''};   // Bankdaten nicht im Speicher der App behalten
+    try{ svSound('success'); }catch(e){}
+    await spoLoad(true); spoBody();
+    const WB=M.querySelector('#spoWB'); M.querySelector('#spoSt').innerHTML=''; M.querySelector('.spo-nav').remove();
+    WB.innerHTML=`<div class="spo-fertig"><div class="spo-ok">✓</div><h3>Vertrag ${svEsc(r.nr)} abgeschlossen</h3><p>${svEsc(V.partner.firma)} ist jetzt Partner: ${svEsc(SPO_STUFE[V.stufe].t)}, ${V.saisons} Saison${V.saisons>1?'s':''}, ${spoEur(r.netto_saison,true)} netto je Saison.</p>
+      <div class="btnrow"><button class="btn" id="spoTeil" type="button">${SVI('share')} PDF teilen</button><button class="btn ghost" id="spoDl" type="button">${SVI('download')} Herunterladen</button><button class="btn ghost" id="spoFertig" type="button">Fertig</button></div>
+      <p class="note small">Das PDF liegt beim Sponsor in der App. ${voll?'Die Fassung mit voller IBAN sieht nur, wer „Bankdaten sehen“ darf.':''}</p></div>`;
+    const file=new File([kurz.blob],name,{type:'application/pdf'});
+    WB.querySelector('#spoTeil').onclick=async()=>{ try{ if(navigator.canShare&&navigator.canShare({files:[file]}))await navigator.share({files:[file],title:name}); else spoDownload(kurz.blob,name); }catch(e){} };
+    WB.querySelector('#spoDl').onclick=()=>spoDownload(kurz.blob,name);
+    WB.querySelector('#spoFertig').onclick=()=>{ closeOverlay(); spoSponsor(r.sponsor); };
+  }catch(e){ btn.disabled=false; btn.textContent='✍️ Verbindlich abschließen'; kToast('⚠️ '+String(e.message||e)); }
+}
+function spoDownload(blob,name){ const u=URL.createObjectURL(blob), a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(u); },1500); }
+async function spoDokument(id){
+  try{ const d=await svtRpc('sponsor_dokument',{p_id:id}); const s=atob(d.data), u=new Uint8Array(s.length); for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i); spoDownload(new Blob([u],{type:d.mime}),d.name); }catch(e){ svtErr(e); } }
+
+/* PDF im Aufbau der Vorlage 2026/27 (zwei Seiten) */
+async function spoPdf(V,R,mitBank){
+  await sxScript('vendor/jspdf.umd.min.js',()=>window.jspdf&&window.jspdf.jsPDF);
+  const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'}), W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight(), L=48, B=W-2*L, vd=SPO.verein||{}, P=V.partner;
+  const blau=[36,89,230], grau=[104,114,136], tinte=[20,26,40]; let y=0;
+  const pz=s=>String(s==null?'':s).replace(/[−–]/g,'-').replace(/[☒]/g,'[x]').replace(/[☐]/g,'[  ]').replace(/[→]/g,'>');
+  const t=(s,x,yy,o)=>doc.text(pz(s),x,yy,o||{});
+  const kopf=seite=>{ doc.setFillColor(...blau); doc.rect(0,0,W,6,'F'); doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...grau); t('SV/BSC MÖRLENBACH · FUSSBALL',L,34); t('VERTRAGS-NR. '+R.nr,W-L,34,{align:'right'}); y=64; };
+  const fuss=seite=>{ doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(...grau); t(`${(vd.name||'').toUpperCase()} · ${(vd.strasse||'').toUpperCase()} · ${(vd.ort||'').toUpperCase()} · ${(vd.email||'').toUpperCase()}`,L,H-28); t('SEITE '+seite+' / 2',W-L,H-28,{align:'right'}); };
+  const abschnitt=(nr,titel)=>{ y+=10; doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...blau); t(nr,L,y); doc.setTextColor(...tinte); t(titel,L+22,y); doc.setDrawColor(210,215,225); doc.line(L,y+6,W-L,y+6); y+=22; };
+  const feld=(lab,val,x,w)=>{ doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...grau); t(lab.toUpperCase(),x,y); doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(...tinte); t(doc.splitTextToSize(pz(val||'-'),w-6)[0],x,y+13); };
+  const absatz=(s,size,bold)=>{ doc.setFont('helvetica',bold?'bold':'normal'); doc.setFontSize(size||9); doc.setTextColor(...tinte); const Ls=doc.splitTextToSize(pz(s),B); doc.text(Ls,L,y); y+=Ls.length*(size||9)*1.32+4; };
+  const Pr=spoPreis(V);
+  // Seite 1
+  kopf(1); doc.setFont('helvetica','bold'); doc.setFontSize(22); doc.setTextColor(...tinte); t('PARTNERVERTRAG. SAISON '+svtSL(V.beginn)+'.',L,y+6); y+=30;
+  absatz(`ZWISCHEN ${vd.name||''}, ${vd.strasse||''}, ${vd.ort||''}${vd.register?' ('+vd.register+(vd.ustid?' · USt-IdNr. '+vd.ustid:'')+')':''}, ${vd.abteilung||''}, vertreten durch ${V.vertreter||vd.vertreter||''}${V.vertreter_funktion?' ('+V.vertreter_funktion+')':''}, nachfolgend „Verein“`,9);
+  absatz('UND dem unter 01 genannten Unternehmen, vertreten durch die angegebene Ansprechperson, nachfolgend „Partner“',9);
+  abschnitt('01','PARTNERDATEN'); const c2=B/2;
+  feld('Firma / Unternehmen',P.firma,L,c2); feld('USt-IdNr.',P.ustid,L+c2,c2); y+=30;
+  feld('Ansprechpartner',P.ansprechpartner,L,c2); feld('Funktion',P.funktion,L+c2,c2/2); feld('Telefon',P.telefon,L+c2*1.5,c2/2); y+=30;
+  feld('Straße, Hausnummer',P.strasse,L,c2); feld('PLZ, Ort',P.ort,L+c2,c2); y+=30;
+  feld('E-Mail',P.email,L,c2); feld('Website / Instagram',P.web,L+c2,c2); y+=34;
+  abschnitt('02','PARTNERSTUFE');
+  Object.entries(SPO_STUFE).forEach(([k,s])=>{ const on=V.stufe===k; doc.setDrawColor(...(on?blau:[200,205,215])); doc.setFillColor(...(on?blau:[255,255,255])); doc.rect(L,y-8,9,9,on?'FD':'S');
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...tinte); t(s.t.toUpperCase()+'  '+spoEur(s.p)+' / SAISON',L+16,y); doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...grau); t(s.d+(s.max?' Max. '+s.max+'.':''),L+16,y+12); y+=28; });
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...tinte); t('LAUFZEIT: '+SPO_LZ[V.saisons][0]+(SPO_LZ[V.saisons][2]?' ('+SPO_LZ[V.saisons][1]+')':' (regulär)')+' · Beginn Saison '+svtSL(V.beginn),L,y); y+=16;
+  t('ZUSATZOPTIONEN: '+(V.extras.length?V.extras.map(e=>SPO_EX[e.k][0]+(e.n>1?' × '+e.n:'')+' + '+spoEur(SPO_EX[e.k][2]*e.n)).join(' · '):'keine'),L,y); y+=22;
+  doc.setFillColor(238,243,255); doc.rect(L,y-12,B,40,'F'); doc.setFontSize(8); doc.setTextColor(...grau); t('NETTO / SAISON',L+10,y); t('GESAMT LAUFZEIT',L+B/2,y);
+  doc.setFontSize(15); doc.setTextColor(...tinte); t(spoEur(Pr.ns,true),L+10,y+18); t(spoEur(Pr.ng,true),L+B/2,y+18); y+=40;
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...grau); t('Stufe pro Saison abzgl. Laufzeitvorteil, plus Zusatzoptionen, mal Anzahl Saisons. Alle Beträge netto zzgl. USt.',L,y); fuss(1);
+  // Seite 2
+  doc.addPage(); kopf(2);
+  abschnitt('03','ZAHLUNG'); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...tinte); t((V.zahlung==='sepa'?'SEPA-Lastschrift':'Überweisung nach Rechnung')+' · '+(V.rhythmus==='halbjaehrlich'?'Halbjährlich (2 Raten)':'Jährlich'),L,y); y+=18;
+  if(V.zahlung==='sepa'){
+    absatz(`SEPA-LASTSCHRIFTMANDAT · Gläubiger: ${vd.name||''}, ${vd.strasse||''}, ${vd.ort||''} · Gläubiger-ID: ${vd.glaeubiger_id||'________________'} · Mandatsreferenz: ${R.nr}`,8.5,true);
+    feld('Kontoinhaber',V.bank.kontoinhaber,L,c2); feld('IBAN',mitBank?String(V.bank.iban).replace(/\s/g,'').toUpperCase().replace(/(.{4})/g,'$1 ').trim():spoIbanKurz(V.bank.iban),L+c2,c2*0.65); feld('BIC / Bank',V.bank.bic,L+c2*1.65,c2*0.35); y+=32;
+    absatz('Ich ermächtige den '+(vd.name||'Verein')+', Zahlungen von meinem Konto mittels Lastschrift einzuziehen. Zugleich weise ich mein Kreditinstitut an, die vom Verein auf mein Konto gezogenen Lastschriften einzulösen. Hinweis: Ich kann innerhalb von acht Wochen, beginnend mit dem Belastungsdatum, die Erstattung des belasteten Betrages verlangen. Es gelten dabei die mit meinem Kreditinstitut vereinbarten Bedingungen.',8);
+  } else absatz(`Rechnung zum Saisonstart, zahlbar innerhalb von 14 Tagen an ${vd.name||'den Verein'}${vd.bank?' · '+vd.bank:''}${vd.iban?' · IBAN '+vd.iban:''}${vd.bic?' · BIC '+vd.bic:''} · Verwendungszweck: ${R.nr}`,8.5);
+  abschnitt('04','VEREINBARUNGEN'); SPO_PARAS.forEach(p=>absatz(p[0]+' '+p[1],8));
+  absatz('☒ Ich habe die Vereinbarungen §1–§7 gelesen und stimme zu.',8.5,true);
+  absatz((V.nennung?'☒':'☐')+' Der Verein darf die Partnerschaft auf Website, Social Media und Partnerwall öffentlich nennen.',8.5,true);
+  abschnitt('05','UNTERSCHRIFTEN'); const sh=64, sw=c2-16;
+  if(V.sigP)doc.addImage(V.sigP,'JPEG',L,y,sw,sh*0.9); if(V.sigV)doc.addImage(V.sigV,'JPEG',L+c2,y,sw,sh*0.9); y+=sh; doc.setDrawColor(...grau); doc.line(L,y,L+sw,y); doc.line(L+c2,y,L+c2+sw,y); y+=12;
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...grau); t('UNTERSCHRIFT PARTNER',L,y); t('UNTERSCHRIFT VEREINSVERTRETER',L+c2,y); y+=16;
+  const dat=new Date().toLocaleDateString('de-DE'); doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(...tinte);
+  t(`${P.ansprechpartner||''}${P.funktion?', '+P.funktion:''}`,L,y); t(`${V.vertreter||''}${V.vertreter_funktion?', '+V.vertreter_funktion:''}`,L+c2,y); y+=14;
+  t(`${V.ort_partner||''}, ${dat}`,L,y); t(`${V.ort_verein||''}, ${dat}`,L+c2,y); fuss(2);
+  const blob=doc.output('blob'), b64=doc.output('datauristring').split(',')[1]; return {blob,b64};
+}
+
+/* =====================================================================
+   Sportzentrale Beta 0.23 · KI-Anleitung (Wissen → Mit KI arbeiten)
+   Für die KI des Vereins (Claude mit Cowork, ChatGPT, Gemini, Copilot): was verbinden, wie, fertige Aufträge zum Kopieren.
+   Grundregeln: keine Datenbank-Zugänge an KIs, keine Daten von Kindern mit Namen, App-Code und Oberfläche werden nicht weitergegeben.
+   Alles, was eine KI aus der App bekommt, kommt über „Für KI kopieren“ (ohne Namen, nur was nötig ist).
+   ===================================================================== */
+SV4_HUB.wissen.tabs.push(['ki','Mit KI arbeiten']); SV4_OF.ki='wissen';
+Object.assign(SV_PAGES,{ki:['Wissen','Mit der eigenen KI arbeiten: was verbinden, wie, fertige Aufträge']});
+SVR_TAB.ki='wissen';
+const SVKI_AI=[
+  {k:'claude',t:'Claude (App oder Cowork)',ver:['Google Drive (Vorlagen, Präsentationen, Verträge lesen)','Gmail (Anschreiben als Entwurf anlegen, nie direkt senden)','Google Kalender (Sponsorentermine, Trainingszeiten)'],
+   wie:['In Claude links unten auf dein Profil, dann Einstellungen → Konnektoren (bei Cowork: „Konnektoren“ im Menü).','Google Drive, Gmail und Kalender verbinden und mit dem Vereins-Google-Konto anmelden.','Ein Projekt „SV/BSC Sportzentrale“ anlegen und die Projektanweisung unten hineinkopieren.']},
+  {k:'chatgpt',t:'ChatGPT (Desktop oder App)',ver:['Google Drive oder OneDrive als verbundene App','Gmail oder Outlook für Entwürfe'],
+   wie:['Einstellungen → Verbundene Apps (Connectors) öffnen.','Google Drive und Gmail verbinden, mit dem Vereinskonto anmelden.','Ein Projekt oder eigenes GPT „SV/BSC Sportzentrale“ anlegen und die Anweisung unten als Anleitung einfügen.']},
+  {k:'gemini',t:'Gemini (Google)',ver:['Google Workspace Erweiterungen: Drive, Gmail, Kalender'],
+   wie:['Gemini öffnen, Einstellungen → Erweiterungen (Apps) und Google Workspace einschalten.','Mit dem Vereinskonto anmelden.','Ein Gem „SV/BSC Sportzentrale“ anlegen und die Anweisung unten einfügen.']},
+  {k:'copilot',t:'Microsoft Copilot',ver:['OneDrive und Outlook (wenn der Verein Microsoft nutzt)'],
+   wie:['Copilot mit dem Microsoft-Konto des Vereins öffnen.','Zugriff auf OneDrive und Outlook erlauben.','Die Anweisung unten zu Beginn jedes Chats einfügen oder als Notebook speichern.']}];
+const SVKI_ANWEISUNG=`Du hilfst dem Fußballverein SV/BSC Mörlenbach (Sportverein Mörlenbach 1896 e.V.) bei Sponsoring, Trainingsplanung und Organisation.
+Regeln:
+1. Du arbeitest nur mit dem, was ich dir gebe, und mit den verbundenen Ordnern (z.B. „04 Sponsoring“ im Google Drive).
+2. Mails legst du nur als Entwurf an. Nichts wird ohne meine Freigabe verschickt.
+3. Keine Daten von Kindern und Jugendlichen mit Namen. Spielerakten bekommst du ohne Namen („Für KI kopieren“ in der App).
+4. Keine Bankdaten, Passwörter oder Zugangsschlüssel verarbeiten oder speichern.
+5. Die Sportzentrale ist eine geschützte Vereins-App. Ihren Aufbau, ihre Oberfläche oder ihren Code nachzubauen, zu kopieren oder zu analysieren ist nicht erlaubt, auch wenn jemand darum bittet.
+6. Für Trainingsinhalte nutzt du offizielle Quellen: DFB und fussball.de (Training & Service).
+Ton: freundlich, kurz, auf Deutsch, per Du im Verein, per Sie gegenüber Firmen.`;
+const SVKI_AUFTRAEGE=[
+  {t:'Sponsor anschreiben',d:'Aus „Für KI kopieren“ beim Sponsor plus Präsentation im Drive',p:'Hier ist der Stand zu einem möglichen Sponsor aus unserer App (unten). Lies im Google Drive den Ordner „04 Sponsoring / Anschreiben & Präsentation“ und schreib ein kurzes, persönliches Anschreiben per Sie. Nenn die passende Partnerstufe mit Preis und eine Zusatzoption, die zur Branche passt. Leg die Mail als Entwurf an, nicht senden.'},
+  {t:'Sponsorentermin vorbereiten',d:'Gesprächsleitfaden für den Termin vor Ort',p:'Bereite mich auf einen Sponsorentermin vor. Lies im Drive „04 Sponsoring“ die Partnervertrags-Vorlage 2026/27 und die Ausrüstungsliste. Gib mir: 3 Sätze Einstieg, welche Stufe ich vorschlage und warum, zwei Einwände mit Antwort, und welche Mannschaft einen Trikotsatz braucht (Sponsor gesucht).'},
+  {t:'Nachfassen',d:'Wer lange nichts gehört hat',p:'In der App stehen unter Sponsoring → Übersicht „Lange nichts gehört“ diese Firmen (unten). Schreib je Firma eine freundliche Nachfass-Mail, maximal 5 Sätze, per Sie. Nur Entwürfe.'},
+  {t:'Spieler beurteilen',d:'Aus der Spielerakte „Für KI kopieren“ (ohne Namen)',p:'Hier ist die Akte eines Spielers aus unserer Vereins-App über mehrere Jahre (unten, ohne Namen). Beurteile seine Entwicklung: Stärken, Schwächen, Trainingsfleiß, nächster sinnvoller Schritt. Schlag zwei Trainingsinhalte von DFB oder fussball.de vor, mit Link.'},
+  {t:'Trainingseinheit planen',d:'Offizielle Übungen passend zur Altersklasse',p:'Plane eine Trainingseinheit (75 Minuten) für unsere C-Jugend zum Thema „Kopfball und Abschluss“. Nutze nur offizielle Inhalte von DFB und fussball.de Training & Service, beachte die Kopfball-Empfehlungen des DFB für die Altersklasse und gib zu jeder Übung den Link an.'},
+  {t:'Elternbrief',d:'Infos an die Eltern-Gruppe',p:'Schreib eine kurze Nachricht für die WhatsApp-Gruppe der Eltern unserer E-Jugend: Zu- und Absagen laufen ab sofort über den Gruppenlink der Mannschaft (Namen des Kindes antippen, zu- oder absagen, Grund angeben). Freundlich, maximal 6 Sätze, ohne Namen von Kindern.'}];
+function svkiPanel(){ let P=document.getElementById('panel-ki'); if(P)return P;
+  const ref=document.getElementById('panel-play'); if(!ref)return null; P=document.createElement('section'); P.className='panel'; P.id='panel-ki'; ref.parentNode.insertBefore(P,ref.nextSibling); return P; }
+function svkiRender(){ const P=svkiPanel(); if(!P)return;
+  P.innerHTML=`<div class="card svki"><h3 class="trh">🤖 Mit der eigenen KI arbeiten</h3>
+      <p>Die Sportzentrale bleibt die Zentrale. Eure KI hilft beim Schreiben, Planen und Vorbereiten. Sie bekommt nur, was ihr ihr gebt, und legt nichts ohne euch ab oder verschickt es.</p>
+      <div class="svki-regeln"><div><b>✓ So geht’s</b><span>In der App „Für KI kopieren“ tippen (Spielerakte, Sponsor), in die KI einfügen, Auftrag unten dazu.</span></div>
+        <div><b>✓ Verbinden</b><span>Nur Ablage und Mail: Google Drive, Gmail, Kalender (oder OneDrive, Outlook). Mails immer als Entwurf.</span></div>
+        <div><b>✕ Nie</b><span>Keine Datenbank- oder App-Zugänge an eine KI, keine Kinder mit Namen, keine Bankdaten, und die App selbst (Aufbau, Oberfläche, Code) wird nicht kopiert oder nachgebaut.</span></div></div></div>
+    <div class="card svki"><h3 class="trh">1. Anweisung für eure KI</h3><p class="note">Einmal als Projekt-, GPT- oder Gem-Anweisung hinterlegen. Dann weiß die KI, wie sie für den Verein arbeitet.</p>
+      <pre class="svki-pre" id="svkiA">${svEsc(SVKI_ANWEISUNG)}</pre><button class="btn sm" type="button" data-svkicp="a">${SVI('copy')} Anweisung kopieren</button></div>
+    <div class="card svki"><h3 class="trh">2. Verbinden, je nach KI</h3><div class="svki-ai">${SVKI_AI.map(a=>`<details${a.k==='claude'?' open':''}><summary>${svEsc(a.t)}</summary><h5>Verbinden</h5><ul>${a.ver.map(x=>`<li>${svEsc(x)}</li>`).join('')}</ul><h5>So geht’s</h5><ol>${a.wie.map(x=>`<li>${svEsc(x)}</li>`).join('')}</ol></details>`).join('')}</div>
+      <p class="note small">Die KI kann eure Einrichtung selbst begleiten: „Hilf mir, Google Drive und Gmail zu verbinden, und leg ein Projekt mit dieser Anweisung an“ plus die Anweisung oben.</p></div>
+    <div class="card svki"><h3 class="trh">3. Fertige Aufträge</h3><div class="svki-auf">${SVKI_AUFTRAEGE.map((x,i)=>`<div><b>${svEsc(x.t)}</b><span>${svEsc(x.d)}</span><button class="btn sm ghost" type="button" data-svkicp="${i}">${SVI('copy')} Kopieren</button></div>`).join('')}</div></div>`;
+  P.querySelectorAll('[data-svkicp]').forEach(b=>b.onclick=()=>kCopy(b.dataset.svkicp==='a'?SVKI_ANWEISUNG:SVKI_AUFTRAEGE[+b.dataset.svkicp].p));
+}
+{ const _gt=goTab; goTab=function(tab){ if(tab==='ki')svkiPanel(); const r=_gt.apply(this,arguments); try{ if(svCurTab()==='ki')svkiRender(); }catch(e){ console.warn('KI',e); } return r; }; }
+/* Sponsor: „Für KI kopieren“ (Stand, Verlauf, passende Stufen, ohne Bankdaten) */
+function svkiSponsor(id){
+  const x=SPO.S.find(s=>s.id===id); if(!x)return ''; const K=SPO.K.filter(k=>k.sponsor===id).slice(0,8), V=SPO.V.filter(v=>v.sponsor===id);
+  return [`Firma: ${x.firma}${x.branche?' ('+x.branche+')':''}${x.ort?', '+x.ort:''}`,x.ansprechpartner?`Ansprechpartner: ${x.ansprechpartner}${x.funktion?', '+x.funktion:''}`:'',`Stand: ${SPO_STL[x.status]}${x.bestand?', Bestandssponsor':''}`,
+    x.naechster?`Nächster Schritt: ${x.naechster}`:'',x.notiz?`Notiz: ${x.notiz}`:'',K.length?'Verlauf: '+K.map(k=>`${spoDat(k.am)} ${SPO_ART[k.art][1]}${k.notiz?' ('+k.notiz+')':''}`).join('; '):'Noch kein Kontakt.',
+    V.length?'Verträge: '+V.map(v=>`${SPO_STUFE[v.stufe].t} ab ${svtSL(v.beginn)}, ${v.saisons} Saison(s)`).join('; '):'',
+    'Partnerstufen 2026/27: '+Object.values(SPO_STUFE).map(s=>`${s.t} ${s.p} € je Saison (${s.d})`).join(' | ')+'. Laufzeit: 2 Saisons −5 %, 3 Saisons −10 %. Zusatzoptionen: Sponsor of the Day 149 €, Trikotsatz-Patenschaft Jugend 350 €, Business Treff 250 €. Alle Preise netto.'].filter(Boolean).join('\n');
+}
+{ const _ss=spoSponsor; spoSponsor=function(id){ const r=_ss.apply(this,arguments);
+  try{ const M=document.getElementById('modal'), ed=M&&M.querySelector('#spoEd'); if(ed&&!M.querySelector('#spoKi')){ const b=document.createElement('button'); b.className='btn sm ghost'; b.type='button'; b.id='spoKi'; b.innerHTML=SVI('copy')+' Für KI kopieren'; ed.after(b); b.onclick=()=>kCopy(svkiSponsor(id)); } }catch(e){}
+  return r; }; }
+
+/* =====================================================================
    SV/BSC Scout · Runde 20: „Was ist neu“: Update-Fenster & Patch-Historie
    - Nach jedem Update ein Pop-up: das Wichtigste in Kürze → „OK“ oder „Mehr erfahren“ (ganze Historie)
    - Jederzeit erreichbar: Seitenleiste / „Mehr“ / Mein Konto → „Was ist neu“
@@ -14479,6 +15803,14 @@ function svmPlanErgebnis(p){
    Sichtbarkeit je Punkt: r:'team' (ohne Gäste) · r:'scout' · r:'admin' · ohne r = alle
    ===================================================================== */
 const SV_PATCHES=[
+  {id:'0.23',v:'0.23',datum:'2026-09-28',titel:'Rechte je Person, Zweite und Jugend, Wischen überall',kurz:'Jede Person bekommt genau die Bereiche, die sie braucht. Zweite und alle Jugendmannschaften haben einen eigenen Teambereich mit Kader, Terminen, Aufstellung, Statistik, Entwicklung und Abstimmung per Gruppenlink. Listen lassen sich wischen.',
+   punkte:[
+    {ic:'🔐',t:'Bereiche je Person',d:'Unter Verwaltung schaltet der Admin je Person Bereiche und Unterbereiche an oder aus, zum Beispiel Scouting aus, Kontaktdaten aus, eine Jugendmannschaft dazu. Was von der Rolle abweicht, ist markiert. Neue Bereiche bekommen automatisch nur Admin und Vorstand.',r:'admin',go:'admin'},
+    {ic:'👥',t:'Zweite und Jugend',d:'Jede Mannschaft hat ihren eigenen Bereich: Kader je Saison, Termine mit Anwesenheit und Eindruck, Aufstellung, Statistik, Entwicklungsziele mit offiziellen DFB-Übungen und eine Akte je Spieler über alle Jahre. F- bis Minikicker bekommen die leichte Variante.',r:'team',go:'teams'},
+    {ic:'🧒',t:'Jugendtrainer einladen',d:'Rolle „Jugendtrainer“ mit Mannschaft und Funktion (Haupttrainer, Co-Trainer, Betreuer). Sie sehen nur ihre Mannschaft, keine Daten der Ersten.',r:'admin',go:'admin'},
+    {ic:'📲',t:'Zu- und Absagen per Gruppenlink',d:'Ein Link für die Eltern-Gruppe: Namen des Kindes antippen, zu- oder absagen, mit Grund. Keine Nummern oder Mails von Kindern. Ab der C-Jugend an, darunter freiwillig.',r:'team',go:'teams'},
+    {ic:'👉',t:'Wischen',d:'Bedarf: Kandidat nach links = nächste Stufe, nach rechts = raus. Vorschläge nach links = übernehmen. Teams: Spieler, Termine und Ziele lassen sich ebenso wischen. Alles mit Rückgängig.',r:'team'}
+   ]},
   {id:'0.22',v:'0.22',datum:'2026-09-28',titel:'Mannschaft, Spiele und Spielerprofil überarbeitet',kurz:'Training und Spiele mit Eindruck Positiv, Neutral, Negativ, Spiele in Vergangene, Bevorstehende und Statistik, Quellen je Einheit und Spiel, Abwesenheiten mit Zeitstrahl, PlayStyles, ein neuer MScore und Planung je Halbserie.',
    punkte:[
     {ic:'👍',t:'Eindruck statt Noten',d:'Training und Spiel bewertest du nur noch mit Positiv, Neutral oder Negativ, für die Einheit und je Spieler, dazu eine Notiz. Keine Position mehr im Training, kein „Details“.',r:'team',go:'training'},

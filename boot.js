@@ -9,7 +9,7 @@ const CFG=window.SVBC_CFG||{}, I=window.SVI;
 const gate=document.getElementById('gate'), card=document.getElementById('gcard'), load=document.getElementById('gload');
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ls={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v);}catch(e){}}};
-const ROLE_T={admin:'Admin',vorstand:'Vorstand',planer:'Kaderplaner',trainer:'Trainer',viewer:'Gast'};
+const ROLE_T={admin:'Admin',vorstand:'Vorstand',planer:'Kaderplaner',trainer:'Trainer',viewer:'Gast',jugend:'Jugendtrainer'};
 const initials=n=>String(n||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'?';
 document.body.classList.add('gated');
 
@@ -210,6 +210,7 @@ async function fetchDataset(token){
   const buf=new Uint8Array(got); let o=0; for(const p of parts){ buf.set(p,o); o+=p.length; }
   return JSON.parse(new TextDecoder().decode(buf));
 }
+function SV_LEER(){ return {version:'leer',body:{generated:'',players:[],jugend:[],clubs:{},ligaGA:{},startelf:{formation:'4-4-2',slots:{}},startelfLast:{formation:'4-4-2',slots:{}},startelfNow:{formation:'4-4-2',slots:{}}}}; }
 async function loadAndStart(){
   loading('Daten werden vorbereitet …');
   const {data:{session}}=await sb.auth.getSession();
@@ -218,7 +219,8 @@ async function loadAndStart(){
   if(cached&&cached.version&&(SV.offline||cached.version===ver)){ ds=cached; }
   else if(!SV.offline&&session){
     try{ ds=await fetchDataset(session.access_token); await IDB.set('dataset',ds); }
-    catch(e){ if(String(e.message)==='kein-datenbestand'){ card.innerHTML='<h2>Noch keine Daten</h2><p class="sub">Der Spieler-Datenbestand wurde noch nicht hochgeladen.</p>'; showCard(); return; } if(cached){ ds=cached; SV.offline=true; } else throw e; }
+    catch(e){ if(String(e.message)==='kein-datenbestand'&&SV.profile.role==='jugend'){ ds=SV_LEER(); }   // Jugendtrainer ohne Freigabe für die Erste: App startet mit leerem Datenbestand
+    else{ if(String(e.message)==='kein-datenbestand'){ card.innerHTML='<h2>Noch keine Daten</h2><p class="sub">Der Spieler-Datenbestand wurde noch nicht hochgeladen.</p>'; showCard(); return; } if(cached){ ds=cached; SV.offline=true; } else throw e; } }
   }
   if(!ds){ viewLogin('Keine Verbindung. Für den ersten Start auf diesem Gerät wird Internet gebraucht.','err'); return; }
   window.__SVBC_DATA=ds.body; window.__SVBC_USER=SV.profile; window.__SVBC_DSVER=ds.version;

@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="favicon-64.png">
-<meta name="app-build" content="beta-0.22">
+<meta name="app-build" content="beta-0.23">
 <title>SV/BSC Sportzentrale</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" async></script>
 <style>
@@ -3209,6 +3209,228 @@ h2 .svm-i{vertical-align:3px;margin-left:8px}
 .g4 b.svm-pl.ok{color:#86efac}.g4 b.svm-pl.bad{color:#fca5a5}.g4 b.svm-pl.warn{color:#fde68a}
 #sbEd .sbsec:nth-of-type(2),#sbEd .sbsec:nth-of-type(4),#sbEd .sbsec:nth-of-type(5),#sbEd .sbwf{display:none}
 
+/* ===== Beta 0.23/0.24 · Rechte, Mannschaften, Teambereich ===== */
+.svr-neu{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:90;display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;border-radius:16px;background:#1d2740;border:1px solid rgba(91,155,255,.45);box-shadow:0 18px 40px -12px rgba(0,0,0,.7);font-size:13.5px;font-weight:600;max-width:calc(100vw - 32px);}
+.svr-neu svg{width:16px;height:16px;vertical-align:-3px;margin-right:6px;}
+.svr-inv{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.svr-inv.pflicht label::after{content:' *';color:#fca5a5;}
+.svr-inv select{width:100%;}
+/* Schalter */
+.svr-sw{flex:none;width:46px;height:28px;border-radius:99px;background:rgba(148,163,196,.28);position:relative;border:0;cursor:pointer;transition:background .2s;}
+.svr-sw i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .22s cubic-bezier(.3,1.4,.5,1);box-shadow:0 2px 6px rgba(0,0,0,.4);}
+.svr-sw.on{background:#22c55e;} .svr-sw.on i{transform:translateX(18px);}
+.svr-sw:disabled{opacity:.5;}
+.svr-list{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+.svr-grp{border:1px solid var(--line);border-radius:14px;padding:4px 12px;background:rgba(148,163,196,.04);}
+.svr-row{display:flex;align-items:center;gap:12px;padding:9px 0;}
+.svr-row.sub{padding:7px 0 7px 14px;border-top:1px solid var(--line2);}
+.svr-rt{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;}
+.svr-rt b{font-size:14.5px;} .svr-row.sub .svr-rt b{font-size:13.5px;font-weight:600;color:var(--ink2);}
+.svr-rt span{font-size:12px;color:var(--ink3);flex-basis:100%;}
+.svr-row.abw .svr-rt b::after{content:'Ausnahme';margin-left:8px;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:6px;background:rgba(251,191,36,.16);color:#fde68a;vertical-align:1px;}
+.svr-reset{font:inherit;font-size:12px;font-weight:700;color:var(--brand2);background:none;border:0;cursor:pointer;padding:0;}
+.svr-tag{font-size:11.5px;color:#86efac!important;flex-basis:auto!important;}
+.svr-kids summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--ink3);padding:4px 0 8px;list-style:none;}
+.svr-kids summary::-webkit-details-marker{display:none;} .svr-kids summary::before{content:'▸ ';} .svr-kids[open] summary::before{content:'▾ ';}
+.svr-teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-top:14px;}
+.svr-team{border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(148,163,196,.04);display:flex;flex-direction:column;gap:8px;}
+.svr-th{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;} .svr-th b{font-family:var(--disp,inherit);font-size:18px;font-weight:800;} .svr-th span{font-weight:650;font-size:13.5px;} .svr-th em{font-style:normal;font-size:11.5px;color:var(--ink3);flex-basis:100%;}
+.svr-tp{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.svr-p{display:inline-flex;align-items:center;gap:6px;padding:4px 4px 4px 9px;border-radius:999px;background:rgba(91,155,255,.12);font-size:12.5px;font-weight:650;}
+.svr-p i{font-style:normal;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#9cc3ff;}
+.svr-p button{width:22px;height:22px;border-radius:50%;border:0;background:rgba(148,163,196,.18);color:var(--ink2);cursor:pointer;font-size:11px;}
+.svr-add{font:inherit;font-size:12.5px;font-weight:700;color:var(--brand2);background:none;border:1px dashed rgba(91,155,255,.45);border-radius:999px;padding:4px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;}
+.svr-add svg{width:13px;height:13px;}
+.svr-vorg summary{cursor:pointer;list-style:none;} .svr-vorg summary::-webkit-details-marker{display:none;}
+.svr-tw{overflow-x:auto;margin-top:12px;}
+.svr-vt{border-collapse:collapse;width:100%;font-size:13px;} .svr-vt th,.svr-vt td{padding:7px 8px;border-bottom:1px solid var(--line2);text-align:center;}
+.svr-vt th:first-child{text-align:left;} .svr-vt tr.sub th{padding-left:22px;font-weight:500;color:var(--ink2);} .svr-vt thead th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);}
+.svr-vt input{width:18px;height:18px;accent-color:#22c55e;}
+.svr-meine .svr-mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:10px;}
+.svr-m{font:inherit;color:inherit;text-align:left;cursor:pointer;border:1px solid rgba(91,155,255,.35);border-radius:16px;padding:12px 14px;background:linear-gradient(135deg,rgba(47,107,255,.16),rgba(20,26,40,.6));display:flex;flex-direction:column;gap:2px;}
+.svr-m b{font-family:var(--disp,inherit);font-size:24px;font-weight:800;line-height:1;} .svr-m span{font-size:13px;font-weight:650;} .svr-m em{font-style:normal;font-size:11.5px;color:#9cc3ff;font-weight:700;}
+
+/* Teambereich */
+.svt-top{display:flex;flex-direction:column;gap:12px;margin-bottom:14px;}
+.svt-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;} .svt-chips::-webkit-scrollbar{display:none;}
+.svt-chips button{font:inherit;flex:none;min-width:44px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(148,163,196,.07);color:var(--ink2);font-weight:800;cursor:pointer;}
+.svt-chips button.on{background:linear-gradient(180deg,#3b78ff,#2459e6);color:#fff;border-color:transparent;}
+.svt-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.svt-head h2{margin:0;font-family:var(--disp,inherit);font-size:26px;font-weight:800;text-transform:uppercase;letter-spacing:.01em;line-height:1.05;}
+.svt-head p{margin:4px 0 0;font-size:13px;color:var(--ink3);}
+.svt-f{display:inline-block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:6px;background:rgba(34,197,94,.15);color:#86efac;margin-right:4px;}
+.svt-seg{display:flex;gap:4px;padding:4px;border-radius:14px;background:rgba(148,163,196,.07);border:1px solid var(--line);overflow-x:auto;scrollbar-width:none;} .svt-seg::-webkit-scrollbar{display:none;}
+.svt-seg button{font:inherit;flex:1 0 auto;padding:9px 12px;border-radius:10px;border:0;background:none;color:var(--ink2);font-weight:700;font-size:13.5px;cursor:pointer;white-space:nowrap;}
+.svt-seg button.on{background:linear-gradient(180deg,#3b78ff,#2459e6);color:#fff;}
+.svt-ch{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+.svt-ch .trh{margin:0;} .svt-ch select{max-width:100%;}
+.svt-tw{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.svt-t{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums;}
+.svt-t th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);text-align:left;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap;}
+.svt-t td{padding:9px 8px;border-bottom:1px solid var(--line2);white-space:nowrap;}
+.svt-t tbody tr{cursor:pointer;} .svt-t tbody tr:hover{background:rgba(148,163,196,.05);} .svt-t tr.off{opacity:.5;}
+.svt-t small{color:var(--ink3);font-size:11px;}
+.svt-warn{color:#fca5a5;font-weight:700;}
+.svt-tag{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:2px 6px;border-radius:6px;background:rgba(148,163,196,.14);color:var(--ink2);}
+.svt-tag.r{background:rgba(240,82,82,.14);color:#fca5a5;}
+.svt-star{color:#fbbf24;}
+.svt-wf{margin-left:4px;letter-spacing:-1px;color:#9cc3ff;font-size:12px;}
+.svt-e{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:8px;font-weight:800;font-size:14px;}
+.svt-e.p{background:rgba(34,197,94,.18);color:#86efac;} .svt-e.m{background:rgba(240,82,82,.18);color:#fca5a5;} .svt-e.o{background:rgba(148,163,196,.16);color:var(--ink2);} .svt-e.n{color:var(--ink3);}
+.svt-h4{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:16px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);font-weight:800;}
+.svt-form{grid-template-columns:1fr 1fr;}
+.svt-form textarea,.svt-form input,.svt-form select{width:100%;}
+.svt-cb{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:13.5px;}
+.svt-pick{display:flex;flex-direction:column;gap:2px;max-height:50vh;overflow:auto;margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:6px;}
+.svt-pick label{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px;border-radius:9px;cursor:pointer;font-size:14px;} .svt-pick label:hover{background:rgba(148,163,196,.06);}
+.svt-pick label span{font-size:12px;color:var(--ink3);} .svt-pick input{width:18px;height:18px;accent-color:#3b78ff;}
+.svt-pick.sm{max-height:32vh;margin:0;}
+.svt-day{display:inline-flex;align-items:center;gap:5px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;font-size:13.5px;font-weight:650;cursor:pointer;}
+.svt-trow{font:inherit;color:inherit;width:100%;display:flex;align-items:center;gap:10px;flex-wrap:wrap;text-align:left;padding:10px 12px;margin-bottom:6px;border-radius:12px;border:1px solid var(--line);background:rgba(148,163,196,.04);cursor:pointer;border-left:3px solid rgba(91,155,255,.6);}
+.svt-trow.a-spiel,.svt-trow.a-turnier{border-left-color:#fbbf24;} .svt-trow.off{opacity:.5;}
+.svt-trow b{flex:1;min-width:140px;font-size:14px;} .svt-d{font-size:12.5px;color:var(--ink3);font-weight:700;min-width:118px;font-variant-numeric:tabular-nums;}
+.svt-erg{font-weight:800;font-variant-numeric:tabular-nums;}
+.svt-cnt{font-size:12px;font-weight:700;color:var(--ink2);padding:2px 8px;border-radius:999px;background:rgba(148,163,196,.1);} .svt-cnt.warn{color:#fde68a;background:rgba(245,158,11,.12);}
+.svt-anw{display:flex;flex-direction:column;gap:6px;margin:12px 0;max-height:58vh;overflow:auto;}
+.svt-ar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:12px;border:1px solid var(--line);}
+.svt-ar.vor{border-style:dashed;}
+.svt-an{flex:1 1 160px;min-width:0;display:flex;flex-direction:column;gap:1px;} .svt-an b{font-size:14px;}
+.svt-rm{font-size:11.5px;font-weight:700;} .svt-rm.ja{color:#86efac;} .svt-rm.nein{color:#fca5a5;} .svt-rm.vielleicht{color:#fde68a;}
+.svt-seg3,.svt-ei{display:inline-flex;gap:3px;padding:3px;border-radius:10px;background:rgba(148,163,196,.08);}
+.svt-seg3 button,.svt-ei button{font:inherit;border:0;background:none;color:var(--ink2);padding:6px 10px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;min-width:38px;}
+.svt-seg3 button.on.da{background:#16a34a;color:#fff;} .svt-seg3 button.on.spaet{background:#d97706;color:#fff;} .svt-seg3 button.on.weg{background:#dc2626;color:#fff;}
+.svt-ei button.on.e2{background:rgba(34,197,94,.3);color:#fff;} .svt-ei button.on.e3{background:rgba(148,163,196,.3);color:#fff;} .svt-ei button.on.e5{background:rgba(240,82,82,.35);color:#fff;}
+.svt-ar select{max-width:140px;padding:6px 26px 6px 8px!important;font-size:13px!important;} .svt-ar input[type=number]{width:64px;padding:6px 8px;}
+.svt-feld{display:flex;flex-direction:column;gap:12px;padding:16px 10px;margin:10px 0;border-radius:16px;background:linear-gradient(180deg,rgba(34,197,94,.14),rgba(34,197,94,.06));border:1px solid rgba(34,197,94,.25);}
+.svt-reihe{display:flex;justify-content:space-evenly;gap:6px;flex-wrap:wrap;}
+.svt-slot{min-width:0;flex:0 1 150px;padding:7px 24px 7px 8px!important;font-size:12.5px!important;}
+.svt-bank{display:flex;flex-wrap:wrap;gap:6px;}
+.svt-bank button{font:inherit;font-size:13px;font-weight:650;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:rgba(148,163,196,.06);color:var(--ink2);cursor:pointer;}
+.svt-bank button.on{background:rgba(91,155,255,.22);border-color:rgba(91,155,255,.5);color:#fff;}
+.svt-hint{padding:10px 12px;border-radius:12px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);font-size:13.5px;margin-bottom:12px;line-height:1.45;}
+.svt-ziel{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;border:1px solid var(--line);margin-bottom:6px;border-left:3px solid #5b9bff;}
+.svt-ziel>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;} .svt-ziel b{font-size:14px;} .svt-ziel span{font-size:12px;color:var(--ink3);} .svt-ziel p{margin:4px 0 0;font-size:13px;color:var(--ink2);}
+.svt-ziel.s-erreicht{border-left-color:#22c55e;opacity:.8;} .svt-ziel.s-abgebrochen{opacity:.5;border-left-color:var(--ink3);} .svt-ziel.s-laeuft{border-left-color:#fbbf24;}
+.svt-zw{display:flex;flex-direction:column;gap:2px;} .svt-zn{font-size:12px;font-weight:800;color:var(--ink2);margin-top:6px;}
+.svt-links{display:flex;flex-direction:column;gap:4px;margin-top:6px;}
+.svt-links a{font-size:13.5px;color:#9cc3ff;text-decoration:none;font-weight:600;} .svt-links a::before{content:'↗ ';color:var(--ink3);} .svt-links a:hover{text-decoration:underline;}
+.svt-werte{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px 16px;margin-bottom:10px;}
+.svt-werte>div{display:flex;align-items:center;justify-content:space-between;gap:8px;} .svt-werte span{font-size:13px;color:var(--ink2);}
+.svt-5{display:inline-flex;gap:3px;} .svt-5 button{font:inherit;width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:none;color:var(--ink3);font-size:12px;font-weight:800;cursor:pointer;}
+.svt-5 button.on{background:rgba(91,155,255,.3);color:#fff;border-color:rgba(91,155,255,.5);}
+#svtBT{width:100%;}
+.svt-alt summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--ink2);padding:6px 0;}
+.svt-wv{display:inline-block;font-size:12px;color:var(--ink3);margin-right:10px;} .svt-wv b{color:var(--ink);}
+.svt-ehem{display:flex;flex-direction:column;gap:6px;}
+.svt-eh{padding:10px 12px;border-radius:12px;border:1px solid var(--line);} .svt-eh>div{display:flex;flex-direction:column;gap:3px;}
+.svt-eh span{font-size:12.5px;color:var(--ink3);} .svt-eh em{font-style:normal;font-size:12.5px;color:var(--ink2);}
+.svt-heute{font:inherit;align-self:flex-start;margin-top:4px;font-size:12.5px;font-weight:700;padding:5px 10px;border-radius:999px;border:1px solid rgba(34,197,94,.45);background:rgba(34,197,94,.12);color:#86efac;cursor:pointer;}
+.svt-abst{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:6px;}
+.svt-abst summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;} .svt-abst summary::-webkit-details-marker{display:none;}
+.svt-abst summary span{display:flex;gap:8px;font-size:12.5px;} .svt-abst summary i{font-style:normal;color:var(--ink3);font-weight:700;} .svt-abst i.ja{color:#86efac;} .svt-abst i.nein{color:#fca5a5;}
+.svt-abst p{font-size:13px;color:var(--ink2);margin:8px 0 0;}
+@media (max-width:560px){ .svr-inv,.svt-form{grid-template-columns:1fr;} .svt-head h2{font-size:22px;} .svt-slot{flex-basis:44%;} .svt-d{min-width:0;} }
+/* Wischen (0.23) */
+.bk4r,.sg4c[data-badd],.svt-kc,.svt-trow,.svt-ziel{touch-action:pan-y;}
+.swx-hint{display:none;justify-content:space-between;gap:10px;margin:2px 0 6px;font-size:11.5px;font-weight:700;color:var(--ink3);letter-spacing:.01em;}
+@media (pointer:coarse){ .swx-hint{display:flex;} }
+.swxbg .sw45r,.swxbg .sw45l{font-weight:800;font-size:13.5px;}
+/* Bedarf: Wert beschriftet, Ablauf in einer Zeile */
+.bk4r .kr4-o{display:flex;flex-direction:column;align-items:flex-end;line-height:1;}
+.bk4r .kr4-o::after{content:'Wert';font-family:var(--font,inherit);font-size:9.5px;font-weight:700;color:var(--ink3);margin-top:2px;letter-spacing:.03em;}
+@media (max-width:760px){
+  .flow4{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;} .flow4::-webkit-scrollbar{display:none;} .flow4 span{flex:none;}
+  .bk4r{grid-template-columns:minmax(0,1fr) 38px 118px;padding:9px 4px;}
+}
+/* Teams: Kader-Karten auf dem Handy */
+.svt-kl{display:flex;flex-direction:column;gap:6px;}
+.svt-kc{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:var(--card,#0d1119);cursor:pointer;}
+.svt-kc.off{opacity:.5;}
+.svt-kn{flex:none;width:26px;text-align:center;font-family:var(--disp,inherit);font-weight:800;font-size:17px;color:var(--ink3);}
+.svt-kb{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;} .svt-kb b{font-size:14.5px;} .svt-kb span{font-size:12px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.svt-kz{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1;} .svt-kz b{font-size:14px;font-variant-numeric:tabular-nums;} .svt-kz small{font-size:10px;color:var(--ink3);font-weight:700;}
+.svt-trow,.svt-ziel{background:var(--card,#0d1119);}
+@media (max-width:560px){ .svt-seg{display:grid;grid-template-columns:repeat(3,1fr);} .svt-seg button{padding:9px 4px;font-size:13px;} }
+/* Sponsoring (0.25) */
+.spo-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px;}
+.spo-kpis.sm{margin:10px 0;} .spo-kpi{padding:14px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(180deg,var(--surface2,#121826),var(--surface,#0d1119));}
+.spo-kpi b{display:block;font-family:var(--disp,inherit);font-size:26px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums;} .spo-kpi b small{font-size:14px;color:var(--ink3);}
+.spo-kpi span{font-size:12px;color:var(--ink3);font-weight:650;}
+.spo-pipe{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:6px;}
+.spo-pipe button{font:inherit;color:inherit;cursor:pointer;padding:10px 8px;border-radius:12px;border:1px solid var(--line);background:rgba(148,163,196,.05);display:flex;flex-direction:column;align-items:flex-start;gap:2px;}
+.spo-pipe b{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;} .spo-pipe span{font-size:12px;color:var(--ink2);font-weight:650;}
+.spo-pipe .s-partner{border-color:rgba(34,197,94,.4);} .spo-pipe .s-angebot{border-color:rgba(251,191,36,.4);}
+.spo-z{font:inherit;color:inherit;width:100%;display:flex;align-items:center;gap:10px;flex-wrap:wrap;text-align:left;padding:10px 12px;margin-bottom:6px;border-radius:12px;border:1px solid var(--line);background:rgba(148,163,196,.04);cursor:pointer;}
+.spo-z b{flex:1 1 140px;font-size:14px;} .spo-z span{font-size:12.5px;color:var(--ink3);flex:1 1 180px;}
+.spo-st{font-style:normal;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:3px 8px;border-radius:7px;background:rgba(148,163,196,.14);color:var(--ink2);white-space:nowrap;}
+.spo-st.s-angeschrieben{background:rgba(91,155,255,.16);color:#9cc3ff;} .spo-st.s-gespraech{background:rgba(139,124,246,.18);color:#c4b5fd;} .spo-st.s-angebot{background:rgba(251,191,36,.16);color:#fde68a;}
+.spo-st.s-partner{background:rgba(34,197,94,.16);color:#86efac;} .spo-st.s-abgesagt{background:rgba(240,82,82,.14);color:#fca5a5;}
+.spo-q{flex:1;min-width:0;} .spo-f{margin:10px 0 4px;display:flex;flex-wrap:wrap;gap:6px;}
+.spo-l{display:flex;flex-direction:column;gap:6px;}
+.spo-r{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:14px;border:1px solid var(--line);background:var(--card,#0d1119);cursor:pointer;touch-action:pan-y;}
+.spo-r>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;} .spo-r b{font-size:14.5px;} .spo-r span{font-size:12px;color:var(--ink3);} .spo-r em{font-style:normal;font-size:12.5px;color:#9cc3ff;}
+.spo-av{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-weight:800;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;flex:none;}
+.spo-stbar{display:flex;gap:4px;flex-wrap:wrap;margin:14px 0 10px;}
+.spo-stbar button{font:inherit;font-size:12.5px;font-weight:700;padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--ink2);cursor:pointer;}
+.spo-stbar button.on{color:#fff;background:linear-gradient(180deg,#3b78ff,#2459e6);border-color:transparent;} .spo-stbar button.on.s-partner{background:#16a34a;} .spo-stbar button.on.s-abgesagt{background:#b91c1c;}
+.spo-kont{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px;border-radius:14px;background:rgba(91,155,255,.07);border:1px solid rgba(91,155,255,.2);}
+.spo-kont span{font-size:12px;font-weight:800;color:var(--ink3);margin-right:4px;text-transform:uppercase;letter-spacing:.04em;}
+.spo-kont button{font:inherit;font-size:13px;font-weight:700;padding:8px 11px;border-radius:11px;border:1px solid var(--line);background:var(--card,#0d1119);color:var(--ink);cursor:pointer;} .spo-kont button.on{border-color:#5b9bff;background:rgba(91,155,255,.2);}
+.spo-kn{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;} .spo-kn input{flex:1 1 200px;} .spo-kn input[type=date]{flex:0 0 150px;}
+.spo-info{margin:12px 0 4px;font-size:13.5px;color:var(--ink2);line-height:1.6;} .spo-info a{color:#9cc3ff;}
+.spo-next{font-size:13.5px;margin:6px 0;color:#9cc3ff;}
+.spo-v{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:12px;border:1px solid rgba(34,197,94,.3);background:rgba(34,197,94,.06);margin-bottom:6px;}
+.spo-v>div:first-child{display:flex;flex-direction:column;gap:2px;} .spo-v span{font-size:12px;color:var(--ink3);}
+.spo-link{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;border:1px solid var(--line);margin-bottom:6px;}
+.spo-link a{flex:1;min-width:0;display:flex;flex-direction:column;text-decoration:none;color:inherit;} .spo-link a b{font-size:14px;color:#9cc3ff;} .spo-link a span{font-size:11.5px;color:var(--ink3);}
+.svt-x{flex:none;width:28px;height:28px;border-radius:50%;border:0;background:rgba(148,163,196,.14);color:var(--ink2);cursor:pointer;}
+.spo-log{display:flex;flex-direction:column;gap:4px;} .spo-log>div{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line2);}
+.spo-log span{color:var(--ink3);font-variant-numeric:tabular-nums;min-width:62px;} .spo-log em{font-style:normal;color:var(--ink2);flex-basis:100%;padding-left:72px;}
+.spo-at{border-collapse:collapse;width:100%;min-width:640px;} .spo-at th,.spo-at td{padding:5px;vertical-align:top;border-bottom:1px solid var(--line2);}
+.spo-at thead th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);text-align:left;}
+.spo-at tbody th{text-align:left;font-family:var(--disp,inherit);font-size:18px;font-weight:800;white-space:nowrap;} .spo-at tbody th small{display:block;font-family:var(--font,inherit);font-size:11px;font-weight:600;color:var(--ink3);}
+.spo-a{font:inherit;color:inherit;width:100%;min-height:54px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(148,163,196,.04);}
+.spo-a b{font-size:13px;} .spo-a span{font-size:12px;color:var(--ink2);} .spo-a em{font-style:normal;font-size:11px;font-weight:800;color:#fde68a;text-transform:uppercase;letter-spacing:.03em;} .spo-a small{font-size:11px;color:var(--ink3);}
+.spo-a.ok{border-color:rgba(34,197,94,.3);} .spo-a.such{border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.07);} .spo-a.leer{align-items:center;justify-content:center;color:var(--ink3);border-style:dashed;}
+/* Vertrag */
+.spo-modal{max-width:760px;}
+.spo-steps{display:flex;gap:6px;overflow-x:auto;margin:14px 0;scrollbar-width:none;} .spo-steps::-webkit-scrollbar{display:none;}
+.spo-steps span{flex:none;font-size:12px;font-weight:700;padding:6px 10px;border-radius:999px;background:rgba(148,163,196,.08);color:var(--ink3);}
+.spo-steps span.on{background:linear-gradient(180deg,#3b78ff,#2459e6);color:#fff;} .spo-steps span.ok{color:#86efac;background:rgba(34,197,94,.12);}
+.spo-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;} .spo-cards.three{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:8px;}
+.spo-card{font:inherit;color:inherit;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:4px;padding:14px;border-radius:16px;border:1.5px solid var(--line);background:rgba(148,163,196,.04);min-height:64px;}
+.spo-card b{font-size:15px;} .spo-card em{font-style:normal;font-size:16px;font-weight:800;color:#9cc3ff;} .spo-card span{font-size:12.5px;color:var(--ink2);line-height:1.4;} .spo-card small{font-size:11.5px;color:#fde68a;font-weight:700;}
+.spo-card.on{border-color:#3b78ff;background:rgba(59,120,255,.14);box-shadow:0 0 0 3px rgba(59,120,255,.18);} .spo-card.voll{opacity:.45;cursor:not-allowed;} .spo-card.sm{min-height:0;padding:10px 14px;}
+.spo-ex{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;}
+.spo-exr{display:flex;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:14px;padding:4px 6px 4px 4px;} .spo-exr.on{border-color:#3b78ff;background:rgba(59,120,255,.1);}
+.spo-exr>button{font:inherit;color:inherit;flex:1;text-align:left;background:none;border:0;cursor:pointer;padding:10px;display:flex;flex-direction:column;gap:2px;} .spo-exr>button span{font-size:12.5px;color:var(--ink2);}
+.spo-exr>button{flex-direction:row!important;align-items:center;gap:12px!important;} .spo-exr>button>div{display:flex;flex-direction:column;gap:2px;}
+.spo-cb{flex:none;width:22px;height:22px;border-radius:7px;border:2px solid var(--ink3);display:grid;place-items:center;font-style:normal;font-size:13px;font-weight:800;color:#fff;} .spo-exr.on .spo-cb{background:#3b78ff;border-color:#3b78ff;}
+.spo-w #spoWB{padding-bottom:10px;}
+.spo-n{display:flex;align-items:center;gap:6px;} .spo-n button{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--card,#0d1119);color:var(--ink);font-size:18px;cursor:pointer;} .spo-n b{min-width:18px;text-align:center;}
+.spo-sum{position:sticky;bottom:0;display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;padding:12px 14px;margin-top:14px;border-radius:16px;background:#1d2740;border:1px solid rgba(91,155,255,.35);z-index:3;}
+.spo-sum div{display:flex;flex-direction:column;} .spo-sum span{font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;} .spo-sum b{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;} .spo-sum small{font-size:11px;color:var(--ink3);flex-basis:100%;}
+.spo-par{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;} .spo-par summary{cursor:pointer;font-weight:700;color:#9cc3ff;} .spo-par p{font-size:13px;color:var(--ink2);line-height:1.5;margin:8px 0 0;}
+.spo-check{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:14px;border:1px solid var(--line);margin-bottom:8px;font-size:14px;cursor:pointer;} .spo-check input{width:22px;height:22px;flex:none;accent-color:#3b78ff;}
+.spo-sigs{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.spo-sig{position:relative;border-radius:14px;background:#f8fafc;border:2px dashed rgba(59,120,255,.5);overflow:hidden;touch-action:none;margin-bottom:8px;}
+.spo-sig canvas{display:block;width:100%;height:160px;touch-action:none;cursor:crosshair;}
+.spo-sigh{position:absolute;left:14px;bottom:12px;font-size:12px;color:#64748b;pointer-events:none;} .spo-sig.voll .spo-sigh{display:none;}
+.spo-sigx{position:absolute;right:8px;top:8px;font:inherit;font-size:12px;font-weight:700;padding:5px 10px;border-radius:9px;border:0;background:rgba(15,23,42,.08);color:#0f172a;cursor:pointer;}
+.spo-fertig{text-align:center;padding:10px 4px;} .spo-fertig h3{margin:10px 0 6px;} .spo-fertig .btnrow{justify-content:center;}
+.spo-ok{width:64px;height:64px;margin:0 auto;border-radius:50%;display:grid;place-items:center;font-size:32px;font-weight:800;color:#fff;background:#16a34a;box-shadow:0 12px 30px -10px rgba(34,197,94,.8);}
+@media (max-width:640px){ .spo-sigs{grid-template-columns:1fr;} .spo-kpi b{font-size:22px;} }
+/* Mit KI arbeiten */
+.svki p{font-size:14px;line-height:1.55;color:var(--ink2);}
+.svki-regeln{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-top:10px;}
+.svki-regeln>div{padding:12px;border-radius:14px;border:1px solid var(--line);display:flex;flex-direction:column;gap:4px;} .svki-regeln b{font-size:14px;} .svki-regeln span{font-size:13px;color:var(--ink2);line-height:1.45;}
+.svki-regeln>div:last-child{border-color:rgba(240,82,82,.35);background:rgba(240,82,82,.05);}
+.svki-pre{white-space:pre-wrap;font-size:12.5px;line-height:1.5;padding:12px;border-radius:12px;background:rgba(148,163,196,.07);border:1px solid var(--line);max-height:260px;overflow:auto;margin:10px 0;}
+.svki-ai details{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:6px;} .svki-ai summary{cursor:pointer;font-weight:700;}
+.svki-ai h5{margin:10px 0 4px;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);} .svki-ai li{font-size:13.5px;color:var(--ink2);margin:3px 0;}
+.svki-auf{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;}
+.svki-auf>div{display:flex;flex-direction:column;gap:4px;align-items:flex-start;padding:12px;border-radius:14px;border:1px solid var(--line);} .svki-auf b{font-size:14px;} .svki-auf span{font-size:12.5px;color:var(--ink3);flex:1;}
+
 </style>
 <style id="v3gate">
 /* =====================================================================
@@ -3370,7 +3592,7 @@ body.gated{overflow:hidden;}
 <div class="shell" id="shell">
   <aside class="side">
     <div class="brand"><img src="logo.png" alt=""><div><b>SV/BSC Sportzentrale</b><span>SV/BSC Mörlenbach</span></div></div>
-    <nav class="snav"><div class="sgrp">Übersicht</div><button data-tab="home" data-tip="Übersicht" class="active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg><span>Übersicht</span></button><div class="sgrp">Mannschaft</div><button data-tab="training" data-tip="Mannschaft"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg><span>Mannschaft</span><span class="cnt" data-cnt="training" style="display:none"></span></button><div class="sgrp">Kader</div><button data-tab="kader" data-tip="Kader"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/><circle cx="12" cy="12" r="3"/><path d="M3 9h3v6H3M21 9h-3v6h3"/></svg><span>Kader</span></button><button data-tab="ejugend" data-tip="Eigene Jugend"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21v-8"/><path d="M12 13c0-4 3-7 8-7 0 4-3 7-8 7z"/><path d="M12 11C12 8 10 5 4 5c0 3 2.5 6 8 6z"/></svg><span>Eigene Jugend</span></button><div class="sgrp">Scouting</div><button data-tab="scout" data-tip="Scouting"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Scouting</span><span class="cnt" data-cnt="kandidaten" style="display:none"></span></button><div class="sgrp">Verein</div><button data-tab="verein" data-tip="Rankings & Verein"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>Rankings & Verein</span></button><div class="sgrp">Spieltag & Kasse</div><button data-tab="gegner" data-tip="Gegnercheck"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><span>Gegnercheck</span></button><button data-tab="kasse" data-tip="Mannschaftskasse"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2.5"/><path d="M16 13.5h.01"/><path d="M3 10h18"/><path d="M7 6V4.8A1.8 1.8 0 0 1 8.8 3H17"/></svg><span>Mannschaftskasse</span></button><div class="sgrp">Wissen</div><button data-tab="play" data-tip="Playbook & Modell"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg><span>Playbook & Modell</span></button><div class="sgrp adm-only">Verwaltung</div><button data-tab="admin" data-tip="Nutzer & Rollen"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/></svg><span>Nutzer & Rollen</span></button></nav>
+    <nav class="snav"><div class="sgrp">Übersicht</div><button data-tab="home" data-tip="Übersicht" class="active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg><span>Übersicht</span></button><div class="sgrp">Mannschaft</div><button data-tab="training" data-tip="Mannschaft"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg><span>Mannschaft</span><span class="cnt" data-cnt="training" style="display:none"></span></button><div class="sgrp">Mannschaften</div><button data-tab="teams" data-tip="Zweite & Jugend"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.8c1.7.7 2.8 2.3 3.1 5.2"/></svg><span>Zweite & Jugend</span></button><div class="sgrp">Kader</div><button data-tab="kader" data-tip="Kader"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/><circle cx="12" cy="12" r="3"/><path d="M3 9h3v6H3M21 9h-3v6h3"/></svg><span>Kader</span></button><button data-tab="ejugend" data-tip="Eigene Jugend"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21v-8"/><path d="M12 13c0-4 3-7 8-7 0 4-3 7-8 7z"/><path d="M12 11C12 8 10 5 4 5c0 3 2.5 6 8 6z"/></svg><span>Eigene Jugend</span></button><div class="sgrp">Scouting</div><button data-tab="scout" data-tip="Scouting"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Scouting</span><span class="cnt" data-cnt="kandidaten" style="display:none"></span></button><div class="sgrp">Verein</div><button data-tab="verein" data-tip="Rankings & Verein"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>Rankings & Verein</span></button><div class="sgrp">Sponsoring</div><button data-tab="sponsoring" data-tip="Sponsoring"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.6-9 9-9 9z"/></svg><span>Sponsoring</span></button><div class="sgrp">Spieltag & Kasse</div><button data-tab="gegner" data-tip="Gegnercheck"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><span>Gegnercheck</span></button><button data-tab="kasse" data-tip="Mannschaftskasse"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2.5"/><path d="M16 13.5h.01"/><path d="M3 10h18"/><path d="M7 6V4.8A1.8 1.8 0 0 1 8.8 3H17"/></svg><span>Mannschaftskasse</span></button><div class="sgrp">Wissen</div><button data-tab="play" data-tip="Playbook & Modell"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg><span>Playbook & Modell</span></button><div class="sgrp adm-only">Verwaltung</div><button data-tab="admin" data-tip="Nutzer & Rollen"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/></svg><span>Nutzer & Rollen</span></button></nav>
     <div class="sfoot"><div class="online" id="svOnline"></div>
       <button class="mebtn" data-me><div class="uav" data-me-ini></div><div class="who"><b data-me-name></b><span data-me-role></span></div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button></div>
   </aside>
@@ -3845,16 +4067,16 @@ a.kbtn{text-decoration:none;display:inline-block}
   <button class="tmore" id="tMore"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>Mehr</button>
 </div>
 <div class="sheet-bg" id="sheetBg"></div>
-<div class="sheet" id="moreSheet"><div class="grab"></div><h4>Übersicht</h4><div class="sgrid"><button data-sheet="home"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>Übersicht</button></div><h4>Mannschaft</h4><div class="sgrid"><button data-sheet="training"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>Mannschaft</button></div><h4>Kader</h4><div class="sgrid"><button data-sheet="kader"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/><circle cx="12" cy="12" r="3"/><path d="M3 9h3v6H3M21 9h-3v6h3"/></svg>Kader</button><button data-sheet="ejugend"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21v-8"/><path d="M12 13c0-4 3-7 8-7 0 4-3 7-8 7z"/><path d="M12 11C12 8 10 5 4 5c0 3 2.5 6 8 6z"/></svg>Jugend</button></div><h4>Scouting</h4><div class="sgrid"><button data-sheet="scout"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Scouting</button></div><h4>Verein</h4><div class="sgrid"><button data-sheet="verein"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Verein</button></div><h4>Spieltag & Kasse</h4><div class="sgrid"><button data-sheet="gegner"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>Gegnercheck</button><button data-sheet="kasse"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2.5"/><path d="M16 13.5h.01"/><path d="M3 10h18"/><path d="M7 6V4.8A1.8 1.8 0 0 1 8.8 3H17"/></svg>Kasse</button></div><h4>Wissen</h4><div class="sgrid"><button data-sheet="play"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg>Wissen</button></div><h4 class="adm-only">Verwaltung</h4><div class="sgrid adm-only"><button data-sheet="admin"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>Nutzer</button></div>
+<div class="sheet" id="moreSheet"><div class="grab"></div><h4>Übersicht</h4><div class="sgrid"><button data-sheet="home"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>Übersicht</button></div><h4>Mannschaft</h4><div class="sgrid"><button data-sheet="training"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>Mannschaft</button></div><h4>Mannschaften</h4><div class="sgrid"><button data-sheet="teams"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.8c1.7.7 2.8 2.3 3.1 5.2"/></svg>Teams</button></div><h4>Kader</h4><div class="sgrid"><button data-sheet="kader"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/><circle cx="12" cy="12" r="3"/><path d="M3 9h3v6H3M21 9h-3v6h3"/></svg>Kader</button><button data-sheet="ejugend"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21v-8"/><path d="M12 13c0-4 3-7 8-7 0 4-3 7-8 7z"/><path d="M12 11C12 8 10 5 4 5c0 3 2.5 6 8 6z"/></svg>Jugend</button></div><h4>Scouting</h4><div class="sgrid"><button data-sheet="scout"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Scouting</button></div><h4>Verein</h4><div class="sgrid"><button data-sheet="verein"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Verein</button></div><h4>Sponsoring</h4><div class="sgrid"><button data-sheet="sponsoring"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.6-9 9-9 9z"/></svg>Sponsoring</button></div><h4>Spieltag & Kasse</h4><div class="sgrid"><button data-sheet="gegner"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>Gegnercheck</button><button data-sheet="kasse"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2.5"/><path d="M16 13.5h.01"/><path d="M3 10h18"/><path d="M7 6V4.8A1.8 1.8 0 0 1 8.8 3H17"/></svg>Kasse</button></div><h4>Wissen</h4><div class="sgrid"><button data-sheet="play"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg>Wissen</button></div><h4 class="adm-only">Verwaltung</h4><div class="sgrid adm-only"><button data-sheet="admin"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>Nutzer</button></div>
   <div class="meline" data-me><div class="uav" data-me-ini></div><div style="flex:1;min-width:0"><b data-me-name></b><span data-me-role></span></div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></div>
 </div>
 
 
 
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
-<script>window.SVBC_CFG={"url": "https://lvaukuzgcwgqipxwzabo.supabase.co", "anon": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2YXVrdXpnY3dncWlweHd6YWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNTYwMTcsImV4cCI6MjEwNTczMjAxN30.jYZF8q8-SyCaWykM0wwcK58EzfTbO2VASKz1NIv1xbo", "build": "beta-0.22", "dataBytes": 3053230};</script>
-<script src="vendor/supabase.js?v=beta-0.22"></script>
-<script src="icons.js?v=beta-0.22"></script>
-<script src="boot.js?v=beta-0.22"></script>
+<script>window.SVBC_CFG={"url": "https://lvaukuzgcwgqipxwzabo.supabase.co", "anon": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2YXVrdXpnY3dncWlweHd6YWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNTYwMTcsImV4cCI6MjEwNTczMjAxN30.jYZF8q8-SyCaWykM0wwcK58EzfTbO2VASKz1NIv1xbo", "build": "beta-0.23", "dataBytes": 3053230};</script>
+<script src="vendor/supabase.js?v=beta-0.23"></script>
+<script src="icons.js?v=beta-0.23"></script>
+<script src="boot.js?v=beta-0.23"></script>
 </body>
 </html>
