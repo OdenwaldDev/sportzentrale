@@ -2101,7 +2101,7 @@ function openSlotPicker(i,depth){
 }
 
 /* ===== App-Modus: installierbar, offline-fest, aktualisiert sich selbst ===== */
-const APP_BUILD='beta-0.25', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
+const APP_BUILD='beta-0.26', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
 let _appPrompt=null, _appNew=null, _obT=null;
 function appStandalone(){ try{ return !!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
 function appPlatform(){
@@ -9254,10 +9254,10 @@ const SV50_INFO={
     h:'Alles Saisonübergreifende ist hier gebündelt, damit Mannschaft, Kader und Scouting schlank bleiben.',
     s:'Oben den Bereich wählen.',
     b:['Die Trainingsbeteiligung der letzten Saisons vergleichen.']},
-  gegner:{w:'Der nächste Gegner in Zahlen: Tabelle, Form und Torschützen.',
+  gegner:{w:'Der nächste Gegner in Zahlen: Saisonverlauf, Spielberichte, Tore, Karten und Startelf.',
     f:'Gezielt auf den Spieltag vorbereiten.',
     h:'Ein eigener Bereich, weil er nur rund um den Spieltag gebraucht wird.',
-    s:'Spiel wählen und auf Wunsch den KI-Gegnercheck starten.',b:[]}
+    s:'Spiel wählen, in der Kurve ein Wappen antippen und den Spielbericht lesen.',b:[]}
 };
 function sv50Key(){
   const t=svCurTab();
@@ -16309,6 +16309,226 @@ function kalHome(){
 { const _l=svrApply; svrApply=function(){ const r=_l.apply(this,arguments); try{ if(svCurTab()==='home')kalHome(); }catch(e){} return r; }; }
 
 /* =====================================================================
+   SV/BSC Sportzentrale · Beta 0.26: Gegnercheck mit Spielberichten
+   - Formkurve zum Antippen: jeder Spieltag mit Gegnerwappen, Ergebnis und Farbe (Sieg, Remis, Niederlage)
+   - Spielbericht je Spiel: Tore mit Minute und Schütze, Strafstoß- und Eigentore, Karten, Wechsel, Aufstellungen
+   - Vor dem Spiel: Platzverweise und Sperren, Stammspieler, die zuletzt nicht im Kader standen (ohne Grund, keine Gesundheitsdaten),
+     häufigste Startelf, Torminuten, Torschützen, Verhalten nach Führung und Rückstand, gemeinsame Gegner
+   - Quelle: öffentliche Spielberichte von FUSSBALL.DE (Kreisliga A und D2). FuPa ergänzt Positionen und Karten-Namen, wo die Quelle sie liefert.
+   ===================================================================== */
+const GC={cache:new Map(),busy:new Map(),modus:{},sicht:'gegner'};
+const GC_BINS=['1-15','16-30','31-45','46-60','61-75','76-90'];
+const GC_ART={tor:['⚽','Tor'],elf:['⚽','Strafstoßtor'],et:['⚽','Eigentor'],gelb:['<i class="gc-k y"></i>','Gelbe Karte'],gelbrot:['<i class="gc-k yr"></i>','Gelb-Rote Karte'],rot:['<i class="gc-k r"></i>','Rote Karte'],wechsel:['⇄','Wechsel']};
+const gcName=(D,k)=>{ const n=k&&D&&D.namen?D.namen[k]:null; return n?String(n).replace(/\s*\([^)]*\)\s*$/,'').trim():null; };
+const gcMin=e=>e.m==null?'':e.m+(e.x?'+'+e.x:'')+'.';
+const gcBin=e=>e.m==null?null:e.m<=15?0:e.m<=30?1:e.m<=45?2:e.m<=60?3:e.m<=75?4:5;
+const gcTor=e=>e.t==='tor'||e.t==='elf'||e.t==='et';
+
+/* ---------- Laden ---------- */
+async function gcLoad(sub,key,force){
+  const id=sub+'|'+key; if(!force&&GC.cache.has(id))return GC.cache.get(id); if(GC.busy.has(id))return GC.busy.get(id);
+  const p=(async()=>{ try{ const {data,error}=await SVB.sb.rpc('gegner_daten',{p_sub:sub,p_key:key}); if(error)throw error; GC.cache.set(id,data||null); return data||null; }
+    catch(e){ console.warn('Gegnercheck',e); return null; } finally{ GC.busy.delete(id); } })();
+  GC.busy.set(id,p); return p;
+}
+
+/* ---------- Auswerten (rein rechnerisch, ohne DOM) ---------- */
+function gcSpiele(D,key){
+  if(!D||!Array.isArray(D.spiele))return [];
+  return D.spiele.map((s,i)=>{
+    const h=s.hk===key, side=h?'h':'g', geg=h?'g':'h', v=Array.isArray(s.v)?s.v:[];
+    let tf=null, ta=null, q=null;
+    if(s.b&&v.some(gcTor)){ tf=h?s.th:s.tg; ta=h?s.tg:s.th; q='bericht'; }
+    else if(Array.isArray(s.mr)&&s.mr[0]!=null){ tf=h?s.mr[0]:s.mr[1]; ta=h?s.mr[1]:s.mr[0]; q='tabelle'; }
+    else if(s.b&&s.a&&!v.some(gcTor)&&v.length){ tf=0; ta=0; q='bericht'; }
+    const e=tf==null?null:tf>ta?'S':tf===ta?'U':'N';
+    const k={gelb:0,gelbrot:0,rot:0}; v.forEach(x=>{ if(x.s===side&&k[x.t]!=null)k[x.t]++; });
+    return {i,id:s.id,datum:s.datum,zeit:s.zeit,heim:h,side,geg,opp:h?s.gast:s.heim,oppKey:h?s.gk:s.hk,tf,ta,e,q,b:!!s.b,v,a:s.a||null,ende:s.ende||90,karten:k,roh:s};
+  });
+}
+// Minuten je Spieler aus Aufstellung und Wechseln
+function gcEinsaetze(sp){
+  const A=sp.a&&sp.a[sp.side]; if(!A||!(A.start||[]).length)return null;
+  const end=sp.ende||90, m=new Map();
+  (A.start||[]).forEach(k=>m.set(k,{k,start:true,von:0,bis:end,tore:0}));
+  sp.v.filter(e=>e.t==='wechsel'&&e.s===sp.side).sort((a,b)=>(a.m??99)-(b.m??99)).forEach(w=>{
+    const raus=w.p2&&m.get(w.p2); if(raus)raus.bis=Math.min(raus.bis,w.m??end);
+    if(w.p&&!m.has(w.p))m.set(w.p,{k:w.p,start:false,von:w.m??end,bis:end,tore:0}); });
+  sp.v.filter(e=>(e.t==='tor'||e.t==='elf')&&e.s===sp.side&&e.p&&m.has(e.p)).forEach(e=>m.get(e.p).tore++);
+  return {liste:[...m.values()].map(x=>({...x,min:Math.max(0,Math.min(130,x.bis-x.von))})),bank:(A.bank||[]).filter(k=>!m.has(k)),kader:new Set([...(A.start||[]),...(A.bank||[])]),tw:A.tw||null,c:A.c||null};
+}
+function gcAuswertung(D,key){
+  const G=gcSpiele(D,key), gespielt=G.filter(g=>g.e), mitAuf=G.filter(g=>g.a&&g.a[g.side]&&(g.a[g.side].start||[]).length>=7);
+  // Torminuten und Halbzeiten
+  const bins={f:[0,0,0,0,0,0],a:[0,0,0,0,0,0]}, hz={f:[0,0],a:[0,0]}; let mitVerlauf=0;
+  G.forEach(g=>{ if(!g.b||!g.v.some(gcTor))return; mitVerlauf++; g.v.filter(gcTor).forEach(e=>{ const b=gcBin(e); if(b==null)return; const w=e.s===g.side?'f':'a'; bins[w][b]++; hz[w][b<3?0:1]++; }); });
+  // Torschützen
+  const sch=new Map(); G.forEach(g=>g.v.filter(e=>(e.t==='tor'||e.t==='elf')&&e.s===g.side&&e.p).forEach(e=>{ const x=sch.get(e.p)||{k:e.p,tore:0,elf:0,min:[],zuletzt:null}; x.tore++; if(e.t==='elf')x.elf++; if(e.m!=null)x.min.push(e.m); x.zuletzt=g.datum; sch.set(e.p,x); }));
+  const schuetzen=[...sch.values()].sort((a,b)=>b.tore-a.tore||(b.zuletzt||'').localeCompare(a.zuletzt||''));
+  // Einsätze, Stammspieler, zuletzt nicht im Kader
+  const E=mitAuf.map(g=>({g,x:gcEinsaetze(g)})).filter(o=>o.x);
+  const sp=new Map(); E.forEach(({g,x},idx)=>{ x.liste.forEach(p=>{ const s=sp.get(p.k)||{k:p.k,start:0,eins:0,min:0,tore:0,letzte4:0,tw:0,c:0}; if(p.start)s.start++; s.eins++; s.min+=p.min; s.tore+=p.tore; if(idx>=E.length-4&&p.start)s.letzte4++; if(x.tw===p.k)s.tw++; if(x.c===p.k)s.c++; sp.set(p.k,s); }); });
+  const stamm=[...sp.values()].sort((a,b)=>b.start-a.start||b.min-a.min);
+  const fehlt=[]; if(E.length>=3){ stamm.filter(s=>s.start>=3&&s.start/E.length>=0.5).forEach(s=>{ let n=0; for(let i=E.length-1;i>=0;i--){ if(E[i].x.kader.has(s.k))break; n++; } if(n>=1)fehlt.push({...s,seit:n,zuletzt:E[E.length-1].g}); }); }
+  const elf=[...sp.values()].filter(s=>s.letzte4>0).sort((a,b)=>b.letzte4-a.letzte4||b.start-a.start||b.min-a.min).slice(0,11);
+  // Karten und Platzverweise
+  const karten={gelb:0,gelbrot:0,rot:0}; G.forEach(g=>{ karten.gelb+=g.karten.gelb; karten.gelbrot+=g.karten.gelbrot; karten.rot+=g.karten.rot; });
+  const letztes=[...G].reverse().find(g=>g.b)||null;
+  const pv=letztes?letztes.v.filter(e=>(e.t==='gelbrot'||e.t==='rot')&&e.s===letztes.side):[];
+  // Führung und Rückstand (nur Spiele mit Verlauf)
+  const lage={fuehrung:{sp:0,pkt:0},rueckstand:{sp:0,pkt:0}};
+  G.filter(g=>g.b&&g.e&&g.v.some(gcTor)).forEach(g=>{ const first=g.v.filter(gcTor).sort((a,b)=>((a.m??0)*100+(a.x||0))-((b.m??0)*100+(b.x||0)))[0]; if(!first)return;
+    const w=first.s===g.side?'fuehrung':'rueckstand'; lage[w].sp++; lage[w].pkt+=g.e==='S'?3:g.e==='U'?1:0; });
+  const zuNull=gespielt.filter(g=>g.ta===0).length, ohneTor=gespielt.filter(g=>g.tf===0).length;
+  return {G,gespielt,mitAuf:E.length,mitVerlauf,bins,hz,schuetzen,stamm,fehlt,elf,karten,letztes,pv,lage,zuNull,ohneTor};
+}
+// Klare Sätze für das Trainerteam, nur wenn die Datenlage trägt
+function gcHinweise(A,wer){
+  const out=[], s=(n,a,b)=>n===1?a:b;
+  const tf=A.bins.f.reduce((a,b)=>a+b,0), ta=A.bins.a.reduce((a,b)=>a+b,0);
+  if(ta>=4){ const spaet=A.bins.a[5]; if(spaet/ta>=0.35)out.push(`${wer} kassiert ${spaet} von ${ta} Gegentoren nach der 75. Minute. Hinten raus drücken lohnt sich.`);
+    const frueh=A.bins.a[0]; if(frueh/ta>=0.3)out.push(`${wer} kassiert ${frueh} von ${ta} Gegentoren in den ersten 15 Minuten. Früh draufgehen.`); }
+  if(tf>=4){ const spaet=A.bins.f[5]; if(spaet/tf>=0.35)out.push(`${wer} trifft oft spät: ${spaet} von ${tf} Toren nach der 75. Minute. Konzentration bis zum Schluss.`);
+    if(A.hz.f[1]>=A.hz.f[0]*2&&A.hz.f[1]>=4)out.push(`${wer} kommt stark aus der Kabine: ${A.hz.f[1]} Tore nach der Pause, ${A.hz.f[0]} davor.`); }
+  if(A.lage.rueckstand.sp>=2)out.push(`Nach 0:1-Rückstand holte ${wer} ${A.lage.rueckstand.pkt} ${s(A.lage.rueckstand.pkt,'Punkt','Punkte')} aus ${A.lage.rueckstand.sp} Spielen.`);
+  if(A.lage.fuehrung.sp>=2&&A.lage.fuehrung.pkt<=A.lage.fuehrung.sp*1.5)out.push(`Nach eigener Führung nur ${A.lage.fuehrung.pkt} Punkte aus ${A.lage.fuehrung.sp} Spielen. ${wer} lässt sich zurückdrängen.`);
+  const top=A.schuetzen[0]; if(top&&tf>=5&&top.tore/tf>=0.35)out.push(`${top.name||'Ein Spieler'} erzielte ${top.tore} von ${tf} Toren. Ihn aus dem Spiel nehmen.`);
+  const elf=A.schuetzen.reduce((a,x)=>a+x.elf,0); if(elf>=2)out.push(`${elf} Strafstoßtore bisher. Im Strafraum sauber verteidigen.`);
+  if(A.gespielt.length>=4&&A.karten.gelb/A.gespielt.length>=2.5)out.push(`${wer} sammelt viele Karten: ${A.karten.gelb} Gelbe in ${A.gespielt.length} Spielen.`);
+  return out;
+}
+// Positionsmix der Startelf laut FuPa (Positionsgruppe aus dem Spielerprofil, kein taktisches System)
+function gcFupaMix(D,key){
+  return (D&&D.fupa||[]).filter(f=>f.hk===key||f.gk===key).map(f=>{ const p=(f.hk===key?f.pos&&f.pos.h:f.pos&&f.pos.g)||{}; const ab=p.Abwehr||0, mi=p.Mittelfeld||0, an=p.Angriff||p.Sturm||0;
+    return ab+mi+an>=9?{datum:f.datum,mix:`${ab}-${mi}-${an}`,gegner:f.hk===key?f.gk:f.hk}:null; }).filter(Boolean);
+}
+function gcFupaKarten(D,sp){
+  if(!D||!sp)return []; const f=(D.fupa||[]).find(x=>x.id===sp.id); return f?(f.karten||[]):[];
+}
+
+/* ---------- Formkurve zum Antippen ---------- */
+// Tabellenplatz je Spiel: die Fieberkurve hat einen Wert je Spieltag. Spieltage = Wochen mit mehreren Ligaspielen,
+// ein Nachholspiel unter der Woche bekommt den Platz des Spieltags davor.
+function gcMontag(d){ const x=new Date(d+'T12:00:00Z'); const w=(x.getUTCDay()+6)%7; x.setUTCDate(x.getUTCDate()-w); return x.toISOString().slice(0,10); }
+function gcPlaetze(D,G,fv){
+  if(!fv.length||!G.length)return null;
+  const W=(D.spieltage||[]).map(String);
+  if(W.length===fv.length){ const out=G.map(g=>{ const m=gcMontag(g.datum); let i=-1; W.forEach((w,j)=>{ if(w<=m)i=j; }); return i>=0?fv[i]:null; }); if(out.every(v=>v!=null))return out; }
+  return fv.length===G.length?fv.slice():null;
+}
+function gcKurve(D,key,wer){
+  const G=gcSpiele(D,key).filter(g=>g.e||g.b); if(!G.length)return '<div class="note">Noch keine Spiele mit Ergebnis in dieser Saison.</div>';
+  const fv=(D.fieber||[]).filter(x=>x>0), pl=gcPlaetze(D,G,fv), platz=!!pl;
+  const mode=GC.modus[key]||(platz?'platz':'form'), usePlatz=mode==='platz'&&platz;
+  let ys; if(usePlatz){ const mx=Math.max(8,...fv); ys=pl.map(v=>8+(v-1)/(mx-1)*70); }
+  else{ let c=0; const cum=G.map(g=>c+=g.e==='S'?1:g.e==='N'?-1:0); const lo=Math.min(0,...cum), hi=Math.max(1,...cum); ys=cum.map(v=>78-(v-lo)/(hi-lo||1)*70); }
+  const n=G.length, xs=G.map((_,i)=>n===1?50:4+i*92/(n-1));
+  const pts=xs.map((x,i)=>x.toFixed(2)+','+ys[i].toFixed(2)).join(' ');
+  const lbl=g=>g.tf==null?'?':g.tf+':'+g.ta;
+  return `<div class="gc-kv-top"><div class="trtabs gc-mode">${platz?`<button class="${usePlatz?'on':''}" data-gcmode="platz" data-gckey="${svEsc(key)}">Tabellenplatz</button>`:''}<button class="${!usePlatz?'on':''}" data-gcmode="form" data-gckey="${svEsc(key)}">Formkurve</button></div>
+      <small class="note">${usePlatz?'Platz nach jedem Spieltag. Oben ist besser.':'Sieg geht hoch, Niederlage runter, Remis bleibt.'} Wappen antippen für den Spielbericht.</small></div>
+    <div class="gc-kv-scroll"><div class="gc-kv" style="--n:${n}">
+      <svg class="gc-kv-l" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${usePlatz?'<line x1="0" x2="100" y1="8" y2="8" class="g"/>':''}<polyline points="${pts}" vector-effect="non-scaling-stroke"/></svg>
+      ${G.map((g,i)=>`<button class="gc-pt f${g.e||'x'}${g.b?'':' nob'}" style="left:${xs[i]}%;top:${ys[i]}%" data-gcspiel="${svEsc(g.id)}" data-gckey="${svEsc(key)}" title="${svEsc((g.heim?'gegen ':'bei ')+g.opp)}">
+          ${scCrest(g.opp,'sm')}<b>${svEsc(lbl(g))}</b>${usePlatz?`<em>${pl[i]}.</em>`:''}${g.karten.rot+g.karten.gelbrot?'<i class="gc-rk" title="Platzverweis"></i>':''}</button>`).join('')}
+    </div></div>
+    <div class="gc-strip">${G.slice().reverse().map(g=>`<button class="gc-sp f${g.e||'x'}" data-gcspiel="${svEsc(g.id)}" data-gckey="${svEsc(key)}"><span>${spWd(g.datum)}</span>${scCrest(g.opp,'sm')}<b>${g.heim?'':'@ '}${svEsc(g.opp)}</b><i>${svEsc(lbl(g))}</i>${g.b?'':'<small>ohne Bericht</small>'}</button>`).join('')}</div>`;
+}
+
+/* ---------- Spielbericht ---------- */
+function gcBericht(key,id){
+  let D=null, sp=null; for(const [k,v] of GC.cache){ if(!v)continue; const s=gcSpiele(v,v.key).find(g=>g.id===id); if(s&&(!sp||v.key===key)){ D=v; sp=s; } }
+  if(!sp)return;
+  const r=sp.roh, V=[...sp.v].sort((a,b)=>((a.m??0)*100+(a.x||0))-((b.m??0)*100+(b.x||0)));
+  const nm=k=>gcName(D,k), fk=gcFupaKarten(D,sp);
+  let h=0, g=0; const zeilen=[]; let halb=false;
+  V.forEach(e=>{
+    if(!halb&&e.m!=null&&e.m>45&&V.some(x=>x.m!=null&&x.m<=45)){ halb=true; zeilen.push(`<div class="gc-hz">Halbzeit ${h}:${g}</div>`); }
+    if(gcTor(e)){ if(e.s==='h')h++; else g++; }
+    const [ic,art]=GC_ART[e.t]||['•',e.t];
+    let text='';
+    if(e.t==='wechsel')text=`<b>${svEsc(nm(e.p)||'Spieler')}</b> kommt${e.p2?` für ${svEsc(nm(e.p2)||'Spieler')}`:''}`;
+    else if(gcTor(e))text=`<b>${svEsc(nm(e.p)||'Torschütze')}</b>${e.t==='elf'?' (Strafstoß)':e.t==='et'?' (Eigentor)':''} <span class="gc-st">${h}:${g}</span>`;
+    else text=`${art}${nm(e.p)?' · <b>'+svEsc(nm(e.p))+'</b>':''}`;
+    zeilen.push(`<div class="gc-ev ${e.s} t-${e.t}"><span class="gc-m">${svEsc(gcMin(e))}</span><span class="gc-ic">${ic}</span><span class="gc-tx">${text}</span></div>`);
+  });
+  const auf=s=>{ const A=r.a&&r.a[s]; if(!A||!(A.start||[]).length)return '<div class="note">Keine Aufstellung veröffentlicht.</div>';
+    const x=gcEinsaetze({...sp,side:s}), mm=new Map((x?x.liste:[]).map(p=>[p.k,p]));
+    const zeile=(k,bank)=>{ const p=mm.get(k); const tore=V.filter(e=>(e.t==='tor'||e.t==='elf')&&e.s===s&&e.p===k).length;
+      return `<li class="${bank&&!p?'unb':''}"><span>${svEsc(nm(k)||'Name folgt')}</span>${A.c===k?'<em>C</em>':''}${A.tw===k?'<em>TW</em>':''}${tore?`<i>${'⚽'.repeat(Math.min(tore,4))}</i>`:''}${p?`<small>${p.min}′</small>`:bank?'<small>Bank</small>':''}</li>`; };
+    return `<ol>${(A.start||[]).map(k=>zeile(k,false)).join('')}</ol>${(A.bank||[]).length?`<div class="gc-bk">Ersatz</div><ul>${A.bank.map(k=>zeile(k,true)).join('')}</ul>`:''}`; };
+  const erg=sp.b&&sp.v.some(gcTor)?`${r.th}:${r.tg}`:Array.isArray(r.mr)&&r.mr[0]!=null?`${r.mr[0]}:${r.mr[1]}`:(sp.b?'0:0':'?');
+  svModal(`<div class="gc-rep">
+    <div class="gc-rh"><div>${scCrest(r.heim,'xl')}<b>${svEsc(r.heim)}</b></div><div class="gc-re"><strong>${svEsc(erg)}</strong><small>${svEsc(spWd(r.datum))}${r.zeit?' · '+svEsc(r.zeit):''}</small></div><div>${scCrest(r.gast,'xl')}<b>${svEsc(r.gast)}</b></div></div>
+    ${sp.b?`<h3 class="trh">Spielverlauf</h3><div class="gc-tl">${zeilen.join('')||'<div class="note">Kein Verlauf veröffentlicht.</div>'}</div>`:'<div class="note">Für dieses Spiel gibt es bei FUSSBALL.DE noch keinen Spielbericht. Das Ergebnis stammt aus der Tabelle.</div>'}
+    ${fk.length?`<h3 class="trh">Karten laut FuPa</h3><div class="gc-fk">${fk.map(k=>`<span class="${k.s}">${GC_ART[k.t]?GC_ART[k.t][0]:''} ${svEsc(k.name)} <small>${svEsc(k.s==='h'?r.heim:r.gast)}</small></span>`).join('')}</div>`:''}
+    ${sp.b&&r.a?`<h3 class="trh">Aufstellungen</h3><div class="gc-auf"><div><h4>${svEsc(r.heim)}</h4>${auf('h')}</div><div><h4>${svEsc(r.gast)}</h4>${auf('g')}</div></div>`:''}
+    <p class="note">Quelle: öffentlicher Spielbericht auf FUSSBALL.DE. Karten stehen dort ohne Namen im Klartext, darum zeigt die App bei Karten nur Minute und Mannschaft${fk.length?', die Namen oben kommen von FuPa':''}.</p></div>`);
+}
+
+/* ---------- Karten im Gegnercheck ---------- */
+function gcKarteVorSpiel(D,key,wer){
+  const A=gcAuswertung(D,key); A.schuetzen.forEach(x=>x.name=gcName(D,x.k));
+  const hin=gcHinweise(A,wer), mix=gcFupaMix(D,key);
+  const pvFu=A.letztes?gcFupaKarten(D,A.letztes).filter(k=>k.s===A.letztes.side&&(k.t==='gelbrot'||k.t==='rot')):[];
+  const sperre=A.pv.length?`<div class="gc-warn"><b>🟥 Platzverweis im letzten Spiel</b><span>${A.pv.map(e=>`${GC_ART[e.t][1]} (${gcMin(e)} Minute)`).join(', ')} gegen ${svEsc(A.letztes.opp)} am ${svEsc(spWd(A.letztes.datum)).replace(/\.$/,'')}.
+      ${pvFu.length?` Laut FuPa: <b>${pvFu.map(k=>svEsc(k.name)).join(', ')}</b>.`:' Wer es war, nennt FUSSBALL.DE nicht im Klartext.'} Nach Gelb-Rot oder Rot ist der Spieler in der Regel im nächsten Spiel gesperrt.</span></div>`:'';
+  const fehlt=A.fehlt.slice(0,6).map(s=>`<li><b>${svEsc(gcName(D,s.k)||'Name folgt')}</b><span>${s.start} von ${A.mitAuf} Spielen in der Startelf${s.tore?', '+s.tore+' Tor'+(s.tore>1?'e':''):''}</span><em>${s.seit===1?'letztes Spiel':'letzte '+s.seit+' Spiele'} nicht im Kader</em></li>`).join('');
+  const elf=A.elf.map(s=>`<li><span>${svEsc(gcName(D,s.k)||'Name folgt')}</span>${s.tw?'<em>TW</em>':''}${s.c?'<em>C</em>':''}<small>${s.letzte4}/${Math.min(4,A.mitAuf)}</small></li>`).join('');
+  const mx=Math.max(1,...A.bins.f,...A.bins.a);
+  const bins=GC_BINS.map((l,i)=>`<div class="gc-bin"><i class="f" style="height:${Math.round(A.bins.f[i]/mx*100)}%"><b>${A.bins.f[i]||''}</b></i><i class="a" style="height:${Math.round(A.bins.a[i]/mx*100)}%"><b>${A.bins.a[i]||''}</b></i><span>${l}</span></div>`).join('');
+  const sch=A.schuetzen.slice(0,6).map(x=>`<li><b>${svEsc(x.name||'Name folgt')}</b><span>${x.tore} Tor${x.tore>1?'e':''}${x.elf?`, davon ${x.elf} Strafstoß`:''}</span><em>${x.min.length?'Minuten '+x.min.sort((a,b)=>a-b).join(', '):''}</em></li>`).join('');
+  return `${sperre}
+    ${hin.length?`<div class="spl ok gc-hin"><b>Das fällt auf</b>${hin.map(x=>`<span>${svEsc(x)}</span>`).join('')}</div>`:''}
+    <div class="gc-grid">
+      <div><h4 class="sph4">Wann fallen die Tore?</h4>${A.mitVerlauf?`<div class="gc-bins">${bins}</div><div class="splegend"><span style="--c:var(--gc-f)">Tore</span><span style="--c:var(--gc-a)">Gegentore</span></div><small class="note">Aus ${A.mitVerlauf} Spielberichten. 1. Halbzeit ${A.hz.f[0]}:${A.hz.a[0]}, 2. Halbzeit ${A.hz.f[1]}:${A.hz.a[1]}.</small>`:'<div class="note">Noch keine Spielberichte mit Toren.</div>'}</div>
+      <div><h4 class="sph4">Torschützen mit Minute</h4>${sch?`<ul class="gc-li">${sch}</ul>`:'<div class="note">Noch keine Torschützen aus Spielberichten.</div>'}</div>
+      <div><h4 class="sph4">Häufigste Startelf zuletzt</h4>${elf?`<ul class="gc-elf">${elf}</ul><small class="note">Startelf-Einsätze in den letzten ${Math.min(4,A.mitAuf)} Spielen mit Aufstellung.</small>`:'<div class="note">Noch keine Aufstellungen veröffentlicht.</div>'}</div>
+      <div><h4 class="sph4">Stammspieler zuletzt nicht im Kader</h4>${fehlt?`<ul class="gc-li gc-fehlt">${fehlt}</ul><small class="note">Nur aus den veröffentlichten Aufstellungen, ohne Grund. Über Verletzungen oder Privates sagt die App nichts.</small>`:`<div class="note">${A.mitAuf>=3?'Alle Stammspieler standen zuletzt im Kader.':'Dafür braucht es mindestens drei veröffentlichte Aufstellungen.'}</div>`}</div>
+    </div>
+    <div class="gc-facts"><span>🟨 ${A.karten.gelb} Gelbe</span><span>🟨🟥 ${A.karten.gelbrot} Gelb-Rote</span><span>🟥 ${A.karten.rot} Rote</span><span>🧱 ${A.zuNull}× zu Null</span><span>🚫 ${A.ohneTor}× ohne eigenes Tor</span>${mix.length?`<span title="Positionsgruppen der Startelf laut FuPa-Profil">📋 FuPa-Positionsmix ${svEsc(mix[mix.length-1].mix)}</span>`:''}</div>`;
+}
+function gcGemeinsam(Do,oKey,Dw,wKey){
+  if(!Do||!Dw)return ''; const O=gcSpiele(Do,oKey).filter(g=>g.e), W=gcSpiele(Dw,wKey).filter(g=>g.e); const out=[];
+  const opps=new Set(O.map(g=>g.oppKey)); [...new Set(W.map(g=>g.oppKey))].filter(k=>opps.has(k)&&k!==oKey&&k!==wKey).forEach(k=>{
+    const w=W.filter(g=>g.oppKey===k), o=O.filter(g=>g.oppKey===k);
+    out.push(`<div class="gc-gm"><span>${scCrest(w[0].opp,'sm')}<b>${svEsc(w[0].opp)}</b></span><em class="f${w[0].e}" data-gcspiel="${svEsc(w[0].id)}" data-gckey="${svEsc(wKey)}">Wir ${w.map(g=>g.tf+':'+g.ta).join(', ')}</em><em class="f${o[0].e}" data-gcspiel="${svEsc(o[0].id)}" data-gckey="${svEsc(oKey)}">Sie ${o.map(g=>g.tf+':'+g.ta).join(', ')}</em></div>`); });
+  return out.length?`<div class="card gc-card"><h3 class="trh">${SVI('users')} Gemeinsame Gegner</h3><div class="gc-gms">${out.join('')}</div><small class="note">Ergebnis antippen für den Spielbericht.</small></div>`:'';
+}
+
+/* ---------- Einbau in den Gegnercheck ---------- */
+async function gcEnhance(){
+  const P=document.getElementById('panel-gegner'); if(!P||!P.classList.contains('active')||typeof SP==='undefined'||!SP.loaded)return;
+  const team=SP.team, own=SP_OWN[team], next=spNext(team), f=(SP.sel&&next.find(x=>x.id===SP.sel))||next[0]; if(!f)return;
+  const home=f.heim_key===own, oppKey=home?f.gast_key:f.heim_key, oppName=home?f.gast:f.heim, sub=f.sub==='POKAL'?team:f.sub;
+  if(sub!=='A'&&sub!=='D2')return;
+  // alte Fieberkurve weicht der neuen Kurve
+  P.querySelectorAll('.spfever,.spfever+.splegend').forEach(x=>x.remove()); P.querySelectorAll('h4.sph4').forEach(h=>{ if(/Fieberkurve/.test(h.textContent))h.remove(); });
+  const anchor=P.querySelector('.sphero'); if(!anchor)return;
+  let box=P.querySelector('#gcBox'); if(!box){ box=document.createElement('div'); box.id='gcBox'; anchor.after(box); }
+  box.dataset.f=f.id;
+  if(!GC.cache.has(sub+'|'+oppKey))box.innerHTML='<div class="card"><div class="empty">Lade Spielberichte …</div></div>';
+  const [Do,Dw]=await Promise.all([gcLoad(sub,oppKey),gcLoad(sub,own)]);
+  if(!box.isConnected||box.dataset.f!==f.id)return;
+  if(!Do||!Do.spiele||!Do.spiele.length){ box.innerHTML=`<div class="card"><div class="note">Für ${svEsc(oppName)} sind noch keine Spielberichte da. Sie kommen nach dem nächsten Abruf (sonntags abends, montags, dienstags und donnerstags früh).</div></div>`; return; }
+  const sicht=GC.sicht==='wir'?'wir':'gegner', D=sicht==='wir'?Dw:Do, key=sicht==='wir'?own:oppKey, wer=sicht==='wir'?'Wir':oppName;
+  const W=team==='A'?'SV/BSC':'SV/BSC II';
+  box.innerHTML=`<div class="card gc-card"><div class="svc-h"><h3>${SVI('chart')} Saisonverlauf</h3><div class="trtabs gc-sicht"><button class="${sicht==='gegner'?'on':''}" data-gcsicht="gegner">${svEsc(oppName)}</button><button class="${sicht==='wir'?'on':''}" data-gcsicht="wir">${svEsc(W)}</button></div></div>
+      ${D?gcKurve(D,key,wer):'<div class="note">Noch keine Daten.</div>'}</div>
+    <div class="card gc-card"><h3 class="trh">${SVI('target')} Vor dem Spiel: ${svEsc(sicht==='wir'?W:oppName)}</h3>${D?gcKarteVorSpiel(D,key,sicht==='wir'?'Unser Team':oppName):''}</div>
+    ${gcGemeinsam(Do,oppKey,Dw,own)}
+    <div class="note">Spielberichte: FUSSBALL.DE, öffentlich. ${Do.berichte_liga||0} von ${Do.spiele_liga||0} Ligaspielen mit Bericht${Do.stand?', Stand '+new Date(Do.stand).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}.${(Do.fupa||[]).length?' Positionen und Kartennamen ergänzt aus FuPa (nur intern).':''}</div>`;
+  gcBind(box);
+}
+function gcBind(root){
+  root.querySelectorAll('[data-gcspiel]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); gcBericht(b.dataset.gckey,b.dataset.gcspiel); });
+  root.querySelectorAll('[data-gcmode]').forEach(b=>b.onclick=()=>{ GC.modus[b.dataset.gckey]=b.dataset.gcmode; gcEnhance(); });
+  root.querySelectorAll('[data-gcsicht]').forEach(b=>b.onclick=()=>{ GC.sicht=b.dataset.gcsicht; gcEnhance(); });
+}
+{ const _spr=spRender; spRender=async function(){ const r=await _spr.apply(this,arguments); try{ await gcEnhance(); }catch(e){ console.warn('Gegnercheck',e); } return r; }; }
+SV_PAGES.gegner=['Gegnercheck','Der nächste Gegner: Formkurve, Spielberichte, Tore, Karten, Startelf'];
+
+/* =====================================================================
    SV/BSC Scout · Runde 20: „Was ist neu“: Update-Fenster & Patch-Historie
    - Nach jedem Update ein Pop-up: das Wichtigste in Kürze → „OK“ oder „Mehr erfahren“ (ganze Historie)
    - Jederzeit erreichbar: Seitenleiste / „Mehr“ / Mein Konto → „Was ist neu“
@@ -16317,6 +16537,13 @@ function kalHome(){
    Sichtbarkeit je Punkt: r:'team' (ohne Gäste) · r:'scout' · r:'admin' · ohne r = alle
    ===================================================================== */
 const SV_PATCHES=[
+  {id:'0.26',v:'0.26',datum:'2026-09-28',titel:'Gegnercheck mit Spielberichten',kurz:'Der Gegnercheck zeigt jetzt den ganzen Saisonverlauf des Gegners: jeder Spieltag mit Wappen und Ergebnis, antippen öffnet den Spielbericht mit Toren, Minuten, Karten, Wechseln und Aufstellungen.',
+   punkte:[
+    {ic:'📈',t:'Formkurve zum Antippen',d:'Tabellenplatz oder Form je Spieltag, mit dem Wappen des jeweiligen Gegners. Ein Tipp öffnet den Spielbericht.',go:'gegner',r:'team'},
+    {ic:'⚽',t:'Spielberichte aller Ligaspiele',d:'Wer wann getroffen hat, Strafstöße, Eigentore, Karten und Wechsel mit Minute, dazu beide Aufstellungen mit Spielzeit. Für Kreisliga A und D2.',go:'gegner',r:'team'},
+    {ic:'🟥',t:'Sperren und fehlende Stammspieler',d:'Platzverweis im letzten Spiel des Gegners mit Minute. Stammspieler, die zuletzt nicht im Kader standen, ohne Grund und ohne Vermutungen.',go:'gegner',r:'team'},
+    {ic:'⏱️',t:'Wann fallen die Tore?',d:'Tore und Gegentore je Viertelstunde, Torschützen mit Minuten, häufigste Startelf, Verhalten nach Führung und Rückstand, gemeinsame Gegner.',go:'gegner',r:'team'}
+   ]},
   {id:'0.25',v:'0.25',datum:'2026-09-28',titel:'Termine für alle, Wappen gestochen scharf',kurz:'Ein Kalender mit allen Spielen der Ersten, Zweiten, SOMA und Jugend, allen Veranstaltungen und Geburtstagen. Unten wählst du, was du siehst. Mit einem Tipp in deinen Handy-Kalender oder an Freunde geteilt.',
    punkte:[
     {ic:'📅',t:'Termine für alle',d:'Neu unter „Termine“: Spiele, Veranstaltungen und Geburtstage in Liste oder Monat. Unten tippst du an, was du sehen willst, zum Beispiel deine Jugendmannschaft. Die App merkt sich das.',go:'kalender'},
