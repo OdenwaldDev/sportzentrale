@@ -2101,7 +2101,7 @@ function openSlotPicker(i,depth){
 }
 
 /* ===== App-Modus: installierbar, offline-fest, aktualisiert sich selbst ===== */
-const APP_BUILD='beta-0.28', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
+const APP_BUILD='beta-0.29', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
 let _appPrompt=null, _appNew=null, _obT=null;
 function appStandalone(){ try{ return !!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
 function appPlatform(){
@@ -13659,9 +13659,9 @@ function svmExtern(p){ try{ if(!p||typeof sv4SS!=='function')return false; const
 if(SV50_INFO['training:players'])SV50_INFO['training:players'].w='Alle internen Spieler in einer Liste: 1. und 2. Mannschaft, A-Jugend und Spieler mit Pass ohne feste Mannschaft. Wer als „Extern“ markiert ist, steht hier nicht mehr.';
 if(MN_A.team){
   MN_A.team.orig=p=>({t:svmExtern(p)?'X':(mnTeam(p)||''),t2:svmExtern(p)?'':(mnTeam2(p)||'')});
-  MN_A.team.ctl=(p,v,ok)=>`<label class="mn-lbl"><span>Mannschaft</span><select data-f="t" ${ok?'':'disabled'}>${v.t?'':'<option value="">–</option>'}${['1','2','A','U','X'].map(t=>`<option value="${t}"${v.t===t?' selected':''}>${MN_TEAM[t]}</option>`).join('')}</select></label>
+  MN_A.team.ctl=(p,v,ok)=>`<label class="mn-lbl"><span>Mannschaft</span><select data-f="t" ${ok?'':'disabled'}>${v.t?'':'<option value="">–</option>'}${['1','2','A','S','U','X'].map(t=>`<option value="${t}"${v.t===t?' selected':''}>${MN_TEAM[t]}</option>`).join('')}</select></label>
     ${v.t==='X'?'<small class="note svm-xh">Extern: zählt nicht mehr zum Kader und taucht in Training und Listen nicht mehr auf. Die App prüft weiter mit FuPa, ob er wieder bei uns spielt.</small>'
-      :`<label class="mn-lbl"><span>Zweitmannschaft</span><select data-f="t2" ${ok?'':'disabled'}><option value="">keine</option>${['1','2','A','U'].filter(t=>t!==v.t).map(t=>`<option value="${t}"${v.t2===t?' selected':''}>${MN_TEAM[t]}</option>`).join('')}</select></label>`}`;
+      :`<label class="mn-lbl"><span>Zweitmannschaft</span><select data-f="t2" ${ok?'':'disabled'}><option value="">keine</option>${['1','2','A','S','U'].filter(t=>t!==v.t).map(t=>`<option value="${t}"${v.t2===t?' selected':''}>${MN_TEAM[t]}</option>`).join('')}</select></label>`}`;
   MN_A.team.read=(k,val,v)=>{ if(k==='t'&&(v.t2===val||val==='X'))v.t2=''; return val; };
 }
 
@@ -13747,10 +13747,10 @@ function svmTrainQuick(datum,sid,ki){
       <div class="q50-sum"><span><b>${c.da+c.spaet}</b> da</span><span class="${c.weg?'bad':''}"><b>${c.weg}</b> fehlen</span>
         <button type="button" class="btn ghost sm" data-all3>Alle Annahmen bestätigen</button></div>
       <div class="q50l">${list.map(p=>{ const r=st.rows[p.id], o=st.open===p.id, weg=r.status==='weg', annS=r.status_src==='default', annN=!weg&&r.note_src==='default';
-        return `<div class="q50r${weg?' weg':''}${annS||annN?' ann':''}" data-q50="${svEsc(p.id)}">
+        return `<div class="q50r${weg?' weg':''}${annS||annN?' ann':''}" data-q50="${svEsc(p.id)}" data-gr="${weg?svEsc(r.grund||''):''}">
           <div class="q50-h"><span class="q50-n" data-q50open><b>${svEsc(p.name)}</b><em>${trInjury(p.id)?'🩹 ':''}${sv50Src(r.status_src)}</em></span>
             <div class="trseg">${[['da','Da'],['weg','Fehlt']].map(([k,t])=>`<button type="button" data-q50s="${k}" class="${r.status===k||(k==='da'&&r.status==='spaet')?'on':''}">${t}</button>`).join('')}</div></div>
-          ${weg?`<div class="trg">${Object.entries(TRC.REASONS).map(([k,t])=>`<button type="button" data-q50g="${k}" class="${r.grund===k?'on'+(k==='ohne'||k==='keine_antwort'?' warn':''):''}">${t}</button>`).join('')}</div>`
+          ${weg?`<div class="q50-weg">${r.grund&&r.grund!=='keine_antwort'&&r.grund!=='ohne'&&r.status_src!=='manuell'?`fehlt · ${svEsc(TRC.REASONS[r.grund]||r.grund)}`:'fehlt'}</div>`
             :`<div class="q50-no">${svmEiBtns(svmEiK(r.note),'q50e',annN)}${r.note!=null?sv50Src(r.note_src):''}</div>`}
           ${o?`<input class="q50-in" data-q50t maxlength="500" value="${svEsc(r.notiz||'')}" placeholder="Notiz, z.B. „stark im Abschlussspiel“">`:`<button type="button" class="trr-more" data-q50open>${r.notiz?'„'+svEsc(r.notiz.slice(0,60))+'“':'+ Notiz'}</button>`}
         </div>`; }).join('')}</div>
@@ -13760,7 +13760,7 @@ function svmTrainQuick(datum,sid,ki){
     E.querySelectorAll('[data-ges]').forEach(b=>b.onclick=()=>{ keep(); const n=SVM_EI[b.dataset.ges].n; if(st.no===n&&st.ns==='manuell'){ st.no=null; st.ns=null; } else { st.no=n; st.ns='manuell'; } draw(); });
     E.querySelectorAll('[data-q50]').forEach(row=>{ const id=row.dataset.q50, r=st.rows[id];
       row.querySelectorAll('[data-q50s]').forEach(b=>b.onclick=()=>{ keep(); const v=b.dataset.q50s; r.status=v; r.status_src='manuell';
-        if(v==='weg'){ r.grund=trInjury(id)?'verletzt':(r.grund&&r.grund!=='keine_antwort'?r.grund:'ohne'); } else { r.grund=null; if(r.note==null){ r.note=3; r.note_src='default'; } }
+        if(v==='weg'){ const ab=typeof sv91Abw==='function'?sv91Abw(id,st.datum):null; r.grund=trInjury(id)?'verletzt':ab&&TRC.REASONS[ab.grund]?ab.grund:'keine_antwort'; } else { r.grund=null; if(r.note==null){ r.note=3; r.note_src='default'; } }
         svSound('tick'); draw(); });
       row.querySelectorAll('[data-q50g]').forEach(b=>b.onclick=()=>{ keep(); r.grund=b.dataset.q50g; r.status_src='manuell'; draw(); });
       row.querySelectorAll('[data-q50e]').forEach(b=>b.onclick=()=>{ keep(); const n=SVM_EI[b.dataset.q50e].n; if(r.note===n&&r.note_src==='manuell'){ r.note=3; r.note_src='default'; } else { r.note=n; r.note_src='manuell'; } if(r.status_src==='default')r.status_src='manuell'; draw(); });
@@ -13872,8 +13872,8 @@ function svmPlanLoad(after){
  try{ after&&after(); }catch(e){} } },()=>{ SVM.planBusy=false; });
 }
 const svmPlanD=g=>String(g.anstoss||'').slice(0,10);
-function svmPlanVorbei(){ const t=trToday(); return (SVM.plan||[]).filter(g=>svmPlanD(g)&&svmPlanD(g)<=t&&g.status!=='PRE'&&svmPlanD(g)>=sv50Start()); }
-function svmFbAm(d){ try{ return typeof FB!=='undefined'&&FB.loaded?FB.m.find(g=>g.team==='A'&&g.datum===d&&g.bericht)||null:null; }catch(e){ return null; } }
+function svmPlanVorbei(){ const t=trToday(); return svm31Plan().filter(g=>svmPlanD(g)&&svmPlanD(g)<=t&&g.status!=='PRE'&&svmPlanD(g)>=sv50Start()); }
+function svmFbAm(d){ try{ return typeof FB!=='undefined'&&FB.loaded?FB.m.find(g=>g.team===mn31Fde()&&g.datum===d&&g.bericht)||null:null; }catch(e){ return null; } }
 
 // Vergangene: Quelle und Lücken je Spiel, neue Bewertung, noch nicht erfasste Spiele aus FuPa und fussball.de
 { const _vg22b=trViewGames; trViewGames=function(B){ const r=_vg22b.apply(this,arguments);
@@ -13891,7 +13891,7 @@ function svmFbAm(d){ try{ return typeof FB!=='undefined'&&FB.loaded?FB.m.find(g=
     // Gespielt, aber noch nicht in der App
     const have=new Set(TR.st.sessions.filter(s=>s.t==='spiel').map(s=>s.d)), offen=new Map();
     svmPlanVorbei().forEach(g=>{ const d=svmPlanD(g); if(!have.has(d))offen.set(d,{d,gegner:g.gegner,heim:g.heim,tw:g.tore_wir,tg:g.tore_gegner,q:'FuPa'}); });
-    try{ if(typeof FB!=='undefined'&&FB.loaded)FB.m.filter(g=>g.team==='A'&&g.bericht&&g.datum>sv50Start()&&g.datum<=trToday()&&!have.has(g.datum)).forEach(g=>{ if(!offen.has(g.datum))offen.set(g.datum,{d:g.datum,gegner:g.wir_heim?g.gast:g.heim,heim:g.wir_heim,q:'fussball.de'}); else offen.get(g.datum).q+=' + fussball.de'; }); }catch(e){}
+    try{ if(typeof FB!=='undefined'&&FB.loaded)FB.m.filter(g=>g.team===mn31Fde()&&g.bericht&&g.datum>sv50Start()&&g.datum<=trToday()&&!have.has(g.datum)).forEach(g=>{ if(!offen.has(g.datum))offen.set(g.datum,{d:g.datum,gegner:g.wir_heim?g.gast:g.heim,heim:g.wir_heim,q:'fussball.de'}); else offen.get(g.datum).q+=' + fussball.de'; }); }catch(e){}
     if(offen.size){ const L=[...offen.values()].sort((a,b)=>b.d.localeCompare(a.d));
       gm.insertAdjacentHTML('afterend',`<div class="card svm-off"><h3 class="trh">${SVI('clock')} Gespielt, aber noch nicht bewertet <small>${L.length}</small></h3>
         <div class="gm50-l">${L.map(g=>`<button type="button" class="gm50-r" data-svmo="${svEsc(g.d)}"><span class="gm50-d">${TRC.fmt(g.d)}</span><span class="gm50-t"><b>${g.heim===false?'@':'vs'} ${svEsc(g.gegner||'?')}</b></span>
@@ -13908,7 +13908,7 @@ const SVM_EIN=[['da','Startelf'],['spaet','Eingewechselt'],['bank','Kader'],['zu
 function svmLetztesSpiel(){ const t=trToday(); const c=[];
   TR.st.sessions.filter(s=>s.t==='spiel'&&s.d<=t).forEach(s=>c.push({d:s.d}));
   svmPlanVorbei().forEach(g=>c.push({d:svmPlanD(g),gegner:g.gegner,heim:g.heim,tw:g.tore_wir,tg:g.tore_gegner}));
-  try{ if(typeof FB!=='undefined'&&FB.loaded)FB.m.filter(g=>g.team==='A'&&g.bericht&&g.datum<=t).forEach(g=>c.push({d:g.datum,gegner:g.wir_heim?g.gast:g.heim,heim:g.wir_heim})); }catch(e){}
+  try{ if(typeof FB!=='undefined'&&FB.loaded)FB.m.filter(g=>g.team===mn31Fde()&&g.bericht&&g.datum<=t).forEach(g=>c.push({d:g.datum,gegner:g.wir_heim?g.gast:g.heim,heim:g.wir_heim})); }catch(e){}
   c.sort((a,b)=>b.d.localeCompare(a.d)); return c[0]||{d:t}; }
 function svmSpielBewerten(o){
   if(!canTraining())return kToast('Bewerten können Trainer, Kaderplaner, Vorstand und Admin.');
@@ -13916,22 +13916,25 @@ function svmSpielBewerten(o){
   o=o||{}; let s0=o.id?TR.st.sessions.find(x=>x.id===o.id):null;
   if(!s0&&!o.datum){ const l=svmLetztesSpiel(); o=Object.assign({},l,{datum:l.d}); }
   const datum=s0?s0.d:o.datum; if(!s0)s0=trSessionOn(datum,'spiel');
-  const fu=(SVM.plan||[]).find(g=>svmPlanD(g)===datum)||null;
+  const fu=svm31Plan().find(g=>svmPlanD(g)===datum)||null;
   const st={datum,gegner:s0&&s0.g||o.gegner||(fu&&fu.gegner)||'',heim:s0&&s0.h!=null?s0.h:(o.heim!=null?o.heim:(fu?fu.heim:true)),
     tw:s0&&s0.tw!=null?s0.tw:(o.tw!=null?o.tw:(fu&&fu.tore_wir!=null?fu.tore_wir:null)),tg:s0&&s0.tg!=null?s0.tg:(o.tg!=null?o.tg:(fu&&fu.tore_gegner!=null?fu.tore_gegner:null)),
     no:s0&&s0.no!=null?s0.no:null,ns:s0?s0.ns:null,n:s0?s0.n||'':'',rows:{},open:null};
-  const fb=typeof fbSpielAm==='function'?fbSpielAm(datum):null;
+  const fb=typeof fbSpielAm==='function'?fbSpielAm(datum):null, fq=typeof mn31Q==='function'?mn31Q(datum):null, fqs={};
+  ((fq&&fq.spieler)||[]).forEach(x=>{ if(x.app_id&&trP(x.app_id))fqs[x.app_id]=x; });
   const have=new Map(((s0&&s0.a)||[]).map(a=>[a[0],a]));
   const abw=id=>{ try{ return typeof SV91!=='undefined'&&SV91.loaded?SV91.abw.find(a=>a.player_id===id&&a.von<=datum&&datum<=a.bis)||null:null; }catch(e){ return null; } };
-  new Set([...trSquad().map(p=>p.id),...have.keys(),...Object.keys((fb&&fb.rows)||{})]).forEach(id=>{ if(!trP(id))return;
-    const a=have.get(id), f=fb&&fb.rows[id];
-    if(a&&(a[10]||'manuell')!=='default')st.rows[id]={status:a[1],grund:a[2],src:a[10]||'manuell',note:a[8],nsrc:a[9]||null,notiz:a[5]||'',saved:true};
-    else if(f)st.rows[id]={status:f.status,src:'fde',note:a?a[8]:null,nsrc:a?a[9]:null,notiz:a?a[5]||'':'',saved:!!a};
+  new Set([...trSquad().map(p=>p.id),...have.keys(),...Object.keys((fb&&fb.rows)||{}),...Object.keys(fqs)]).forEach(id=>{ if(!trP(id))return;
+    const a=have.get(id), f=fb&&fb.rows[id], q=fqs[id], qst=q?(q.start?'da':(q.min||0)>0?'spaet':'bank'):null;
+    if(a&&(a[10]||'manuell')!=='default')st.rows[id]={status:a[1],grund:a[2],src:a[10]||'manuell',note:a[8],nsrc:a[9]||null,notiz:a[5]||'',saved:true,tore:a[6],vorlagen:a[7],min:a[11]};
+    else if(q)st.rows[id]={status:qst,src:'import',note:a?a[8]:null,nsrc:a?a[9]:null,notiz:a?a[5]||'':'',saved:!!a,tore:q.tore,vorlagen:q.vorlagen,min:q.min};
+    else if(f)st.rows[id]={status:f.status,src:'fde',note:a?a[8]:null,nsrc:a?a[9]:null,notiz:a?a[5]||'':'',saved:!!a,tore:f.tore};
     else if(a)st.rows[id]={status:a[1],grund:a[2],src:'default',note:a[8],nsrc:a[9]||null,notiz:a[5]||'',saved:true};
     else { const ab=abw(id), inj=trInjury(id); st.rows[id]=ab||inj?{status:'weg',grund:inj?'verletzt':(['urlaub','krank','arbeit','familie','uni','privat'].includes(ab.grund)?ab.grund:'privat'),src:'default',notiz:''}:{status:'zuschauer',src:'default',notiz:''}; } });
   const SRC={manuell:['App','m'],ki:['Co-Trainer','k'],abstimmung:['Abstimmung','a'],import:['FuPa','i'],fde:['fussball.de','i'],default:['Annahme','d']};
   const srcH=k=>{ const x=SRC[k]; return x?`<i class="src50 ${x[1]}">${x[0]}</i>`:''; };
-  svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('ball')}</div><div><h2 style="margin:0">Spiel bewerten <button type="button" class="svm-i" id="sb22i" title="Woher kommen die Angaben?">i</button></h2><div class="msub">Gesamteindruck, dazu je Spieler Einsatz und Eindruck. Wer nicht im Kader stand, hat zugeschaut.</div></div></div><div id="sb22"></div>`);
+  svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('ball')}</div><div><h2 style="margin:0">${s0||st.gegner?`${st.heim===false?'@':'vs'} ${svEsc(st.gegner||'?')}`:'Spiel'} <small class="sb31d">${svEsc(TRC.fmt(st.datum))}${String(st.datum).slice(2,4)}</small> <button type="button" class="svm-i" id="sb22i" title="Woher kommen die Angaben?">i</button></h2><div class="msub">${svEsc(typeof mnCtxT==='function'?mnCtxT():'')} · Ergebnis, Quellen und Bewertung: Gesamteindruck, je Spieler Einsatz und Eindruck. Wer nicht im Kader stand, hat zugeschaut.</div></div></div><div id="sb31q"></div><div id="sb22"></div>`);
+  try{ if(typeof mn31SpielInfo==='function')mn31SpielInfo(document.getElementById('sb31q'),st.datum); }catch(e){}
   document.getElementById('sb22i').onclick=()=>svmQuelleSpiel(st.datum);
   const draw=()=>{ const E=document.getElementById('sb22'); if(!E)return;
     const ord=['da','spaet','bank','zuschauer','weg'], pi=p=>{ const i=TR_POS.indexOf(p.pos); return i<0?99:i; };
@@ -13951,11 +13954,12 @@ function svmSpielBewerten(o){
           <div class="q50-h"><span class="q50-n" data-sbo><b>${svEsc(p.name)}</b><em>${trInjury(p.id)?'🩹 ':''}${srcH(r.src)}</em></span></div>
           <div class="sb22-ein">${SVM_EIN.map(([k,t])=>`<button type="button" data-sbs="${k}" class="${r.status===k?'on':''}">${t}</button>`).join('')}</div>
           ${weg?`<div class="trg">${Object.entries(TRC.REASONS).filter(([k])=>k!=='keine_antwort').map(([k,t])=>`<button type="button" data-sbg="${k}" class="${r.grund===k?'on':''}">${t}</button>`).join('')}</div>`:''}
-          ${spielt?`<div class="q50-no">${svmEiBtns(svmEiK(r.nsrc==='default'?null:r.note),'sbe')}</div>`:''}
+          ${spielt?`<div class="q50-no">${svmEiBtns(svmEiK(r.nsrc==='default'?null:r.note),'sbe')}</div><div class="sb31-st"><label>Min.<input type="number" min="0" max="130" inputmode="numeric" data-sbm="min" value="${r.min!=null?r.min:''}"></label><label>Tore<input type="number" min="0" max="30" inputmode="numeric" data-sbm="tore" value="${r.tore?r.tore:''}" placeholder="0"></label><label>Vorl.<input type="number" min="0" max="30" inputmode="numeric" data-sbm="vorlagen" value="${r.vorlagen?r.vorlagen:''}" placeholder="0"></label></div>`:''}
           ${st.open===p.id?`<input class="q50-in" data-sbt maxlength="500" value="${svEsc(r.notiz||'')}" placeholder="Notiz, z.B. „zwei Tore vorbereitet“">`:`<button type="button" class="trr-more" data-sbo>${r.notiz?'„'+svEsc(r.notiz.slice(0,60))+'“':'+ Notiz'}</button>`}</div>`; }).join('')}</div>
-      <div class="btnrow sbact"><button class="btn" type="button" id="sbSave">${SVI('check')} Speichern</button>${s0?'<button class="btn ghost" type="button" id="sbMore" title="Minuten, Tore, Vorlagen">Minuten und Tore</button><button class="btn ghost" type="button" id="sbDet" title="Datenstatus, Hinweise und Verlauf der Änderungen">Details</button>':''}<button class="btn ghost" type="button" id="sbX">Abbrechen</button></div>`;
+      <div class="btnrow sbact"><button class="btn" type="button" id="sbSave">${SVI('check')} Speichern</button><button class="btn ghost" type="button" id="sbX">Abbrechen</button></div>`;
     const keep=()=>{ st.gegner=E.querySelector('#sbG').value; st.n=E.querySelector('#sbN').value; const tw=E.querySelector('#sbTw').value, tg=E.querySelector('#sbTg').value; st.tw=tw===''?null:+tw; st.tg=tg===''?null:+tg;
-      const d=E.querySelector('#sbD'); if(d&&d.value)st.datum=d.value; E.querySelectorAll('[data-sbt]').forEach(i=>{ const r=st.rows[i.closest('[data-sb]').dataset.sb]; if(r)r.notiz=i.value; }); };
+      const d=E.querySelector('#sbD'); if(d&&d.value)st.datum=d.value; E.querySelectorAll('[data-sbt]').forEach(i=>{ const r=st.rows[i.closest('[data-sb]').dataset.sb]; if(r)r.notiz=i.value; });
+      E.querySelectorAll('[data-sbm]').forEach(i=>{ const r=st.rows[i.closest('[data-sb]').dataset.sb]; if(!r)return; const k=i.dataset.sbm, v=i.value===''?null:Math.max(0,Math.min(k==='min'?130:30,Math.round(+i.value)||0)); if(r[k]!==v&&!(v==null&&!r[k])){ r[k]=v; r.stSrc='manuell'; } }); };
     E.querySelectorAll('[data-sbh]').forEach(b=>b.onclick=()=>{ keep(); st.heim=b.dataset.sbh==='1'; draw(); });
     E.querySelectorAll('[data-sbges]').forEach(b=>b.onclick=()=>{ keep(); const n=SVM_EI[b.dataset.sbges].n; if(st.no===n){ st.no=null; st.ns=null; } else { st.no=n; st.ns='manuell'; } draw(); });
     E.querySelectorAll('[data-sb]').forEach(row=>{ const id=row.dataset.sb, r=st.rows[id];
@@ -13964,13 +13968,14 @@ function svmSpielBewerten(o){
       row.querySelectorAll('[data-sbe]').forEach(b=>b.onclick=()=>{ keep(); const n=SVM_EI[b.dataset.sbe].n; if(r.note===n&&r.nsrc==='manuell'){ r.note=null; r.nsrc=null; } else { r.note=n; r.nsrc='manuell'; } draw(); });
       row.querySelectorAll('[data-sbo]').forEach(b=>b.onclick=()=>{ keep(); st.open=st.open===id?null:id; draw(); const i=document.querySelector(`[data-sb="${CSS.escape(id)}"] [data-sbt]`); if(i)i.focus(); }); });
     E.querySelector('#sbX').onclick=()=>closeOverlay();
-    const mo=E.querySelector('#sbMore'); if(mo)mo.onclick=()=>{ closeOverlay(); setTimeout(()=>trSessionEditor(null,s0.id),40); };
-    const dt=E.querySelector('#sbDet'); if(dt)dt.onclick=()=>{ closeOverlay(); setTimeout(()=>sv50Game(s0.id),40); };
+
     E.querySelector('#sbSave').onclick=async e=>{ keep(); const b=e.currentTarget;
       if(!st.datum)return kToast('Bitte ein Datum angeben');
       if((st.tw==null)!==(st.tg==null))return kToast('Bitte beide Tore angeben oder keins');
       const sp=Object.entries(st.rows).map(([id,r])=>{ const weg=r.status==='weg', spielt=r.status==='da'||r.status==='spaet';
-        return {player_id:id,status:r.status,grund:weg?(r.grund||'ohne'):null,status_src:r.src==='fde'?'import':(r.src||'manuell'),notiz:(r.notiz||'').trim()||null,note:spielt&&r.note!=null&&r.nsrc!=='default'?r.note:null,note_src:spielt&&r.note!=null&&r.nsrc!=='default'?(r.nsrc||'manuell'):null}; });
+        const o={player_id:id,status:r.status,grund:weg?(r.grund||'ohne'):null,status_src:r.src==='fde'?'import':(r.src||'manuell'),notiz:(r.notiz||'').trim()||null,note:spielt&&r.note!=null&&r.nsrc!=='default'?r.note:null,note_src:spielt&&r.note!=null&&r.nsrc!=='default'?(r.nsrc||'manuell'):null};
+        if(spielt){ o.tore=r.tore||0; o.vorlagen=r.vorlagen||0; o.minuten=r.min!=null?r.min:null; if(r.stSrc==='manuell'&&o.status_src==='import')o.status_src='manuell'; } else { o.tore=null; o.vorlagen=null; o.minuten=null; }
+        return o; });
       const p={datum:st.datum,typ:'spiel',heim:st.heim!==false,note:st.no,note_src:st.no!=null?(st.ns||'manuell'):null,notiz:(st.n||'').trim()||null,spieler:sp};
       if(st.gegner.trim())p.gegner=st.gegner.trim().slice(0,80); if(st.tw!=null){ p.tore_wir=Math.max(0,Math.min(40,st.tw)); p.tore_gegner=Math.max(0,Math.min(40,st.tg)); }
       if(!s0){ p.quelle='manuell'; if(fu||fb)p.quelle_ref=(fu?'FuPa-Spielplan':'')+(fu&&fb?' + ':'')+(fb?'fussball.de':''); }
@@ -13984,7 +13989,7 @@ function svmSpielBewerten(o){
 
 /* ---------- Info-i je Spiel ---------- */
 function svmQuelleSpiel(d){
-  const s=trSessionOn(d,'spiel'), fu=(SVM.plan||[]).find(g=>svmPlanD(g)===d)||null, fb=svmFbAm(d), fbr=typeof fbSpielAm==='function'?fbSpielAm(d):null;
+  const s=trSessionOn(d,'spiel'), fu=svm31Plan().find(g=>svmPlanD(g)===d)||null, fb=svmFbAm(d), fbr=typeof fbSpielAm==='function'?fbSpielAm(d):null;
   const A=(s&&s.a)||[], cnt={}; A.forEach(a=>{ const k=a[10]||'manuell'; cnt[k]=(cnt[k]||0)+1; });
   const fehlt=[]; if(!s)fehlt.push('Das Spiel ist in der App noch nicht bewertet.'); else { if(s.no==null)fehlt.push('Trainereinschätzung (Gesamteindruck)');
     const sp=A.filter(a=>a[1]==='da'||a[1]==='spaet'); if(!sp.some(a=>a[8]!=null&&a[9]!=='default'))fehlt.push('Eindruck der Spieler'); if(sp.length&&!sp.some(a=>a[11]!=null))fehlt.push('Minuten'); if(s.tw==null)fehlt.push('Ergebnis'); }
@@ -14012,8 +14017,8 @@ function svmViewKommend(B){
   if(need)svmPlanLoad(()=>{ if(svCurTab()==='training'&&TR.view==='gnext')trRender(); });
   if(typeof SP!=='undefined'&&!SP.loaded&&typeof spLoad==='function'&&typeof canScout==='function'&&canScout())mnLoadOnce('sp22',()=>spLoad(),mnRerender('gnext'));
   if(typeof SV91!=='undefined'&&!SV91.loaded&&typeof sv91Load==='function'&&canTraining())mnLoadOnce('u22',()=>sv91Load(),mnRerender('gnext'));
-  const t=trToday(), key=(window.VEREIN&&VEREIN.texte&&VEREIN.texte.fde_schluessel)||'', G=new Map();
-  (SVM.plan||[]).filter(g=>svmPlanD(g)>=t).forEach(g=>{ const d=svmPlanD(g); G.set(d+'|A',{d,zeit:String(g.anstoss).slice(11,16),team:'A',heim:g.heim,gegner:g.gegner,wb:g.wettbewerb||'',st:g.spieltag,q:'FuPa',url:g.quelle}); });
+  const t=trToday(), key0=(window.VEREIN&&VEREIN.texte&&VEREIN.texte.fde_schluessel)||'', key=key0&&mnCtx()==='2'?key0+'ii':key0, G=new Map();
+  svm31Plan().filter(g=>svmPlanD(g)>=t).forEach(g=>{ const d=svmPlanD(g); G.set(d+'|A',{d,zeit:String(g.anstoss).slice(11,16),team:'A',heim:g.heim,gegner:g.gegner,wb:g.wettbewerb||'',st:g.spieltag,q:'FuPa',url:g.quelle}); });
   try{ if(typeof SP!=='undefined'&&SP.loaded&&key)(SP.fx||[]).filter(f=>f.datum>=t&&(f.heim_key===key||f.gast_key===key)).forEach(f=>{ const k=f.datum+'|'+(f.sub||'A');
       if(G.has(k)){ G.get(k).q+=' + fussball.de'; return; } G.set(k,{d:f.datum,zeit:(f.zeit||'').slice(0,5),team:f.sub||'A',heim:f.heim_key===key,gegner:f.heim_key===key?f.gast:f.heim,wb:f.wettbewerb||'',q:'fussball.de'}); }); }catch(e){}
   const L=[...G.values()].sort((a,b)=>a.d.localeCompare(b.d)||(a.zeit||'').localeCompare(b.zeit||'')).slice(0,40);
@@ -14021,13 +14026,13 @@ function svmViewKommend(B){
       const inj=(TR.st.injuries||[]).some(i=>i.p===p.id&&i.b<=d&&(!i.z||i.z>d)&&(!i.pr||i.pr>d)); if(ab||inj){ n++; names.push(p.name.split(' ')[0]+(inj?' 🩹':'')); } }); return {n,names}; };
   const lade=(need||SVM.planBusy)&&!SVM.plan;
   B.innerHTML=`<div class="card svm-next"><h3 class="trh">${SVI('clock')} Bevorstehende Spiele <small>${L.length}</small></h3>
-    ${L.length?`<div class="trtw"><table class="trtab t50"><thead><tr><th>Datum</th><th>Anstoß</th><th>Mannschaft</th><th>Spiel</th><th>Wettbewerb</th><th>Fehlt</th><th>Quelle</th></tr></thead><tbody>
-      ${L.map(g=>{ const f=g.team==='A'?fehlt(g.d):null;
-        return `<tr><td><b>${svEsc(svmTag(g.d))}</b></td><td>${svEsc(g.zeit||'–')}</td><td>${svEsc(MN_TK[g.team==='B'?'2':g.team==='A'?'1':g.team]||g.team)}</td>
+    ${L.length?`<div class="trtw"><table class="trtab t50"><thead><tr><th>Datum</th><th>Anstoß</th><th>Art</th><th>Spiel</th><th>Wettbewerb</th><th>Fehlt</th><th>Quelle</th></tr></thead><tbody>
+      ${L.map(g=>{ const f=fehlt(g.d);
+        return `<tr><td><b>${svEsc(svmTag(g.d))}</b></td><td>${svEsc(g.zeit||'–')}</td><td>${svEsc(/^FS/.test(g.team)?'Freundschaftsspiel':g.team==='POKAL'?'Pokal':'Liga')}</td>
           <td><b>${g.heim?'vs':'@'} ${svEsc(g.gegner||'?')}</b></td><td>${svEsc(g.wb)}${g.st?' · '+svEsc(g.st)+'. Spieltag':''}</td>
           <td>${f?(f.n?`<span class="warn" title="${svEsc(f.names.join(', '))}">${f.n}</span>`:'0'):'–'}</td><td><i class="src50 i">${svEsc(g.q)}</i></td></tr>`; }).join('')}</tbody></table></div>`
       :`<p class="note">${lade?'Lade Spielplan …':'Keine bevorstehenden Spiele gefunden. Der FuPa-Spielplan kommt mit dem nächsten Abgleich, fussball.de mit dem Spieltag-Abruf.'}</p>`}
-    <p class="note small">Quelle: FuPa-Spielplan der 1. Mannschaft, ergänzt um fussball.de. „Fehlt“ zählt eingetragene Abwesenheiten und Verletzungen der 1. Mannschaft an diesem Tag, die Namen stehen beim Überfahren.</p></div>`;
+    <p class="note small">Quelle: ${mnCtx()==='1'?'FuPa-Spielplan, ergänzt um fussball.de':'Spielplan von fussball.de'} (auch Freundschaftsspiele, sobald sie dort stehen). „Fehlt“ zählt eingetragene Abwesenheiten und Verletzungen der ${svEsc(mnCtxT())} an diesem Tag, die Namen stehen beim Überfahren.</p></div>`;
   mnGSeg(B,'gnext');
 }
 MN_VIEWS.gnext=svmViewKommend;
@@ -14037,7 +14042,7 @@ function svmSpieleSaison(){
   const st=sv50Start(), t=trToday(), by=new Map(), get=d=>{ if(!by.has(d))by.set(d,{d}); return by.get(d); };
   TR.st.sessions.filter(s=>s.t==='spiel'&&s.d>=st&&s.d<=t).forEach(s=>get(s.d).app=s);
   svmPlanVorbei().forEach(g=>get(svmPlanD(g)).fu=g);
-  try{ if(typeof FB!=='undefined'&&FB.loaded)FB.m.filter(g=>g.team==='A'&&g.bericht&&g.datum>=st&&g.datum<=t).forEach(g=>get(g.datum).fb=g); }catch(e){}
+  try{ if(typeof FB!=='undefined'&&FB.loaded)FB.m.filter(g=>g.team===mn31Fde()&&g.bericht&&g.datum>=st&&g.datum<=t).forEach(g=>get(g.datum).fb=g); }catch(e){}
   const G=[...by.values()].sort((a,b)=>a.d.localeCompare(b.d));
   G.forEach(g=>{ const a=g.app; if(a&&a.tw!=null){ g.tw=a.tw; g.tg=a.tg; g.h=a.h; g.gg=a.g; } else if(g.fu&&g.fu.tore_wir!=null){ g.tw=+g.fu.tore_wir; g.tg=+g.fu.tore_gegner; g.h=g.fu.heim; g.gg=g.fu.gegner; }
     else if(g.fb){ g.h=g.fb.wir_heim; g.gg=g.fb.wir_heim?g.fb.gast:g.fb.heim; } if(g.gg==null&&a){ g.gg=a.g; g.h=a.h; } });
@@ -16655,6 +16660,485 @@ if(typeof svKlaLaden==='function'){ const _kl=svKlaLaden; svKlaLaden=async funct
   try{ GC.cache.clear(); GC.gen=(GC.gen||0)+1; if(document.querySelector('#panel-gegner.active #gcBox'))await gcEnhance(); }catch(e){ console.warn('Gegnercheck neu',e); } return r; }; }
 
 /* =====================================================================
+   Sportzentrale Beta 0.29 · Mannschaften neu geordnet (Wünsche von Lukas)
+   - Mannschaften: 1. Mannschaft · 2. Mannschaft · SOMA & Inaktive · Eigene Jugend, auf allen Geräten gleich
+   - 1. und 2. Mannschaft: dieselben Reiter und Funktionen, jeweils nur mit den Spielern ihrer Stammmannschaft
+     (Training, Spiele, Abstimmungen und Materialdienst werden je Mannschaft gespeichert)
+   - SOMA & Inaktive: SOMA-Spieler, Spieler mit Pass ohne Mannschaft und Spieler ganz ohne Zuordnung, mit Profil und Zuordnung
+   - Eigene Jugend: nur Jugendmannschaften; A-Jugend aus fussball.de übernehmen („(u)“ = unbestätigt, Bestätigen per Link)
+   ===================================================================== */
+MN.ctx='1';
+const MN_CTX_T={'1':'1. Mannschaft','2':'2. Mannschaft'};
+function mnCtx(){ return MN.ctx==='2'?'2':'1'; }
+function mnCtxT(){ return MN_CTX_T[mnCtx()]; }
+MN_TEAM.S='SOMA'; MN_TK.S='S'; if(!MN_TEAMS.includes('S'))MN_TEAMS.splice(Math.max(0,MN_TEAMS.indexOf('U')),0,'S');
+MN_TEAM.U='Inaktiv mit Pass';
+if(typeof SV4_TEAM!=='undefined'){ SV4_TEAM.S='SOMA'; SV4_TEAM.U='Inaktiv mit Pass'; }
+if(MN_F&&MN_F.team&&!MN_F.team.some(x=>x[0]==='S')){ const i=MN_F.team.findIndex(x=>x[0]==='U'); MN_F.team.splice(i<0?MN_F.team.length:i,0,['S','SOMA']); const u=MN_F.team.find(x=>x[0]==='U'); if(u)u[1]='Inaktiv mit Pass'; }
+
+/* ---------- Seiten, Titel, Seitenleiste ---------- */
+Object.assign(SV_PAGES,{training:['1. Mannschaft','Spieler, Training, Spiele, Verletzungen, Abwesenheiten, Materialdienst, Abstimmungen und Massenpflege'],
+  somainakt:['SOMA & Inaktive','SOMA-Spieler und Spieler mit Pass, die gerade für keine Mannschaft spielen'],
+  teams:['Eigene Jugend','Jugendmannschaften: Kader, Termine, Aufstellung, Statistik, Entwicklung und Abstimmung']});
+Object.assign(SV_TBL,{training:['activity','Mannschaft']});
+if(typeof SV_SIDE!=='undefined')Object.keys(SV_SIDE).forEach(r=>{ const L=SV_SIDE[r]; const i=L.indexOf('Mannschaft'); if(i>=0){ if(L.includes('Mannschaften'))L.splice(i,1); else L.splice(i,1,'Mannschaften'); } });
+const MN31_TABS=['mann1','mann2','somainakt'];
+{ const _ta31=svTabAllowed; svTabAllowed=function(t){
+  if(t==='mann1'||t==='mann2')return _ta31('training');
+  if(t==='somainakt')return _ta31('training');
+  if(t==='teams')return mn31Jugend().length>0;
+  return _ta31.apply(this,arguments); }; }
+function mn31IstJugend(m){ return m&&(m.art==='jugend'||/^(a|b|c|d|e|f|g|mini)/.test(String(m.id||'')))&&m.id!=='h2'&&m.id!=='soma'; }
+function mn31Jugend(){ try{ return svrTeams().filter(mn31IstJugend); }catch(e){ return []; } }
+
+/* ---------- Server-Aufrufe tragen die Mannschaft mit ---------- */
+function mn31Hook(){
+  const sb=typeof SVB!=='undefined'&&SVB.sb; if(!sb||sb._mn31)return; sb._mn31=1;
+  const rpc=sb.rpc.bind(sb), from=sb.from.bind(sb);
+  sb.rpc=function(fn,args,opt){
+    if(fn==='training_state'){ const want=mnCtx(), q=rpc(fn,Object.assign({},args||{},{p_team:want}),opt);
+      // Antwort für eine andere Mannschaft (inzwischen umgeschaltet) verwerfen
+      const P=Promise.resolve(q).then(r=>r&&r.data&&(r.data.team||'1')!==mnCtx()?{data:null,error:null,veraltet:true}:r);
+      return {then:(a,b)=>P.then(a,b),catch:f=>P.catch(f),finally:f=>P.finally(f)}; }
+    if((fn==='training_save'||fn==='training_liste_import')&&args&&args.p&&!args.p.team)args=Object.assign({},args,{p:Object.assign({},args.p,{team:mnCtx()})});
+    return rpc(fn,args,opt); };
+  sb.from=function(t){ const q=from(t);
+    if(t==='polls'||t==='materialdienst'){ const add=r=>Array.isArray(r)?r.map(x=>Object.assign({team:mnCtx()},x)):Object.assign({team:mnCtx()},r);
+      const ins=q.insert.bind(q); q.insert=(r,o)=>ins(add(r),o);
+      if(q.upsert){ const ups=q.upsert.bind(q); q.upsert=(r,o)=>ups(add(r),o); } }
+    return q; };
+}
+{ const _tl31=trLoad; trLoad=function(){ mn31Hook(); return _tl31.apply(this,arguments); }; }
+if(typeof kbLoadKern==='function'){ const _kl31=kbLoadKern; kbLoadKern=async function(){ mn31Hook(); const r=await _kl31.apply(this,arguments); try{ mn31KbFilter(); }catch(e){} return r; }; }
+if(typeof sv91Load==='function'){ const _ml31=sv91Load; sv91Load=async function(){ mn31Hook(); const r=await _ml31.apply(this,arguments); try{ mn31MdFilter(); }catch(e){} return r; }; }
+function mn31KbFilter(){ if(typeof KB==='undefined'||!Array.isArray(KB.polls))return; if(KB.polls!==KB._p31f){ KB._p31all=KB.polls; }
+  KB.polls=KB._p31f=(KB._p31all||[]).filter(p=>(p.team||'1')===mnCtx()); }
+function mn31MdFilter(){ if(typeof SV91==='undefined'||!Array.isArray(SV91.md))return; if(SV91.md!==SV91._m31f){ SV91._m31all=SV91.md; }
+  SV91.md=SV91._m31f=(SV91._m31all||[]).filter(m=>(m.team||'1')===mnCtx()); }
+
+/* ---------- Mannschaft wechseln ---------- */
+function mnCtxSet(t,render){
+  t=t==='2'?'2':'1'; if(MN.ctx===t)return false;
+  MN.ctx=t; MN.team='alle'; MN.focus=null; MN.q='';
+  try{ TR.st={sessions:[],injuries:TR.st.injuries||[]}; TR.loaded=false; TR.loading=null; }catch(e){}
+  try{ mn31KbFilter(); }catch(e){} try{ mn31MdFilter(); }catch(e){}
+  try{ if(typeof SVM!=='undefined'){ SVM.g31=null; } }catch(e){}
+  try{ trLoad(true); }catch(e){}
+  if(render){ try{ if(svCurTab()==='training')trRender(); }catch(e){} }
+  return true;
+}
+function mn31Titel(){ const cur=svCurTab(); if(cur!=='training'&&!(cur==='kabine'&&typeof KB!=='undefined'&&KB.view!=='kasse'))return;
+  const h=document.getElementById('pgTitle'); if(h)h.textContent=mnCtxT(); try{ document.title=mnCtxT()+' · '+SV4.name; }catch(e){}
+  const side=mnCtx()==='2'?'mann2':'mann1';
+  document.querySelectorAll('.snav button[data-tab]').forEach(x=>{ if(['training','mann1','mann2'].includes(x.dataset.tab))x.classList.toggle('active',x.dataset.tab===side); });
+  document.querySelectorAll('.sgrid [data-sheet]').forEach(x=>{ if(['training','mann1','mann2'].includes(x.dataset.sheet))x.classList.toggle('active',x.dataset.sheet===side); });
+}
+{ const _gt31=goTab; goTab=function(tab){
+  if(tab==='mann1'||tab==='mann2'){ mnCtxSet(tab==='mann2'?'2':'1',false); tab='training'; }
+  else if(tab==='somainakt')mn31Panel();
+  else if(tab==='kasse'||(tab!=='training'&&tab!=='kabine'))mnCtxSet('1',false);   // außerhalb der Mannschaft gilt die Erste (Aufstellung, Übersicht, Kasse)
+  const r=_gt31(tab);
+  try{ mn31Titel(); if(svCurTab()==='somainakt')mn31Render(); }catch(e){ console.warn('Mannschaften 0.29',e); }
+  return r; }; }
+{ const _hb31=sv4HubBar; sv4HubBar=function(tab){ const r=_hb31.apply(this,arguments); try{ mn31Switch(tab); mn31Titel(); }catch(e){} return r; }; }
+function mn31Ind(inn){ try{ const on=inn.querySelector(':scope > button.on'), ind=inn.querySelector('.hub-ind'); if(!on||!ind)return; const x=on.offsetLeft+10, w=Math.max(12,on.offsetWidth-20);
+  ind.style.transition='none'; ind.style.width=w+'px'; ind.style.transform=`translateX(${x}px)`; if(typeof SV43!=='undefined'&&SV43.hubRect)Object.assign(SV43.hubRect,{x,w}); }catch(e){} }
+addEventListener('resize',()=>{ const inn=document.querySelector('#hubbar .hub-in'); if(inn&&inn.querySelector('.mn31-sw'))mn31Ind(inn); },{passive:true});
+// Umschalter 1./2. Mannschaft vorne in der Reiterleiste (Handy, Tablet, Browser)
+function mn31Switch(tab){
+  const bar=document.getElementById('hubbar'); if(!bar||bar.hidden)return;
+  const on=tab==='training'||(tab==='kabine'&&typeof KB!=='undefined'&&KB.view!=='kasse'); let sw=bar.querySelector('.mn31-sw');
+  if(!on){ if(sw)sw.remove(); return; }
+  const inn=bar.querySelector('.hub-in'); if(!inn)return;
+  if(!sw){ sw=document.createElement('div'); sw.className='mn31-sw'; sw.setAttribute('role','tablist'); sw.setAttribute('aria-label','Mannschaft'); inn.prepend(sw); }
+  sw.innerHTML=[['1','1. Mannschaft','Erste'],['2','2. Mannschaft','Zweite']].map(([k,t,s])=>`<button type="button" role="tab" data-mctx="${k}" class="${mnCtx()===k?'act':''}" aria-selected="${mnCtx()===k}" title="${t}"><span class="l">${t}</span><span class="s">${s}</span></button>`).join('');
+  mn31Ind(inn); requestAnimationFrame(()=>requestAnimationFrame(()=>mn31Ind(inn))); setTimeout(()=>mn31Ind(inn),400);
+  sw.querySelectorAll('[data-mctx]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(mnCtxSet(b.dataset.mctx,false)){ if(svCurTab()==='kabine'){ try{ kbRender(); }catch(x){} } else trRender(); mn31Titel(); } });
+}
+
+/* ---------- Spieler je Mannschaft ---------- */
+{ const _mi31=mnIntern; mnIntern=function(){ const L=_mi31.apply(this,arguments); if(MN.team==='X')return L; return L.filter(p=>mnTeam(p)===mnCtx()); }; }
+{ const _sq31=trSquad; trSquad=function(){ if(mnCtx()!=='2')return _sq31.apply(this,arguments);
+  const inAtt=new Set(); (TR.st.sessions||[]).forEach(s=>(s.a||[]).forEach(a=>inAtt.add(a[0])));
+  return players.filter(p=>!p.isJugend&&!p.verzicht&&!(typeof svmExtern==='function'&&svmExtern(p))&&(mnTeam(p)==='2'||inAtt.has(p.id)))
+    .sort((a,b)=>(TR_POS.indexOf(a.pos)-TR_POS.indexOf(b.pos))||a.name.localeCompare(b.name,'de')); }; }
+if(typeof vrKader==='function'){ const _vk31=vrKader; vrKader=function(all){ if(mnCtx()==='2'&&!all)return trSquad().slice().sort((a,b)=>a.name.localeCompare(b.name,'de')); return _vk31.apply(this,arguments); }; }
+// Massenpflege: die Mannschaft steht fest, Filter „Extern“ und „Nur Lücken“ bleiben
+{ const _pf31=MN_VIEWS.pflege; MN_VIEWS.pflege=mnViewPflege=function(B){ if(MN.team!=='X')MN.team='alle'; const r=_pf31.apply(this,arguments);
+  try{ B.querySelectorAll('.mp-f [data-mpt]').forEach(b=>{ const k=b.dataset.mpt; if(k==='alle'){ b.textContent=mnCtxT(); } else if(k!=='X')b.remove(); });
+    const n=B.querySelector('.mp18 > p.note.small:last-of-type'); if(n&&/internen Spielern/.test(n.textContent))n.textContent=n.textContent.replace('internen Spielern','Spielern der '+mnCtxT());
+    if(MN.area==='eye')mn31EyeBox(B); }catch(e){ console.warn('Massenpflege 0.29',e); }
+  return r; }; }
+// Spielerliste: nur die Mannschaft, ohne Gruppierung nach Mannschaft
+{ const _pl31=trViewPlayers; trViewPlayers=function(B){ const r=_pl31.apply(this,arguments);
+  try{ B.querySelectorAll('.sp50-h').forEach(h=>{ const t=h.textContent||''; if(/Mannschaft|Pass|Jugend|Umfeld|SOMA|Ohne/.test(t))h.innerHTML=`${svEsc(mnCtxT())} <small>${B.querySelectorAll('tbody tr').length}</small>`; }); }catch(e){}
+  return r; }; }
+if(SV50_INFO['training:players'])SV50_INFO['training:players'].w='Alle Spieler dieser Mannschaft (Stammmannschaft in der laufenden Saison). Wer hier fehlt, steht in der anderen Mannschaft, unter SOMA & Inaktive oder in der Eigenen Jugend.';
+
+/* =====================================================================
+   SOMA & Inaktive
+   ===================================================================== */
+const MN31={view:'soma',q:''};
+function mn31Panel(){ let P=document.getElementById('panel-somainakt'); if(P)return P;
+  const ref=document.getElementById('panel-training')||document.querySelector('.panel'); if(!ref)return null;
+  P=document.createElement('section'); P.className='panel'; P.id='panel-somainakt'; ref.parentNode.insertBefore(P,ref.nextSibling); return P; }
+function mn31Gruppen(){
+  const own=players.filter(p=>!p.isJugend&&!(typeof svmExtern==='function'&&svmExtern(p)));
+  const soma=[], inakt=[], ohne=[];
+  own.forEach(p=>{ const t=mnTeam(p); if(t==='S')soma.push(p); else if(t==='U')inakt.push(p); else if(!t&&p.own&&!p.verzicht)ohne.push(p); });
+  const by=(a,b)=>a.name.localeCompare(b.name,'de'); return {soma:soma.sort(by),inakt:inakt.sort(by),ohne:ohne.sort(by)};
+}
+function mn31Render(){
+  const P=mn31Panel(); if(!P)return;
+  if(typeof SV4!=='undefined'&&!SV4.loaded&&typeof sv4Load==='function'&&typeof sv4Can==='function'&&sv4Can()){ mnLoadOnce('sv4s',()=>sv4Load(),()=>{ if(svCurTab()==='somainakt')mn31Render(); }); }
+  const G=mn31Gruppen(), V=[['soma','SOMA',G.soma.length],['inakt','Inaktiv mit Pass',G.inakt.length],['ohne','Ohne Mannschaft',G.ohne.length]];
+  if(!V.some(v=>v[0]===MN31.view))MN31.view='soma';
+  const L=(G[MN31.view]||[]).filter(p=>!MN31.q||TRC.N(p.name).includes(TRC.N(MN31.q)));
+  const ok=typeof sv4Can==='function'&&sv4Can(), somaTeam=(typeof svrTeams==='function'?svrTeams():[]).find(m=>m.id==='soma');
+  const txt={soma:'Spieler mit Stammmannschaft SOMA. Termine, Anwesenheit und Abstimmung der SOMA liegen im Teambereich der SOMA.',
+    inakt:'Spieler mit Spielerpass im Verein, die gerade für keine Mannschaft spielen. Sie zählen nicht zum Trainingskader, lassen sich aber jederzeit wieder zuordnen.',
+    ohne:'Eigene Spieler ohne Stammmannschaft in der laufenden Saison. Bitte zuordnen: 1., 2., SOMA, Inaktiv mit Pass oder Extern.'}[MN31.view];
+  P.innerHTML=`<div class="card mn31">
+      <div class="seg50 mn31-seg" role="tablist">${V.map(([k,t,n])=>`<button type="button" role="tab" class="${MN31.view===k?'on':''}" data-m31v="${k}">${t} <small>${n}</small></button>`).join('')}</div>
+      <p class="note small">${svEsc(txt)}</p>
+      <div class="mn31-f"><input type="search" id="m31q" placeholder="Name suchen" value="${svEsc(MN31.q)}">${MN31.view==='soma'&&somaTeam?`<button type="button" class="btn sm ghost" id="m31soma">${SVI('cal')} Termine & Abstimmung der SOMA</button>`:''}</div>
+      <div class="mn31-l">${L.map(p=>{ const t=mnTeam(p)||''; return `<div class="mn31-r" data-m31p="${svEsc(p.id)}">
+          <span class="mn31-av">${typeof avaHtml==='function'?avaHtml(p):''}</span>
+          <div class="mn31-n"><b>${svEsc(p.name)}</b><small>${svEsc([p.pos,p.alter!=null?p.alter+' J.':'',typeof mn31NrTxt==='function'?mn31NrTxt(p):''].filter(Boolean).join(' · '))}</small></div>
+          ${ok?`<select data-m31t aria-label="Stammmannschaft">${[['','–'],['1','1. Mannschaft'],['2','2. Mannschaft'],['S','SOMA'],['U','Inaktiv mit Pass'],['X','Extern']].map(([k,l])=>`<option value="${k}"${k===t?' selected':''}>${l}</option>`).join('')}</select>`:`<span class="c4 mut">${svEsc(MN_TEAM[t]||'–')}</span>`}
+        </div>`; }).join('')||'<div class="empty">Niemand in dieser Gruppe.</div>'}</div>
+      <p class="note small">Antippen öffnet das Profil. ${ok?'Die Zuordnung gilt für die laufende Saison und landet im Verlauf.':'Zuordnen können Kaderplaner, Trainer, Vorstand und Admin.'}</p></div>`;
+  P.querySelectorAll('[data-m31v]').forEach(b=>b.onclick=()=>{ MN31.view=b.dataset.m31v; mn31Render(); });
+  const qi=P.querySelector('#m31q'); qi.oninput=()=>{ MN31.q=qi.value; clearTimeout(MN31._t); MN31._t=setTimeout(()=>{ mn31Render(); const n=document.getElementById('m31q'); if(n){ n.focus(); n.setSelectionRange(n.value.length,n.value.length); } },250); };
+  const sb=P.querySelector('#m31soma'); if(sb)sb.onclick=()=>{ SVT.soma31=true; SVT._o31=Date.now(); svtOpen('soma'); };
+  P.querySelectorAll('[data-m31p]').forEach(r=>{ r.onclick=e=>{ if(e.target.closest('select'))return; openModal(r.dataset.m31p); };
+    const s=r.querySelector('[data-m31t]'); if(s)s.onchange=async()=>{ const p=trP(r.dataset.m31p); if(!p)return; s.disabled=true;
+      try{ const v=s.value||null; await sv4SSSet(p.id,sv4S(),v==='X'?{team:'X',team2:null}:{team:v}); kToast('✓ '+p.name+': '+(MN_TEAM[v]||(v==='X'?'Extern':'ohne Mannschaft'))); mn31Render(); }
+      catch(x){ s.disabled=false; kToast('⚠️ '+x.message); } }; });
+}
+
+/* =====================================================================
+   Eigene Jugend: Teambereich nur mit Jugendmannschaften (SOMA über „SOMA & Inaktive“)
+   ===================================================================== */
+{ const _sr31=svtRender; svtRender=function(){ const h=svrTeams;
+  svrTeams=function(){ const L=h.apply(this,arguments); if(SVT.soma31&&SVT.team==='soma')return L.filter(m=>m.id==='soma'); return L.filter(mn31IstJugend); };
+  let r; try{ r=_sr31.apply(this,arguments); }finally{ svrTeams=h; }
+  Promise.resolve(r).then(()=>{ try{ mn31JugendKopf(); }catch(e){} });
+  return r; }; }
+{ const _gt31b=goTab; goTab=function(tab){ if(SVT.soma31&&(tab!=='teams'||Date.now()-(SVT._o31||0)>800))SVT.soma31=false; const r=_gt31b.apply(this,arguments);
+  try{ if(svCurTab()==='teams'){ const side=SVT.soma31?'somainakt':'teams'; document.querySelectorAll('.snav button[data-tab]').forEach(x=>{ if(['teams','somainakt'].includes(x.dataset.tab))x.classList.toggle('active',x.dataset.tab===side); });
+      const h=document.getElementById('pgTitle'); if(h)h.textContent=SVT.soma31?'SOMA & Inaktive':'Eigene Jugend'; } }catch(e){}
+  return r; }; }
+function mn31JugendKopf(){
+  const P=document.getElementById('panel-teams'); if(!P)return;
+  if(SVT.soma31&&!P.querySelector('.mn31-back')){ const t=P.querySelector('.svt-top'); if(t)t.insertAdjacentHTML('afterbegin',`<button type="button" class="btn sm ghost mn31-back">← SOMA & Inaktive</button>`);
+    const b=P.querySelector('.mn31-back'); if(b)b.onclick=()=>{ SVT.soma31=false; goTab('somainakt'); }; }
+}
+
+/* =====================================================================
+   Training: nur noch die schnelle Erfassung (Da/Fehlt, Eindruck +/0/−, Notiz), kein „Details“-Editor
+   ===================================================================== */
+var _te31alt=trSessionEditor;
+{ const _te31=trSessionEditor; trSessionEditor=function(datum,sid,typ){
+  const s=sid?TR.st.sessions.find(x=>x.id===sid):null, t=s?s.t:(typ||'training');
+  if(t==='training')return sv50Quick(datum||(s&&s.d)||trToday(),s?s.id:undefined);
+  if(t==='spiel')return svmSpielBewerten(s?{id:s.id}:{datum:datum||trToday()});
+  return _te31.apply(this,arguments); }; }
+window.trSessionEditorAlt=_te31alt;   // alter Editor nur noch intern (Tests, Co-Trainer-Hilfen), in der Oberfläche nicht mehr erreichbar
+
+/* =====================================================================
+   Spiele: jedes Spiel eine Einheit, automatisch aus FuPa und fussball.de, Bewertung im geöffneten Spiel
+   ===================================================================== */
+function mn31Fde(){ return mnCtx()==='2'?'D2':'A'; }
+function svm31Plan(){ return mnCtx()==='2'?[]:((typeof SVM!=='undefined'&&SVM.plan)||[]); }
+// Freundschaftsspiele von fussball.de getrennt halten: sie gehören zu den Spielen der Mannschaft, nicht in die Pflichtspiel-Statistik
+fbLoad=async function(force){
+  if(FB.loading||(FB.loaded&&!force))return; FB.loading=true;
+  try{
+    const [m,p]=await Promise.all([SVB.sb.from('fde_matches').select('id,team,saison,datum,zeit,wettbewerb,code,heim,gast,wir_heim,apps,bank,bericht').order('datum',{ascending:false}).limit(400),
+      SVB.sb.from('fde_players').select('key,name').limit(3000)]);
+    const all=(m.data||[]).map(x=>Object.assign(x,{apps:Array.isArray(x.apps)?x.apps:[],bank:Array.isArray(x.bank)?x.bank:[]}));
+    FB.m=all.filter(x=>x.code!=='FS'); FB.fs=all.filter(x=>x.code==='FS'); FB.pl=new Map((p.data||[]).map(r=>[r.key,r.name])); FB.loaded=true; FB.map=null;
+  }catch(e){ console.warn('Spielberichte',e); FB.loaded=true; }
+  FB.loading=false; fbAfter();
+};
+{ const _fm31=fbMap; fbMap=function(){ const h=FB.m; if(!(FB.fs||[]).length)return _fm31.apply(this,arguments); FB.m=h.concat(FB.fs); try{ return _fm31.apply(this,arguments); }finally{ FB.m=h; } }; }
+function mn31FbAlle(){ return (typeof FB!=='undefined'&&FB.loaded)?(FB.m||[]).concat(FB.fs||[]):[]; }
+if(typeof fbSpielAm==='function'){ fbSpielAm=function(datum){
+  if(!FB.loaded)return null; const g=mn31FbAlle().find(x=>x.team===mn31Fde()&&x.datum===datum&&x.bericht); if(!g)return null;
+  const M=fbMap(), rows={}; let fehlt=0;
+  g.apps.forEach(a=>{ const pid=M.get(a.p); if(!pid){ fehlt++; return; } rows[pid]={status:a.s?'da':'spaet',tore:a.t||0,min:a.m!=null?a.m:null}; });
+  g.bank.forEach(k=>{ const pid=M.get(k); if(!pid){ fehlt++; return; } if(!rows[pid])rows[pid]={status:'bank'}; });
+  return {rows,fehlt,gegner:g.wir_heim?g.gast:g.heim,heim:g.wir_heim,code:g.code}; }; }
+// FuPa-Angaben je Spiel (Aufstellung, Tore, Vorlagen, Minuten, Karten) für die ganze Saison, einmal geladen
+SVM.q31=null; SVM.q31Busy=false;
+function mn31QLoad(after){
+  if(mnCtx()==='2'||SVM.q31||SVM.q31Busy||!canTraining())return; SVM.q31Busy=true;
+  Promise.resolve(SVB.sb.rpc('spiel_quellen',{p_von:sv50Start(),p_bis:trToday()})).then(r=>{ SVM.q31Busy=false; if(r&&!r.error){ SVM.q31=new Map((r.data||[]).map(x=>[String(x.datum),x])); try{ after&&after(); }catch(e){} } },()=>{ SVM.q31Busy=false; });
+}
+function mn31Q(d){ return mnCtx()==='2'||!SVM.q31?null:SVM.q31.get(d)||null; }
+{ const _sb31=svmSpielBewerten; svmSpielBewerten=function(o){ if(mnCtx()==='1'&&!SVM.q31&&!SVM.q31Busy&&canTraining()&&!(o&&o._q31)){ const a=Object.assign({},o,{_q31:1}); let done=false; const go=()=>{ if(done)return; done=true; _sb31(a); }; mn31QLoad(go); setTimeout(go,1500); return; } return _sb31.apply(this,arguments); }; }
+const MN31_ART={ME:'Liga',PO:'Pokal',FS:'Freundschaftsspiel'};
+function mn31Art(g){ const c=g.fb&&g.fb.code, w=(g.fb&&g.fb.wettbewerb)||(g.fq&&g.fq.wettbewerb)||(g.fu&&g.fu.wettbewerb)||'';
+  if(c==='FS'||/freundschaft/i.test(w))return 'Freundschaftsspiel'; if(c==='PO'||/pokal/i.test(w))return 'Pokal'; if(c==='ME'||/liga|klasse/i.test(w)||g.fu||g.fq)return 'Liga'; return 'Spiel'; }
+function mn31Spiele(){
+  const st=sv50Start(), t=trToday(), by=new Map(), get=d=>{ if(!by.has(d))by.set(d,{d}); return by.get(d); };
+  (TR.st.sessions||[]).filter(s=>s.t==='spiel'&&s.d>=st&&s.d<=t).forEach(s=>get(s.d).app=s);
+  svmPlanVorbei().forEach(g=>get(svmPlanD(g)).fu=g);
+  if(SVM.q31&&mnCtx()==='1')SVM.q31.forEach((x,d)=>{ if(d>=st&&d<=t&&x.status!=='PRE')get(d).fq=x; });
+  try{ mn31FbAlle().filter(g=>g.team===mn31Fde()&&g.datum>=st&&g.datum<=t).forEach(g=>get(g.datum).fb=g); }catch(e){}
+  const G=[...by.values()].sort((a,b)=>b.d.localeCompare(a.d));
+  G.forEach(g=>{ const a=g.app, fu=g.fu, fq=g.fq, fb=g.fb;
+    g.gegner=(a&&a.g)||(fq&&fq.gegner)||(fu&&fu.gegner)||(fb&&(fb.wir_heim?fb.gast:fb.heim))||'?';
+    g.heim=a&&a.h!=null?a.h:fq?fq.heim:fu?fu.heim:fb?fb.wir_heim:null;
+    if(a&&a.tw!=null){ g.tw=a.tw; g.tg=a.tg; g.resQ='App'; } else if(fq&&fq.tw!=null){ g.tw=fq.tw; g.tg=fq.tg; g.resQ='FuPa'; } else if(fu&&fu.tore_wir!=null){ g.tw=+fu.tore_wir; g.tg=+fu.tore_gegner; g.resQ='FuPa'; }
+    g.art=mn31Art(g); const aq=a?(a.q==='fupa'?'FuPa':a.q==='fussballde'?'fussball.de':'App'):null;
+    g.q=[...new Set([aq,fq||fu?'FuPa':null,fb?'fussball.de':null].filter(Boolean))];
+    g.bewertet=!!(a&&(a.no!=null||(a.a||[]).some(x=>(x[1]==='da'||x[1]==='spaet')&&x[8]!=null&&x[9]!=='default')));
+    g.hw=mn31Konflikte(g); });
+  return G;
+}
+// Widersprüche zwischen Quellen: nie still überschreiben, immer als Hinweis zeigen
+function mn31Konflikte(g){
+  const out=[], a=g.app, A=(a&&a.a)||[], trainer=x=>['manuell','ki'].includes(x[10]||'manuell');
+  const T=Object.fromEntries(SVM_EIN), nm=id=>{ const p=trP(id); return p?p.name:id; };
+  if(a&&a.tw!=null&&g.fq&&g.fq.tw!=null&&(g.fq.tw!==a.tw||g.fq.tg!==a.tg))out.push({k:'erg',t:`Ergebnis: App ${a.tw}:${a.tg}, FuPa ${g.fq.tw}:${g.fq.tg}`});
+  else if(a&&a.tw!=null&&!g.fq&&g.fu&&g.fu.tore_wir!=null&&(+g.fu.tore_wir!==a.tw||+g.fu.tore_gegner!==a.tg))out.push({k:'erg',t:`Ergebnis: App ${a.tw}:${a.tg}, FuPa ${g.fu.tore_wir}:${g.fu.tore_gegner}`});
+  // Torschützen: App (vom Trainerteam eingetragen) gegen FuPa und fussball.de
+  const appT=new Map(); A.filter(x=>trainer(x)&&(x[6]||0)>0).forEach(x=>appT.set(x[0],x[6]));
+  const hatAppT=A.some(x=>trainer(x)&&(x[1]==='da'||x[1]==='spaet'));
+  const liste=m=>[...m.entries()].map(([id,n])=>(typeof id==='string'&&trP(id)?nm(id):id)+(n>1?' ('+n+')':'')).join(', ')||'keiner';
+  const gleich=(m1,m2)=>m1.size===m2.size&&[...m1].every(([k,v])=>m2.get(k)===v);
+  if(hatAppT&&g.fq&&g.fq.aufstellung){ const fT=new Map(); (g.fq.spieler||[]).filter(x=>(x.tore||0)>0).forEach(x=>fT.set(x.app_id&&trP(x.app_id)?x.app_id:(x.name||'?'),x.tore));
+    if(!gleich(appT,fT))out.push({k:'tore',t:`Torschützen: App ${liste(appT)} · FuPa ${liste(fT)}`}); }
+  if(hatAppT&&g.fb&&g.fb.bericht){ const fr=fbSpielAm(g.d); if(fr){ const bT=new Map(); Object.entries(fr.rows).forEach(([id,r])=>{ if((r.tore||0)>0)bT.set(id,r.tore); });
+    if(!fr.fehlt&&!gleich(appT,bT))out.push({k:'tore',t:`Torschützen: App ${liste(appT)} · fussball.de ${liste(bT)}`}); } }
+  // Einsatz: App (Trainer) gegen FuPa-Aufstellung
+  if(g.fq&&g.fq.aufstellung)(g.fq.spieler||[]).forEach(x=>{ if(!x.app_id)return; const r=A.find(y=>y[0]===x.app_id); if(!r||!trainer(r))return;
+    const f=x.start?'da':(x.min||0)>0?'spaet':'bank'; if(r[1]!==f&&!(r[1]==='bank'&&f==='bank'))out.push({k:'einsatz',t:`${nm(x.app_id)}: App ${T[r[1]]||r[1]}, FuPa ${T[f]||f}`}); });
+  return out;
+}
+function mn31ViewGames(B){
+  if(mnCtx()==='1'){ if(!SVM.plan)svmPlanLoad(mnRerender('games')); mn31QLoad(mnRerender('games')); }
+  if(typeof FB!=='undefined'&&!FB.loaded&&typeof fbLoad==='function')mnLoadOnce('fb31',()=>fbLoad(),mnRerender('games'));
+  const G=mn31Spiele(), off=G.filter(g=>!g.bewertet).length, wid=G.filter(g=>g.hw.length).length, ok=canTraining();
+  B.innerHTML=`<div class="card mn31g"><div class="vrat-h"><h3 class="trh" style="margin:0">${SVI('ball')} Vergangene Spiele <small>${G.length}${off?` · ${off} noch nicht bewertet`:''}${wid?` · <b class="bad">${wid} mit Widerspruch</b>`:''}</small></h3></div>
+      ${G.length?`<div class="gm50-l">${G.map(g=>`<button type="button" class="gm50-r mn31-gr${g.hw.length?' bad':''}" data-g31="${svEsc(g.d)}"><span class="gm50-d">${TRC.fmt(g.d)}</span>
+          <span class="gm50-t"><b>${g.heim===false?'@':'vs'} ${svEsc(g.gegner)}</b><small>${svEsc(g.art)}${g.hw.length?' · '+svEsc(g.hw[0].t)+(g.hw.length>1?` (+${g.hw.length-1})`:''):''}</small></span>
+          <span class="gm50-s">${g.tw!=null?`<i class="res ${g.tw>g.tg?'w':g.tw===g.tg?'d':'l'}">${g.tw}:${g.tg}</i>`:''}${g.q.map(q=>`<i class="src50 ${q==='App'?'m':'i'}">${q}</i>`).join('')}${g.app&&g.app.ds&&SV50_DS[g.app.ds]?`<i class="src50 ${SV50_DS[g.app.ds][1]}" title="${g.app.ds==='vorlaeufig'?'FuPa kann noch nachtragen, die App gleicht das automatisch ab':'Datenstatus'}">${SV50_DS[g.app.ds][0]}</i>`:''}${g.bewertet?`<i class="mn31-ok">${g.app&&g.app.no!=null?svmEiChip(g.app.no):''} bewertet</i>`:ok?'<small class="mn31-off">bewerten</small>':''}</span></button>`).join('')}</div>`
+        :`<p class="note">${(mnCtx()==='1'&&(SVM.planBusy||SVM.q31Busy))||(typeof FB!=='undefined'&&FB.loading)?'Lade Spiele …':'Noch keine Spiele in dieser Saison. Sie erscheinen automatisch, sobald FuPa oder fussball.de sie melden.'}</p>`}
+      <details class="mn31-src"><summary>Woher kommen die Spiele, welche Quelle gilt?</summary>${mn31QuellenHtml()}</details>
+      ${ok?`<p class="mn31-add"><a href="#" data-g31new>+ Spiel manuell hinzufügen</a> <span class="note small">nur für Spiele, die weder FuPa noch fussball.de kennen</span></p>`:''}</div>`;
+  mnGSeg(B,'games');
+  B.querySelectorAll('[data-g31]').forEach(b=>b.onclick=()=>{ const g=G.find(x=>x.d===b.dataset.g31); if(!g)return;
+    if(!ok)return mn31SpielInfoModal(g);
+    svmSpielBewerten(g.app?{id:g.app.id}:{datum:g.d,gegner:g.gegner,heim:g.heim,tw:g.tw,tg:g.tg}); });
+  const n=B.querySelector('[data-g31new]'); if(n)n.onclick=e=>{ e.preventDefault(); svmSpielBewerten({datum:trToday(),neu31:1}); };
+}
+MN_VIEWS.games=mn31ViewGames;
+if(SV50_INFO['training:games'])Object.assign(SV50_INFO['training:games'],{w:'Alle Spiele der Saison, jedes als eigener Eintrag: Liga, Pokal und Freundschaftsspiele. Sie kommen automatisch aus FuPa und fussball.de.',
+  f:'Spiel antippen: Ergebnis, Quellen, Torschützen und Karten sehen und direkt im Spiel bewerten.',
+  h:'FuPa und fussball.de werden regelmäßig neu abgefragt, spätere Nachträge (zum Beispiel Vorlagen) kommen von selbst dazu. Einträge des Trainerteams werden nie überschrieben: widersprechen sich Quellen, steht ein Hinweis am Spiel.',
+  s:'Ein Spiel antippen zum Bewerten. „+ Spiel manuell hinzufügen“ nur für Ausnahmen.',b:['Rot markierte Spiele haben einen Widerspruch zwischen App, FuPa und fussball.de.']});
+function mn31QuellenHtml(){
+  return `<div class="mn31-qt"><p class="note small"><b>Automatisch:</b> ${mnCtx()==='1'?'FuPa (Spielplan, Ergebnis, Aufstellung, Tore, Vorlagen, Minuten, Karten) und fussball.de (amtlicher Spielbericht mit Startelf, Wechseln, Toren, auch Pokal und Freundschaftsspiele)':'fussball.de (Spielplan und amtlicher Spielbericht mit Startelf, Wechseln und Toren, auch Pokal und Freundschaftsspiele). FuPa liefert für die 2. Mannschaft keine Spieldaten'}. Beide werden mehrmals pro Woche neu abgefragt.</p>
+    <table class="trtab mn31-qtab"><thead><tr><th>Angabe</th><th>Es gilt</th><th>Warum</th></tr></thead><tbody>
+      <tr><td>Alles, was das Trainerteam einträgt</td><td><b>App</b></td><td>Wer beim Spiel war, weiß es am besten. Wird nie automatisch überschrieben.</td></tr>
+      <tr><td>Ergebnis, Aufstellung, Tore, Vorlagen, Minuten</td><td><b>FuPa</b>, sonst fussball.de</td><td>FuPa hat Minuten und Vorlagen und wird oft nachgetragen. fussball.de ist der amtliche Bericht und dient als Gegenprobe.</td></tr>
+      <tr><td>Freundschafts- und Pokalspiele</td><td><b>fussball.de</b></td><td>Stehen dort, sobald der Verein sie meldet.</td></tr>
+      <tr><td>Wer nirgends steht</td><td><b>Annahme</b> „zugeschaut“</td><td>Bis jemand etwas anderes einträgt.</td></tr></tbody></table>
+    <p class="note small"><b>Widerspruch:</b> Sagen App und FuPa oder fussball.de etwas anderes (Beispiel: in der App trifft Müller zum 1:0, FuPa meldet später Meier), bleibt der App-Eintrag stehen und das Spiel bekommt einen roten Hinweis. Im Spiel steht, was wo steht, korrigiert wird dort mit einem Tipp.</p></div>`;
+}
+// Kopf im geöffneten Spiel: Quellen, Torschützen und Karten, Widersprüche
+function mn31SpielInfo(E,d){
+  if(!E)return; const draw=()=>{ const g=mn31Spiele().find(x=>x.d===d); if(!g){ E.innerHTML=''; return; }
+    const fq=g.fq, ev=((fq&&fq.ereignisse)||[]), tore=ev.filter(x=>x.t==='goal'&&x.wir), karten=ev.filter(x=>x.t==='card'&&x.wir);
+    const kt=st=>({gelb:'Gelb',gelbrot:'Gelb-Rot',rot:'Rot'})[(typeof GC_KARTE!=='undefined'&&GC_KARTE[st])||(/red/.test(st||'')?(/yellow/.test(st||'')?'gelbrot':'rot'):'gelb')];
+    E.innerHTML=`<div class="sb31-info"><div class="sb31-src">${g.q.map(q=>`<i class="src50 ${q==='App'?'m':'i'}">${q}</i>`).join('')}<span>${svEsc(g.art)}${g.tw!=null?` · <b>${g.tw}:${g.tg}</b> <small>laut ${svEsc(g.resQ)}</small>`:''}${fq&&fq.url?` · <a href="${svEsc(fq.url)}" target="_blank" rel="noopener">FuPa-Spiel</a>`:''}</span></div>
+      ${tore.length||karten.length?`<div class="sb31-ev">${tore.map(x=>`<span>⚽ ${x.m!=null?x.m+'.':''} ${svEsc(x.name||'unbekannt')}${x.name2?` <small>(Vorlage ${svEsc(x.name2)})</small>`:''}</span>`).join('')}${karten.map(x=>`<span><i class="gc-k ${kt(x.st)==='Gelb'?'y':kt(x.st)==='Rot'?'r':'yr'}"></i> ${x.m!=null?x.m+'.':''} ${svEsc(x.name||'')} <small>${kt(x.st)}</small></span>`).join('')}<small class="note">laut FuPa</small></div>`:''}
+      ${g.hw.length?`<div class="sb31-hw"><b>${SVI('info')} Quellen widersprechen sich</b><ul>${g.hw.map(h=>`<li>${svEsc(h.t)}</li>`).join('')}</ul><small>Es gilt der Eintrag in der App. Stimmt er nicht, unten korrigieren und speichern.</small></div>`:''}</div>`; };
+  draw(); if(mnCtx()==='1'&&!SVM.q31)mn31QLoad(draw);
+}
+function mn31SpielInfoModal(g){ svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('ball')}</div><div><h2 style="margin:0">${g.heim===false?'@':'vs'} ${svEsc(g.gegner)}</h2><div class="msub">${svEsc(TRC.fmt(g.d))} · ${svEsc(g.art)}</div></div></div><div id="sb31q"></div><div class="btnrow sbact"><button class="btn ghost" type="button" onclick="closeOverlay()">Schließen</button></div>`); mn31SpielInfo(document.getElementById('sb31q'),g.d); }
+// Statistik ohne Saisonwahl und ohne Album
+{ const _gs31=MN_VIEWS.gstat; MN_VIEWS.gstat=function(B){ const r=_gs31.apply(this,arguments); try{ B.querySelectorAll('.a41,.tm4s,[data-fu50],[data-fb18],[data-rt18]').forEach(x=>x.remove()); }catch(e){} return r; }; }
+{ const _gn31=MN_VIEWS.gnext; MN_VIEWS.gnext=function(B){ const r=_gn31.apply(this,arguments); try{ B.querySelectorAll('.a41,.tm4s').forEach(x=>x.remove()); }catch(e){} return r; }; }
+
+/* =====================================================================
+   Massenpflege → Eye-Test: was welcher Wert bedeutet, dazu höchster, niedrigster und Durchschnitt der Mannschaft
+   ===================================================================== */
+// Skala wie im Modell: Wert × 10 entspricht der Spielstärke (10 Gruppenliga, 8,5 Kreisoberliga, 7 Kreisliga A, 5,5 Kreisliga B, 4 Kreisliga C)
+const MN31_STUFEN=[[3,'unter Kreisliga C'],[4,'Kreisliga C'],[5.5,'Kreisliga B'],[7,'Kreisliga A'],[8.5,'Kreisoberliga'],[10,'Gruppenliga und höher']];
+const MN31_EYE_TXT={
+  tem:['Tempo',['verliert fast jedes Laufduell','kommt in Laufduellen selten vorbei','hält mit, zieht aber selten davon','gewinnt viele Laufduelle, auch mit Ball','einer der Schnellsten auf dem Platz','Tempo ist seine Waffe, auch höherklassig']],
+  sch:['Schuss',['Abschlüsse sind selten gefährlich','trifft nur freistehend aus kurzer Distanz','trifft freistehend sicher, aus der Distanz selten','sicherer Abschluss mit dem starken Fuß, auch aus 16 bis 20 Metern','beidfüßig gefährlich, Torjäger dieser Klasse','Abschluss auf höherem Niveau, trifft aus allen Lagen']],
+  pas:['Pass',['einfache Pässe kommen oft nicht an','sicher nur ohne Gegnerdruck','sichere Kurzpässe, lange Bälle selten genau','sauber unter Druck, öffnet mit Pässen das Spiel','lenkt das Spiel, Steilpässe und Seitenwechsel sitzen','Passspiel auf höherem Niveau']],
+  dri:['Dribbling',['verliert den Ball im Eins gegen Eins fast immer','behauptet den Ball nur ohne Druck','hält den Ball, selten am Gegner vorbei','gewinnt viele Eins gegen Eins, enge Ballführung','geht an zwei Gegnern vorbei, auch auf engem Raum','Dribbling auf höherem Niveau']],
+  def:['Defensive',['Zweikämpfe und Stellungsspiel oft falsch','viele verlorene Zweikämpfe, Probleme bei Tempo','solide ohne Druck, Fehler gegen schnelle Gegner','zweikampfstark, gutes Timing und Stellungsspiel','liest das Spiel, gewinnt fast alle Duelle','Abwehrarbeit auf höherem Niveau']],
+  phy:['Physis',['körperlich klar unterlegen, baut früh ab','hält selten 90 Minuten durch','hält 90 Minuten, im Körperduell Mittelmaß','robust und laufstark, gewinnt die meisten Körperduelle','einer der Stärksten und Ausdauerndsten der Liga','Athletik auf höherem Niveau']]};
+const MN31_EYE_TW_TXT={
+  tem:['Hechten',['kommt an flache Bälle ins Eck selten','hält nur, was auf ihn kommt','hält die haltbaren Bälle','kommt auch an platzierte Schüsse','holt Bälle, die als unhaltbar gelten','Sprungkraft auf höherem Niveau']],
+  def:['Ballsicherheit',['lässt viele Bälle abprallen','unsicher bei Flanken und Nässe','fängt die meisten Bälle sicher','kaum Abpraller, sicher bei Flanken','sehr sicher, beherrscht den Strafraum','Ballsicherheit auf höherem Niveau']],
+  sch:['Abschlag',['Abschläge landen oft beim Gegner','kurz sicher, lang ungenau','solide kurz und lang','findet mit Abschlägen gezielt Mitspieler','leitet mit Abschlag und Abwurf Angriffe ein','Spieleröffnung auf höherem Niveau']],
+  pas:['Stellungsspiel',['steht oft falsch','Probleme bei Flanken und langen Bällen','steht meistens richtig','gutes Timing beim Herauslaufen','organisiert die Abwehr, steht fast immer richtig','Stellungsspiel auf höherem Niveau']],
+  dri:['Reflexe',['reagiert spät','hält nur mit Zeit zum Reagieren','hält normale Schüsse aus der Nähe','starke Reflexe auf kurze Distanz','pariert auch abgefälschte Bälle','Reflexe auf höherem Niveau']]};
+function mn31Kurz(n){ const w=String(n||'').split(' '); return w.length>1?w[0][0]+'. '+w.slice(1).join(' '):n; }
+function mn31EyeBox(B){
+  const box=B.querySelector('.mp18'); if(!box||box.querySelector('.mn31-eye'))return;
+  const hint=[...box.querySelectorAll(':scope > p.note.small')].find(x=>/Deine eigene Bewertung/.test(x.textContent));
+  if(hint)hint.innerHTML='Deine eigene Bewertung dieser Saison, 1 bis 10 in halben Schritten. Die Zahl mal zehn entspricht der Spielstärke im Modell: <b>4</b> Kreisliga C, <b>5,5</b> Kreisliga B, <b>7</b> Kreisliga A, <b>8,5</b> Kreisoberliga, <b>10</b> Gruppenliga. Die Karte zeigt den Schnitt aller Bewerter.';
+  const L=mnIntern(), feld=[], tw=[];
+  L.forEach(p=>{ let E=null; try{ E=sv4Eye(p.id); }catch(e){} if(!E)return; (p.pos==='TW'?tw:feld).push({p,E}); });
+  const stat=(arr,k)=>{ const v=arr.map(x=>({p:x.p,v:x.E.avg[k]})).filter(x=>x.v!=null); if(!v.length)return null; v.sort((a,b)=>b.v-a.v);
+    return {hi:v[0],lo:v[v.length-1],avg:v.reduce((s,x)=>s+x.v,0)/v.length,n:v.length}; };
+  const f1=x=>(Math.round(x*10)/10).toLocaleString('de-DE');
+  const stufe=v=>{ let t=MN31_STUFEN[0][1]; MN31_STUFEN.forEach(([g,l])=>{ if(v>=g-.25)t=l; }); return t; };
+  const card=(k,txt,arr)=>{ const s=stat(arr,k), [t,L6]=txt;
+    return `<details class="mn31-ek"><summary><span class="mn31-ekh"><b>${svEsc(t)}</b>${s?`<em>Ø ${f1(s.avg)}</em>`:'<em>–</em>'}</span>
+        ${s?`<span class="mn31-ekr"><span title="höchster Wert">▲ ${f1(s.hi.v)} ${svEsc(mn31Kurz(s.hi.p.name))}</span><span title="niedrigster Wert">▼ ${f1(s.lo.v)} ${svEsc(mn31Kurz(s.lo.p.name))}</span></span><small>${s.n} bewertet · Schnitt ≈ ${svEsc(stufe(s.avg))}</small>`:'<small>noch keine Bewertung</small>'}</summary>
+      <ul class="mn31-ekl">${L6.map((d,i)=>`<li><b>${f1(MN31_STUFEN[i][0])}</b><span>${svEsc(MN31_STUFEN[i][1])}</span><em>${svEsc(d)}</em></li>`).join('')}</ul></details>`; };
+  const html=`<div class="mn31-eye"><div class="mn31-eyeh"><b>${SVI('chart')} ${svEsc(mnCtxT())} im Eye-Test</b><small>Kategorie antippen: was welcher Wert bedeutet</small></div>
+      <div class="mn31-eg">${SV4_EYE.map(([k])=>card(k,MN31_EYE_TXT[k],feld)).join('')}</div>
+      ${tw.length?`<div class="mn31-eyeh tw"><b>Torhüter</b><small>eigene Kategorien</small></div><div class="mn31-eg">${Object.keys(MN31_EYE_TW_TXT).map(k=>card(k,MN31_EYE_TW_TXT[k],tw)).join('')}</div>`:''}</div>`;
+  const areas=box.querySelector('.mp-f')||box.querySelector('.mp-areas'); if(areas)areas.insertAdjacentHTML('afterend',html); else box.insertAdjacentHTML('afterbegin',html);
+}
+
+/* =====================================================================
+   Mannschaftsteil aus FuPa (externe Spieler) und Rückennummer
+   ===================================================================== */
+const KF31={d:null,busy:false,t:0};
+function mn31KfLoad(after){
+  if(KF31.d||KF31.busy)return; if(!((typeof canScout==='function'&&canScout())||canTraining()))return; KF31.busy=true;
+  Promise.resolve(SVB.sb.rpc('kader_fupa_info')).then(r=>{ KF31.busy=false; if(r&&!r.error){ KF31.d=r.data||{}; KF31.t=Date.now(); try{ after&&after(); }catch(e){} } },()=>{ KF31.busy=false; });
+}
+function mn31Fu(p){ const a=KF31.d&&p?KF31.d[p.id]:null; return Array.isArray(a)?{mt:a[0],nr:a[1],verein:a[2],squad:a[3]}:null; }
+function mn31Nr(p){ const f=mn31Fu(p); return f&&f.nr!=null?f.nr:null; }
+function mn31NrTxt(p){ const n=mn31Nr(p); return n!=null?'#'+n:''; }
+
+// Externe Spieler: Gruppierung aus der FuPa-Kaderseite, bis jemand eine genauere Position einträgt. Interne: wie bisher aus der Hauptposition.
+function mn31MtFupa(p){ if(!p||mnIsIntern(p))return null; let C={}; try{ C=(typeof crmOf==='function'?crmOf(p):CRM[p.id])||{}; }catch(e){} if(C.ps)return null; const f=mn31Fu(p); return f&&SVM_MT[f.mt]?f.mt:null; }
+{ const _mt31=svmMt; svmMt=function(p,pos){ if(!pos){ const k=mn31MtFupa(p); if(k)return k; } return _mt31.apply(this,arguments); }; }
+
+/* ---------- Profil: Rückennummer groß, Mannschaftsteil, Teilen ---------- */
+{ const _pb31=pf4Build; pf4Build=function(id){ const r=_pb31.apply(this,arguments); try{ mn31Profil(id); }catch(e){ console.warn('Profil 0.29',e); } return r; }; }
+function mn31Profil(id){
+  const M=document.getElementById('modal'), root=M&&M.querySelector('.pf4'), p=trP(id); if(!root||!p)return;
+  if(!KF31.d&&!KF31.busy){ mn31KfLoad(()=>{ const R=document.querySelector('#modal .pf4'); if(R&&document.getElementById('modal').dataset.pf4===id){ R.querySelectorAll('.pf31-nr,.pf31-mt').forEach(x=>x.remove()); mn31Profil(id); } }); }
+  const h2=root.querySelector('.pf4-hm h2'), nr=mn31Nr(p);
+  if(h2&&nr!=null&&!root.querySelector('.pf31-nr'))h2.insertAdjacentHTML('afterbegin',`<span class="pf31-nr" title="Rückennummer${mn31Fu(p)&&mn31Fu(p).verein?' bei '+svEsc(mn31Fu(p).verein):''} laut FuPa">${nr}</span>`);
+  const l2=root.querySelector('.pf4-l2'), mt=typeof svmMt==='function'?svmMt(p):null, ausFupa=!!mn31MtFupa(p);
+  if(l2&&mt&&SVM_MT[mt]&&!root.querySelector('.pf31-mt'))l2.insertAdjacentHTML('afterbegin',`<span class="pf31-mt" title="Mannschaftsteil">${svEsc(SVM_MT[mt])}${ausFupa?' <i>laut FuPa</i>':''}</span>`);
+  const act=root.querySelector('.pf4-act');
+  if(act&&!act.querySelector('[data-pf31s]')){ act.insertAdjacentHTML('beforeend',`<button class="btn sm ghost" type="button" data-pf31s>${SVI('share')} Teilen</button>`);
+    act.querySelector('[data-pf31s]').onclick=e=>mn31Teilen(p,e.currentTarget); }
+}
+function mn31Link(p){ return location.origin+location.pathname+'#spieler='+encodeURIComponent(p.id); }
+async function mn31Teilen(p,btn){
+  const url=mn31Link(p), text=`${p.name} in der SV/BSC Sportzentrale`;
+  if(navigator.share&&matchMedia('(pointer:coarse)').matches){ try{ await navigator.share({title:p.name,text,url}); return; }catch(e){ if(e&&e.name==='AbortError')return; } }
+  const act=btn&&btn.parentNode; if(!act)return; let box=act.parentNode.querySelector('.pf31-share'); if(box){ box.remove(); return; }
+  act.insertAdjacentHTML('afterend',`<div class="pf31-share"><a class="btn sm" href="https://wa.me/?text=${encodeURIComponent(text+'\n'+url)}" target="_blank" rel="noopener">WhatsApp</a>
+    <button class="btn sm ghost" type="button" data-pf31c>Link kopieren</button><small>Öffnet das Profil nach der Anmeldung. Jeder sieht nur, was er in der App sehen darf.</small></div>`);
+  box=act.parentNode.querySelector('.pf31-share');
+  box.querySelector('[data-pf31c]').onclick=async()=>{ try{ await navigator.clipboard.writeText(url); kToast('✓ Link kopiert'); }catch(e){ try{ kCopy(url); }catch(x){ prompt('Link',url); } } };
+}
+// Geteilter Link …/#spieler=<id>: nach der Anmeldung das Profil öffnen
+const MN31_ZIEL={id:null};
+{ const m=/^#spieler=([A-Za-z0-9_:.%-]{1,160})$/.exec(location.hash||''); if(m){ try{ MN31_ZIEL.id=decodeURIComponent(m[1]); history.replaceState(history.state,'',location.pathname+location.search); }catch(e){} } }
+async function mn31ZielOeffnen(){
+  const id=MN31_ZIEL.id; if(!id)return; const t0=Date.now();
+  while(!(typeof svzBereit==='function'&&svzBereit())&&Date.now()-t0<600000)await new Promise(r=>setTimeout(r,400));
+  if(!MN31_ZIEL.id)return; MN31_ZIEL.id=null; await new Promise(r=>setTimeout(r,600));
+  if(players.some(p=>p.id===id)){ try{ closeOverlay(); }catch(e){} openModal(id); }
+  else kToast('Dieses Spielerprofil ist für dich nicht sichtbar oder gibt es nicht mehr.');
+}
+setTimeout(mn31ZielOeffnen,60);
+window.addEventListener('hashchange',()=>{ const m=/^#spieler=([A-Za-z0-9_:.%-]{1,160})$/.exec(location.hash||''); if(!m)return; try{ MN31_ZIEL.id=decodeURIComponent(m[1]); history.replaceState(history.state,'',location.pathname+location.search); }catch(e){} mn31ZielOeffnen(); });
+
+/* =====================================================================
+   Suche nach Rückennummer: „Fürth 15“ zeigt alle Fürther Mannschaften und alle Spieler mit der 15 (FuPa-Kader, nur Erwachsene)
+   ===================================================================== */
+const SU31={q:'',t:null,r:null};
+function su31Wire(){
+  const inp=document.getElementById('gSearch'), res=document.getElementById('gRes'); if(!inp||!res||inp.dataset.su31)return; inp.dataset.su31='1';
+  inp.addEventListener('input',()=>{ clearTimeout(SU31.t); const q=inp.value.trim(); SU31.q=q; if(!/(^|\s)#?\d{1,2}(\s|$)/.test(q)||!(typeof canScout==='function'&&canScout()))return;
+    su31Zeige(res,q,SU31.r&&SU31.r.q===q?SU31.r.d:null);
+    SU31.t=setTimeout(async()=>{ try{ const {data,error}=await SVB.sb.rpc('rueckennummer_suche',{p_q:q}); if(error)throw error; SU31.r={q,d:data}; if(SU31.q===q)su31Zeige(res,q,data); }catch(e){ console.warn('Rückennummer',e); } },280); });
+}
+function su31Zeige(res,q,d){
+  res.querySelectorAll('.su31').forEach(x=>x.remove()); const box=document.createElement('div'); box.className='su31';
+  if(!d){ box.innerHTML='<div class="gh">Rückennummer <small>suche …</small></div>'; res.prepend(box); res.classList.add('open'); return; }
+  const T=d.teams||[], S=d.spieler||[], vn=x=>x.verein+(x.squad>1?' '+'I'.repeat(Math.min(3,x.squad)):'');
+  if(!T.length&&!S.length){ box.innerHTML=`<div class="gh">Rückennummer${d.nr!=null?' '+d.nr:''}</div><div class="ge">Keine Mannschaft oder kein Spieler mit dieser Nummer in den FuPa-Kadern.</div>`; }
+  else box.innerHTML=`${S.length?`<div class="gh">Rückennummer ${d.nr} <small>${S.length} Spieler · FuPa ${svEsc(typeof klaSaisonKurz==='function'?klaSaisonKurz(d.saison):d.saison||'')}</small></div>${S.map((x,i)=>`<div class="gi su31-s" data-su31s="${i}"><i class="su31-nr">${x.nr}</i><div style="min-width:0"><b>${svEsc(x.name)}${x.app_id&&trP(x.app_id)?'':' <i class="su-own">nur FuPa</i>'}</b><span>${svEsc(vn(x))} · ${svEsc(x.pos||'')}</span></div></div>`).join('')}`:''}
+    ${T.length?`<div class="gh">Mannschaften <small>${T.length}</small></div>${T.slice(0,12).map((x,i)=>`<div class="gi su31-t" data-su31t="${i}"><i class="su31-nr t">${x.squad||1}</i><div style="min-width:0"><b>${svEsc(vn(x))}</b><span>${x.n} Spieler im FuPa-Kader${d.nr!=null?' · '+(S.filter(s=>s.tsid===x.tsid).map(s=>svEsc(s.name)).join(', ')||'keine '+d.nr):''}</span></div></div>`).join('')}`:''}`;
+  res.prepend(box); res.classList.add('open'); if(T.length||S.length)res.querySelectorAll(':scope > .ge').forEach(x=>x.remove());
+  box.querySelectorAll('[data-su31s]').forEach(g=>g.onmousedown=e=>{ e.preventDefault(); const x=S[+g.dataset.su31s]; if(!x)return;
+    if(x.app_id&&trP(x.app_id)){ const inp=document.getElementById('gSearch'); if(inp){ inp.value=''; inp.blur(); } openModal(x.app_id); }
+    else if(x.fupa)window.open('https://www.fupa.net/player/'+encodeURIComponent(x.fupa),'_blank','noopener'); });
+  box.querySelectorAll('[data-su31t]').forEach(g=>g.onmousedown=e=>{ e.preventDefault(); const x=T[+g.dataset.su31t]; if(x&&x.url)window.open(x.url,'_blank','noopener'); });
+}
+{ const _sw31=svSearchWire; svSearchWire=function(){ const r=_sw31.apply(this,arguments); try{ su31Wire(); }catch(e){} return r; }; }
+setTimeout(()=>{ try{ su31Wire(); }catch(e){} },1500);
+
+/* =====================================================================
+   Eigene Jugend: A-Jugend aus fussball.de übernehmen, „(u)“ = unbestätigt, Bestätigen per persönlichem Link
+   ===================================================================== */
+Object.assign(SV_PAGES,{ejugend:['Jugend-Einschätzung','A- und B-Jugend auf dem Weg zu den Aktiven: Statistik, Entwicklung, Einschätzungen der Trainer']});
+function mn31U(v){ return v&&v.bestaetigt===false; }
+{ const _sk31=svtSpieler; svtSpieler=function(n){ const s=_sk31.apply(this,arguments); return s&&mn31U(n)?s+' (u)':s; }; }
+{ const _kd31=svtKader; svtKader=function(B){ const r=_kd31.apply(this,arguments);
+  try{ const a=/^a/.test(SVT.team||''), ch=B.querySelector('.svt-ch .btnrow'), offen=SVT.K.filter(k=>mn31U(k.vereinsspieler)&&k.status!=='abgang');
+    if(a&&ch&&!ch.querySelector('#svt31i'))ch.insertAdjacentHTML('afterbegin',`<button class="btn sm" id="svt31i" type="button">${SVI('download')} Von fussball.de übernehmen</button>`);
+    const bi=B.querySelector('#svt31i'); if(bi)bi.onclick=mn31JugendImport;
+    B.querySelectorAll('tr[data-svtp]').forEach(tr=>{ const k=SVT.K.find(x=>x.spieler===tr.dataset.svtp); if(k&&mn31U(k.vereinsspieler)){ tr.classList.add('svt31-u'); const b=tr.querySelector('td b'); if(b)b.title='Unbestätigt: aus fussball.de übernommen, der Spieler hat sich noch nicht bestätigt'; } });
+    if(offen.length){ const card=B.querySelector('.card'); card.insertAdjacentHTML('afterbegin',`<div class="svt31-hint">${SVI('info')}<span><b>${offen.length} unbestätigt (u)</b>: aus fussball.de übernommen. Jeder Spieler bestätigt sich selbst über seinen persönlichen Link oder lässt sich löschen.</span><button type="button" class="btn sm ghost" id="svt31l">Links verschicken</button></div>`);
+      card.querySelector('#svt31l').onclick=()=>mn31LinksModal(offen); }
+    // A-Jugend-Spieler, die im Datenbestand der Aktiven die Stammmannschaft „A-Jugend“ haben
+    if(a){ const L=players.filter(p=>!p.isJugend&&mnTeam(p)==='A'); if(L.length&&!B.querySelector('.svt31-akt')){ B.insertAdjacentHTML('beforeend',`<div class="card svt31-akt"><h3 class="trh">${SVI('users')} Bei den Aktiven geführt <small>${L.length}</small></h3>
+        <p class="note small">Diese A-Jugend-Spieler stehen im Spielerbestand der Aktiven (Stammmannschaft A-Jugend), zum Beispiel weil sie schon mittrainieren.</p>
+        <div class="mn31-l">${L.map(p=>`<div class="mn31-r" data-svt31p="${svEsc(p.id)}"><div class="mn31-n"><b>${svEsc(p.name)}</b><small>${svEsc([p.pos,mn31NrTxt(p)].filter(Boolean).join(' · '))}</small></div></div>`).join('')}</div></div>`);
+        B.querySelectorAll('[data-svt31p]').forEach(x=>x.onclick=()=>openModal(x.dataset.svt31p)); } }
+  }catch(e){ console.warn('Jugend 0.29',e); }
+  return r; }; }
+function mn31JugendImport(){
+  let url=''; try{ url=localStorage.getItem('svt31-fde-'+SVT.team)||''; }catch(e){}
+  const M=svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('download')}</div><div><h2 style="margin:0">Kader von fussball.de übernehmen</h2><div class="msub">${svEsc(svtM(SVT.team).name)} · Saison ${svEsc(svtSL(SVT.saison))}</div></div></div>
+    <p class="note">Die App liest die öffentliche Kaderliste der Mannschaft bei fussball.de. Übernommen werden nur Vor- und Nachname, keine Fotos, keine Kontaktdaten. Wer noch kein Profil hat, bekommt eins mit <b>(u)</b> für unbestätigt.</p>
+    <div class="field"><label>Link der Mannschaft bei fussball.de</label><input id="svt31u" type="url" inputmode="url" placeholder="https://www.fussball.de/mannschaft/…/team-id/…" value="${svEsc(url)}"></div>
+    <p class="note small">Unsere A-Junioren spielen nicht unter dem Vereinsnamen? Dann den Link der Spielgemeinschaft nehmen (auf fussball.de die Mannschaft öffnen und die Adresse kopieren).</p>
+    <div id="svt31r"></div>
+    <div class="btnrow sbact"><button class="btn" type="button" id="svt31go">${SVI('download')} Übernehmen</button><button class="btn ghost" type="button" id="svt31x">Schließen</button></div>`);
+  M.querySelector('#svt31x').onclick=()=>closeOverlay();
+  M.querySelector('#svt31go').onclick=async e=>{ const b=e.currentTarget, u=M.querySelector('#svt31u').value.trim(), R=M.querySelector('#svt31r');
+    if(!/^https:\/\/www\.fussball\.de\/mannschaft\/.+\/team-id\/[0-9A-Z]{20,40}/.test(u)){ R.innerHTML='<p class="bad">Bitte den Link einer Mannschaft bei fussball.de einfügen (er enthält „/team-id/“).</p>'; return; }
+    try{ localStorage.setItem('svt31-fde-'+SVT.team,u); }catch(x){}
+    b.disabled=true; b.textContent='Liest fussball.de …'; R.innerHTML='<p class="note">Das dauert bis zu einer Minute: für jeden Spieler wird das öffentliche Profil gelesen.</p>';
+    try{ const {data,error}=await SVB.sb.functions.invoke('kader-import',{body:{m:SVT.team,saison:SVT.saison,url:u}}); if(error)throw error; if(data&&data.error)throw new Error(data.error);
+      R.innerHTML=`<p><b>✓ ${data.gefunden} Spieler auf fussball.de</b>: ${data.neu} neu angelegt (u), ${data.vorhanden} schon vorhanden${data.ohne_name?`, ${data.ohne_name} ohne öffentlichen Namen (nicht übernommen)`:''}.</p>`;
+      b.disabled=false; b.innerHTML=SVI('download')+' Nochmal übernehmen'; await svtReload(); }
+    catch(x){ b.disabled=false; b.innerHTML=SVI('download')+' Übernehmen'; R.innerHTML=`<p class="bad">⚠️ ${svEsc(x.message||String(x))}</p>`; } };
+}
+function mn31BestLink(tok){ return location.origin+location.pathname.replace(/[^/]*$/,'')+'team.html#b='+tok; }
+async function mn31LinkFuer(sid){ const tok=await svtRpc('team_bestaetigung_link',{p_spieler:sid}); return mn31BestLink(tok); }
+function mn31WaText(v,url){ return `Hallo ${v.vorname}, wir haben dich in der App der SV/BSC Mörlenbach für die ${svtM(SVT.team).name} angelegt (nur Name, keine Kontaktdaten). Bitte kurz bestätigen, dass du das bist, oder löschen lassen:\n${url}`; }
+function mn31LinksModal(L){
+  svModal(`<div class="mhead"><div class="rm-ic" style="width:46px;height:46px">${SVI('send')}</div><div><h2 style="margin:0">Bestätigen lassen</h2><div class="msub">Jeder Spieler bekommt seinen eigenen Link: „Ja, das bin ich“ oder „Bitte löschen“</div></div></div>
+    <div class="mn31-l">${L.map(k=>`<div class="mn31-r" data-svt31b="${svEsc(k.spieler)}"><div class="mn31-n"><b>${svEsc(svtSpieler(k.vereinsspieler))}</b><small>noch nicht bestätigt</small></div><button class="btn sm" type="button" data-wa>WhatsApp</button><button class="btn sm ghost" type="button" data-cp>Link kopieren</button></div>`).join('')}</div>
+    <p class="note small">WhatsApp öffnet sich mit fertigem Text, die Nummer wählst du dort aus. Die App speichert keine Nummern.</p>
+    <div class="btnrow sbact"><button class="btn ghost" type="button" onclick="closeOverlay()">Schließen</button></div>`);
+  document.querySelectorAll('#modal [data-svt31b]').forEach(r=>{ const k=L.find(x=>x.spieler===r.dataset.svt31b);
+    r.querySelector('[data-wa]').onclick=async()=>{ const w=window.open('about:blank','_blank'); try{ const u=await mn31LinkFuer(k.spieler), t='https://wa.me/?text='+encodeURIComponent(mn31WaText(k.vereinsspieler,u)); if(w)w.location.href=t; else location.href=t; }catch(e){ if(w)w.close(); svtErr(e); } };
+    r.querySelector('[data-cp]').onclick=async()=>{ try{ const u=await mn31LinkFuer(k.spieler); try{ await navigator.clipboard.writeText(u); }catch(x){ prompt('Link',u); } kToast('✓ Link kopiert'); }catch(e){ svtErr(e); } }; });
+}
+{ const _sm31=svtSpielerModal; svtSpielerModal=function(sid){ const r=_sm31.apply(this,arguments);
+  try{ const k=SVT.K.find(x=>x.spieler===sid), M=document.getElementById('modal'); if(k&&mn31U(k.vereinsspieler)&&M&&!M.querySelector('.svt31-mb')){ const row=M.querySelector('.btnrow');
+      if(row){ row.insertAdjacentHTML('beforebegin',`<div class="svt31-hint svt31-mb">${SVI('info')}<span><b>Unbestätigt (u)</b>: aus fussball.de übernommen. Der Spieler bestätigt sich selbst oder lässt sich löschen.</span><button type="button" class="btn sm" data-svt31w>Link per WhatsApp</button></div>`);
+        M.querySelector('[data-svt31w]').onclick=()=>mn31LinksModal([k]); } } }catch(e){}
+  return r; }; }
+
+(function(){ try{ const s=document.createElement('style'); s.id='svm31css'; s.textContent="/* ===== Beta 0.29 · Mannschaften, Spiele, Eye-Test, Rückennummer, Teilen ===== */\n/* Umschalter 1./2. Mannschaft vorne in der Reiterleiste */\n.hub-in .mn31-sw{flex:none;display:flex;align-items:center;gap:2px;margin:6px 10px 6px 0;padding:3px;border-radius:12px;background:rgba(148,163,196,.1);border:1px solid var(--line2);align-self:center;}\n.hub-in .mn31-sw button{padding:6px 11px;border:0;border-radius:9px;font-size:12.5px;font-weight:800;color:var(--ink3);border-bottom:0;}\n.hub-in .mn31-sw button.act{background:var(--brand2);color:#fff;border-bottom:0;}\n.hub-in .mn31-sw .s{display:none;}\n@media (max-width:700px){ .hub-in .mn31-sw .l{display:none;} .hub-in .mn31-sw .s{display:inline;} .hub-in .mn31-sw{margin-right:6px;} }\n\n/* SOMA & Inaktive */\n.mn31 .mn31-seg{margin-bottom:10px;flex-wrap:wrap;}\n.mn31 .mn31-seg small{opacity:.7;font-weight:700;margin-left:3px;}\n.mn31-f{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0 12px;}\n.mn31-f input{flex:1;min-width:180px;}\n.mn31-l{display:flex;flex-direction:column;gap:6px;}\n.mn31-r{display:flex;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--line2);border-radius:12px;background:rgba(148,163,196,.04);cursor:pointer;flex-wrap:wrap;}\n.mn31-r:hover{border-color:var(--line);}\n.mn31-av{flex:none;display:flex;}\n.mn31-n{flex:1;min-width:140px;display:flex;flex-direction:column;gap:2px;}\n.mn31-n small{color:var(--ink3);font-size:12px;}\n.mn31-r select{min-width:170px;}\n\n/* Spiele */\n.mn31g .gm50-t small{display:block;color:var(--ink3);font-weight:600;font-size:12px;margin-top:2px;}\n.mn31-gr.bad .gm50-t small{color:#fca5a5;}\n.mn31-ok{font-style:normal;font-size:11.5px;font-weight:700;color:#86efac;display:inline-flex;align-items:center;gap:4px;}\n.mn31-off{font-weight:700;color:var(--brand2);}\n.mn31-src{margin-top:14px;border-top:1px solid var(--line2);padding-top:10px;}\n.mn31-src summary{cursor:pointer;font-weight:700;font-size:13.5px;color:var(--ink2);}\n.mn31-qt{margin-top:10px;}\n.mn31-qtab{width:100%;font-size:13px;}\n.mn31-qtab td{vertical-align:top;}\n.mn31-add{margin:12px 0 0;font-size:13px;display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;}\n.mn31-add a{color:var(--ink3);font-weight:700;text-decoration:underline;text-underline-offset:3px;}\n.sb31d{font-size:13px;color:var(--ink3);font-weight:700;margin-left:4px;}\n.sb31-info{display:flex;flex-direction:column;gap:8px;margin:4px 0 12px;}\n.sb31-src{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;}\n.sb31-src a{color:var(--brand2);}\n.sb31-ev{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;padding:8px 10px;border-radius:10px;background:rgba(148,163,196,.06);border:1px solid var(--line2);align-items:center;}\n.sb31-ev small{color:var(--ink3);}\n.sb31-hw{padding:10px 12px;border-radius:12px;border:1px solid rgba(248,113,113,.45);background:rgba(248,113,113,.08);font-size:13px;}\n.sb31-hw ul{margin:6px 0;padding-left:18px;}\n.sb31-hw svg{width:14px;height:14px;vertical-align:-2px;}\n.sb31-hw small{color:var(--ink3);}\n.sb31-st{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}\n.sb31-st label{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink3);font-weight:700;}\n.sb31-st input{width:58px;padding:5px 6px;font-size:13px;}\n.q50-weg{font-size:12.5px;color:var(--ink3);font-weight:700;margin-top:4px;}\n\n/* Training → Statistik: Abstand zwischen Kacheln und Liste */\n#panel-training .trtiles{margin-bottom:18px;}\n#panel-training .trtiles + .card,#panel-training .trtiles + div{margin-top:4px;}\n\n/* Eye-Test */\n.mn31-eye{margin:12px 0 14px;padding:12px;border-radius:14px;border:1px solid var(--line2);background:rgba(148,163,196,.04);}\n.mn31-eyeh{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;margin-bottom:10px;}\n.mn31-eyeh.tw{margin-top:14px;}\n.mn31-eyeh small{color:var(--ink3);font-size:12px;}\n.mn31-eyeh svg{width:15px;height:15px;vertical-align:-3px;}\n.mn31-eg{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;}\n.mn31-ek{border:1px solid var(--line2);border-radius:12px;background:var(--card);}\n.mn31-ek[open]{grid-column:1/-1;}\n.mn31-ek summary{cursor:pointer;list-style:none;padding:10px 12px;display:flex;flex-direction:column;gap:4px;}\n.mn31-ek summary::-webkit-details-marker{display:none;}\n.mn31-ekh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}\n.mn31-ekh em{font-style:normal;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;}\n.mn31-ekr{display:flex;flex-direction:column;gap:1px;font-size:12.5px;color:var(--ink2);font-variant-numeric:tabular-nums;}\n.mn31-ek summary small{color:var(--ink3);font-size:11.5px;}\n.mn31-ekl{list-style:none;margin:0;padding:0 12px 10px;display:flex;flex-direction:column;gap:4px;}\n.mn31-ekl li{display:grid;grid-template-columns:34px 120px 1fr;gap:8px;font-size:12.5px;align-items:baseline;border-top:1px solid var(--line2);padding-top:4px;}\n.mn31-ekl li b{font-variant-numeric:tabular-nums;}\n.mn31-ekl li span{color:var(--ink3);}\n@media (max-width:560px){ .mn31-ekl li{grid-template-columns:30px 1fr;} .mn31-ekl li em{grid-column:2;} }\n\n/* Profil: Rückennummer, Mannschaftsteil, Teilen */\n.pf31-nr{display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:40px;padding:0 8px;margin-right:10px;border-radius:12px;background:linear-gradient(160deg,var(--brand2),#1e3a8a);color:#fff;font-size:22px;font-weight:900;vertical-align:middle;font-variant-numeric:tabular-nums;box-shadow:0 6px 16px -8px rgba(59,123,255,.8);}\n.pf31-mt{font-weight:700;}\n.pf31-mt i{font-style:normal;font-size:11px;color:var(--ink3);font-weight:600;}\n.pf31-share{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;}\n.pf31-share small{color:var(--ink3);font-size:12px;flex-basis:100%;}\n\n/* Suche nach Rückennummer */\n.gres .su31 .su31-nr{font-style:normal;flex:none;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:rgba(59,123,255,.18);color:#bcd3ff;font-weight:900;font-variant-numeric:tabular-nums;}\n.gres .su31 .su31-nr.t{background:rgba(148,163,196,.15);color:var(--ink2);font-size:12px;}\n.su31 .gi{cursor:pointer;}\n\n/* Eigene Jugend: unbestätigt (u) */\ntr.svt31-u td b{color:var(--ink2);font-style:italic;}\n.svt31-hint{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border-radius:12px;border:1px solid rgba(250,204,21,.4);background:rgba(250,204,21,.07);font-size:13px;}\n.svt31-hint svg{width:16px;height:16px;flex:none;}\n.svt31-hint span{flex:1;min-width:200px;}\n.svt31-akt{margin-top:14px;}\n.mn31-back{margin-bottom:10px;}\n"; document.head.appendChild(s); }catch(e){} })();
+/* =====================================================================
    SV/BSC Scout · Runde 20: „Was ist neu“: Update-Fenster & Patch-Historie
    - Nach jedem Update ein Pop-up: das Wichtigste in Kürze → „OK“ oder „Mehr erfahren“ (ganze Historie)
    - Jederzeit erreichbar: Seitenleiste / „Mehr“ / Mein Konto → „Was ist neu“
@@ -16663,6 +17147,16 @@ if(typeof svKlaLaden==='function'){ const _kl=svKlaLaden; svKlaLaden=async funct
    Sichtbarkeit je Punkt: r:'team' (ohne Gäste) · r:'scout' · r:'admin' · ohne r = alle
    ===================================================================== */
 const SV_PATCHES=[
+  {id:'0.29',v:'0.29',datum:'2026-09-29',titel:'Mannschaften neu geordnet',kurz:'Unter „Mannschaften“ stehen jetzt 1. Mannschaft, 2. Mannschaft, SOMA & Inaktive und Eigene Jugend, auf Handy, Tablet und im Browser gleich. Die 2. Mannschaft hat dieselben Reiter wie die Erste.',
+   punkte:[
+    {ic:'👥',t:'1. und 2. Mannschaft',d:'Spieler, Training, Spiele, Verletzungen, Abwesenheiten, Materialdienst, Abstimmungen und Massenpflege, jeweils nur mit den Spielern der Stammmannschaft. Oben in der Reiterleiste schaltest du um.',go:'mann1',r:'team'},
+    {ic:'⚽',t:'Spiele laufen von selbst ein',d:'Vergangene und bevorstehende Spiele kommen aus FuPa und fussball.de, auch Freundschaftsspiele. Spiel antippen: Ergebnis, Torschützen, Karten und die Bewertung an einem Ort. Widersprechen sich die Quellen, steht ein Hinweis am Spiel.',go:'mann1',r:'team'},
+    {ic:'✅',t:'Training in Sekunden',d:'Einheit: Eindruck positiv, neutral oder negativ. Spieler: Da oder Fehlt, Eindruck und auf Wunsch eine Notiz. Keine Gründe, kein Details-Editor mehr.',go:'mann1',r:'team'},
+    {ic:'👁️',t:'Eye-Test erklärt',d:'In der Massenpflege steht je Kategorie, was welcher Wert bedeutet, dazu höchster, niedrigster und Durchschnittswert der Mannschaft.',r:'team'},
+    {ic:'🔢',t:'Rückennummer',d:'Groß im Profil. In der Suche findet „Fürth 15“ alle Fürther Mannschaften und alle Spieler mit der 15 aus den FuPa-Kadern.',r:'scout'},
+    {ic:'📲',t:'Profil teilen',d:'Im Profil auf „Teilen“: per WhatsApp oder als Link. Der Empfänger landet nach der Anmeldung direkt im Profil und sieht nur, was er sehen darf.',r:'team'},
+    {ic:'🌱',t:'Eigene Jugend und A-Jugend',d:'Nur noch die Jugendmannschaften. Die A-Jugend lässt sich von fussball.de übernehmen, neue Spieler stehen mit „(u)“ für unbestätigt da und bestätigen sich selbst über ihren Link oder lassen sich löschen.',go:'teams',r:'team'}
+   ]},
   {id:'0.28',v:'0.28',datum:'2026-09-29',titel:'Letzte veröffentlichte Einsätze',kurz:'Im Gegnercheck siehst du die zuletzt veröffentlichten FuPa-Aufstellungen: Startelf, Einsatzminuten, wer laut Spielstatistik ein- oder ausgewechselt wurde, und wer in der neueren Liste nicht mehr genannt ist.',
    punkte:[
     {ic:'📝',t:'Letzte veröffentlichte Einsätze',d:'Je Spiel mit Datum, Quelle und Prüfzeit. Unbekannte Minuten bleiben unbekannt, eine Wechselminute wird nicht geraten.',go:'gegner',r:'scout'},
