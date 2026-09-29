@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="favicon-64.png">
-<meta name="app-build" content="beta-0.27">
+<meta name="app-build" content="beta-0.28">
 <title>SV/BSC Sportzentrale</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" async></script>
 <style>
@@ -3678,6 +3678,33 @@ h2 .svm-i{vertical-align:3px;margin-left:8px}
 .gc-np{color:var(--warn);}
 .gc-rep .gc-pv{margin:0 0 8px;}
 
+/* ---------- Beta 0.28: Letzte veröffentlichte Einsätze ---------- */
+.gc-tn{border:1px solid var(--line);border-radius:14px;padding:0;margin:10px 0;overflow:hidden;background:var(--card);}
+.gc-tn>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 14px;font-size:14px;}
+.gc-tn>summary::-webkit-details-marker{display:none;}
+.gc-tn>summary span{color:var(--ink3);font-size:12.5px;font-variant-numeric:tabular-nums;}
+.gc-tn[open]>summary{border-bottom:1px solid var(--line2);}
+.gc-tn>*:not(summary){margin-left:14px;margin-right:14px;}
+.gc-tn-q{font-size:12px;color:var(--ink3);margin-top:10px;line-height:1.5;}
+.gc-tn-q a,.gc-src a{color:var(--brand2);}
+.gc-tn-q .linkbtn{all:unset;cursor:pointer;color:var(--brand2);text-decoration:underline;}
+.gc-tn-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:6px 22px;margin-top:8px;}
+.gc-tn-g h4{margin:8px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);}
+.gc-tnl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;font-size:13px;}
+.gc-tnl li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;}
+.gc-tnl li small{color:var(--ink3);font-variant-numeric:tabular-nums;}
+.gc-tnl em{font:800 9.5px/1 var(--font);font-style:normal;padding:2px 4px;border-radius:4px;background:var(--brandSoft);color:var(--brand2);}
+.gc-tag{font-style:normal;font-size:11px;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--ink2);}
+.gc-tag.in{border-color:rgba(22,163,74,.45);}
+.gc-unb{color:var(--ink3);font-style:italic;}
+.gc-vgl{margin:12px 14px 14px;padding:10px 12px;border-radius:12px;border:1px dashed var(--line);display:flex;flex-direction:column;gap:4px;font-size:13px;}
+.gc-vgl>small{color:var(--ink3);}
+.gc-vgl ul{margin:4px 0 0;padding-left:18px;}
+.gc-vgl .note{margin:4px 0 0;}
+.gc-src{font-size:11.5px;color:var(--ink3);}
+
+#gcBox ul.gc-tnl{padding:0;margin:0;list-style:none;}
+
 </style>
 <style id="v3gate">
 /* =====================================================================
@@ -4321,9 +4348,9 @@ a.kbtn{text-decoration:none;display:inline-block}
 
 
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
-<script>window.SVBC_CFG={"url": "https://lvaukuzgcwgqipxwzabo.supabase.co", "anon": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2YXVrdXpnY3dncWlweHd6YWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNTYwMTcsImV4cCI6MjEwNTczMjAxN30.jYZF8q8-SyCaWykM0wwcK58EzfTbO2VASKz1NIv1xbo", "build": "beta-0.27", "dataBytes": 3053230};</script>
-<script src="vendor/supabase.js?v=beta-0.27"></script>
-<script src="icons.js?v=beta-0.27"></script>
-<script src="boot.js?v=beta-0.27"></script>
+<script>window.SVBC_CFG={"url": "https://lvaukuzgcwgqipxwzabo.supabase.co", "anon": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2YXVrdXpnY3dncWlweHd6YWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNTYwMTcsImV4cCI6MjEwNTczMjAxN30.jYZF8q8-SyCaWykM0wwcK58EzfTbO2VASKz1NIv1xbo", "build": "beta-0.28", "dataBytes": 3053230};</script>
+<script src="vendor/supabase.js?v=beta-0.28"></script>
+<script src="icons.js?v=beta-0.28"></script>
+<script src="boot.js?v=beta-0.28"></script>
 </body>
 </html>
