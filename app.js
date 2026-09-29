@@ -2101,7 +2101,7 @@ function openSlotPicker(i,depth){
 }
 
 /* ===== App-Modus: installierbar, offline-fest, aktualisiert sich selbst ===== */
-const APP_BUILD='beta-0.26', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
+const APP_BUILD='beta-0.27', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
 let _appPrompt=null, _appNew=null, _obT=null;
 function appStandalone(){ try{ return !!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
 function appPlatform(){
@@ -11551,7 +11551,7 @@ const IMP_ART={verbindung:['Verbindung','Die Quelle war nicht erreichbar. Meist 
   begrenzt:['Begrenzt','Die Quelle bremst gerade wegen zu vieler Abrufe. Später klappt es wieder.'],
   abbruch:['Abgebrochen','Der Lauf wurde unterbrochen. Der nächste Abgleich macht an derselben Stelle weiter.'],
   konflikt:['Konflikt','Ein anderer Abgleich war gleichzeitig dran. Es ist nichts verloren gegangen, der nächste Abgleich lädt den gespeicherten Stand neu.']};
-const IMP_KIND={team_firstRound:'Hinrundentabelle',team_secondRound:'Rückrundentabelle',match_summary:'Spiele der ersten Mannschaft',match_lineup:'Aufstellungen mit Einzelwerten',match_events:'Spiel-Highlights',match_coverage:'Abdeckung Spielplan',player_stats:'Spielerstatistik',player_mvp:'MVP der Quelle je Saison',team_total:'Tabelle gesamt',team_home:'Heimtabelle',team_away:'Auswärtstabelle',team_form:'Form',
+const IMP_KIND={team_firstRound:'Hinrundentabelle',team_secondRound:'Rückrundentabelle',match_summary:'Spiele (eigene und Gegner)',match_lineup:'Aufstellungen mit Einzelwerten',match_events:'Spiel-Highlights',match_coverage:'Abdeckung Spielplan',player_stats:'Spielerstatistik',player_mvp:'MVP der Quelle je Saison',team_total:'Tabelle gesamt',team_home:'Heimtabelle',team_away:'Auswärtstabelle',team_form:'Form',
   league_history:'Saisonchronik der Ligen',stats_coverage:'Abdeckung der Statistik',team_table:'Tabelle',team_stats:'Mannschaftsstatistik',screenshot:'Screenshot'};
 const IMP_LIGA={'herren-gruppenliga-darmstadt':'Gruppenliga Darmstadt','herren-kreisoberliga-bergstrasse':'Kreisoberliga Bergstraße','kla-bergstrasse':'Kreisliga A Bergstraße',
   'klb-bergstrasse':'Kreisliga B Bergstraße','klc-bergstrasse':'Kreisliga C Bergstraße','kreisliga-d-1-bergstrasse':'Kreisliga D Bergstraße 1','kld2-bergstrasse':'Kreisliga D Bergstraße 2'};
@@ -13868,7 +13868,8 @@ if(SV50_INFO['training:gstat'])Object.assign(SV50_INFO['training:gstat'],{w:'Ein
 function svmPlanLoad(after){
   if(SVM.plan||SVM.planBusy||SVM.planTry>2)return; if(!(canTraining()||(typeof canScout==='function'&&canScout())))return;
   SVM.planBusy=true; SVM.planTry++;
-  Promise.resolve(SVB.sb.rpc('kla_spielplan')).then(r=>{ SVM.planBusy=false; if(!r.error){ SVM.plan=Array.isArray(r.data)?r.data:[]; try{ after&&after(); }catch(e){} } },()=>{ SVM.planBusy=false; });
+  Promise.resolve(SVB.sb.rpc('kla_spielplan')).then(r=>{ SVM.planBusy=false; if(!r.error){ SVM.plan=(Array.isArray(r.data)?r.data:[]).filter(g=>!('own_side' in g)||g.own_side==='home'||g.own_side==='away');   // nur eigene Spiele (Gegnerberichte gehören in den Gegnercheck)
+ try{ after&&after(); }catch(e){} } },()=>{ SVM.planBusy=false; });
 }
 const svmPlanD=g=>String(g.anstoss||'').slice(0,10);
 function svmPlanVorbei(){ const t=trToday(); return (SVM.plan||[]).filter(g=>svmPlanD(g)&&svmPlanD(g)<=t&&g.status!=='PRE'&&svmPlanD(g)>=sv50Start()); }
@@ -16358,7 +16359,7 @@ function gcEinsaetze(sp){
   return {liste:[...m.values()].map(x=>({...x,min:Math.max(0,Math.min(130,x.bis-x.von))})),bank:(A.bank||[]).filter(k=>!m.has(k)),kader:new Set([...(A.start||[]),...(A.bank||[])]),tw:A.tw||null,c:A.c||null};
 }
 function gcAuswertung(D,key){
-  const G=gcSpiele(D,key), gespielt=G.filter(g=>g.e), mitAuf=G.filter(g=>g.a&&g.a[g.side]&&(g.a[g.side].start||[]).length>=7);
+  const G=gcSpiele(D,key), gespielt=G.filter(g=>g.e), mitAuf=G.filter(g=>g.a&&g.a[g.side]&&(g.a[g.side].start||[]).length>=7), voll=G.filter(g=>g.a&&g.a[g.side]&&(g.a[g.side].start||[]).length>=11);
   // Torminuten und Halbzeiten
   const bins={f:[0,0,0,0,0,0],a:[0,0,0,0,0,0]}, hz={f:[0,0],a:[0,0]}; let mitVerlauf=0;
   G.forEach(g=>{ if(!g.b||!g.v.some(gcTor))return; mitVerlauf++; g.v.filter(gcTor).forEach(e=>{ const b=gcBin(e); if(b==null)return; const w=e.s===g.side?'f':'a'; bins[w][b]++; hz[w][b<3?0:1]++; }); });
@@ -16369,7 +16370,9 @@ function gcAuswertung(D,key){
   const E=mitAuf.map(g=>({g,x:gcEinsaetze(g)})).filter(o=>o.x);
   const sp=new Map(); E.forEach(({g,x},idx)=>{ x.liste.forEach(p=>{ const s=sp.get(p.k)||{k:p.k,start:0,eins:0,min:0,tore:0,letzte4:0,tw:0,c:0}; if(p.start)s.start++; s.eins++; s.min+=p.min; s.tore+=p.tore; if(idx>=E.length-4&&p.start)s.letzte4++; if(x.tw===p.k)s.tw++; if(x.c===p.k)s.c++; sp.set(p.k,s); }); });
   const stamm=[...sp.values()].sort((a,b)=>b.start-a.start||b.min-a.min);
-  const fehlt=[]; if(E.length>=3){ stamm.filter(s=>s.start>=3&&s.start/E.length>=0.5).forEach(s=>{ let n=0; for(let i=E.length-1;i>=0;i--){ if(E[i].x.kader.has(s.k))break; n++; } if(n>=1)fehlt.push({...s,seit:n,zuletzt:E[E.length-1].g}); }); }
+  // Abwesenheit nur aus vergleichbaren, vollständig veröffentlichten Aufstellungen (mindestens vier, das letzte Spiel eingeschlossen), ohne Grund
+  const EV=voll.map(g=>({g,x:gcEinsaetze(g)})).filter(o=>o.x), letzteVoll=EV.length&&G.filter(g=>g.b).slice(-1)[0]===EV[EV.length-1].g;
+  const fehlt=[]; if(EV.length>=4&&letzteVoll){ stamm.filter(s=>{ const st=EV.filter(o=>o.x.liste.some(p=>p.k===s.k&&p.start)).length; return st>=3&&st/EV.length>=0.5; }).forEach(s=>{ let n=0; for(let i=EV.length-1;i>=0;i--){ if(EV[i].x.kader.has(s.k))break; n++; } if(n>=1)fehlt.push({...s,seit:n,zuletzt:EV[EV.length-1].g}); }); }
   const elf=[...sp.values()].filter(s=>s.letzte4>0).sort((a,b)=>b.letzte4-a.letzte4||b.start-a.start||b.min-a.min).slice(0,11);
   // Karten und Platzverweise
   const karten={gelb:0,gelbrot:0,rot:0}; G.forEach(g=>{ karten.gelb+=g.karten.gelb; karten.gelbrot+=g.karten.gelbrot; karten.rot+=g.karten.rot; });
@@ -16380,7 +16383,7 @@ function gcAuswertung(D,key){
   G.filter(g=>g.b&&g.e&&g.v.some(gcTor)).forEach(g=>{ const first=g.v.filter(gcTor).sort((a,b)=>((a.m??0)*100+(a.x||0))-((b.m??0)*100+(b.x||0)))[0]; if(!first)return;
     const w=first.s===g.side?'fuehrung':'rueckstand'; lage[w].sp++; lage[w].pkt+=g.e==='S'?3:g.e==='U'?1:0; });
   const zuNull=gespielt.filter(g=>g.ta===0).length, ohneTor=gespielt.filter(g=>g.tf===0).length;
-  return {G,gespielt,mitAuf:E.length,mitVerlauf,bins,hz,schuetzen,stamm,fehlt,elf,karten,letztes,pv,lage,zuNull,ohneTor};
+  return {G,gespielt,mitAuf:E.length,mitVoll:EV.length,mitVerlauf,bins,hz,schuetzen,stamm,fehlt,elf,karten,letztes,pv,lage,zuNull,ohneTor};
 }
 // Klare Sätze für das Trainerteam, nur wenn die Datenlage trägt
 function gcHinweise(A,wer){
@@ -16397,15 +16400,20 @@ function gcHinweise(A,wer){
   if(A.gespielt.length>=4&&A.karten.gelb/A.gespielt.length>=2.5)out.push(`${wer} sammelt viele Karten: ${A.karten.gelb} Gelbe in ${A.gespielt.length} Spielen.`);
   return out;
 }
-// Positionsmix der Startelf laut FuPa (Positionsgruppe aus dem Spielerprofil, kein taktisches System)
-function gcFupaMix(D,key){
-  return (D&&D.fupa||[]).filter(f=>f.hk===key||f.gk===key).map(f=>{ const p=(f.hk===key?f.pos&&f.pos.h:f.pos&&f.pos.g)||{}; const ab=p.Abwehr||0, mi=p.Mittelfeld||0, an=p.Angriff||p.Sturm||0;
-    return ab+mi+an>=9?{datum:f.datum,mix:`${ab}-${mi}-${an}`,gegner:f.hk===key?f.gk:f.hk}:null; }).filter(Boolean);
-}
+// FuPa (KLA): Bericht zum Spiel über die Spiel-ID der Liga (serverseitig über team_season_id + Datum verbunden)
+const GC_KARTE={card_yellow:'gelb',card_yellow_red:'gelbrot',card_second_yellow:'gelbrot',card_red:'rot'};
+function gcFupa(D,sp){ return D&&sp?(D.fupa||[]).find(x=>x.id===sp.id)||null:null; }
 function gcFupaKarten(D,sp){
-  if(!D||!sp)return []; const f=(D.fupa||[]).find(x=>x.id===sp.id); return f?(f.karten||[]):[];
+  const f=gcFupa(D,sp); if(!f||!Array.isArray(f.ev))return [];
+  return f.ev.filter(e=>e.t==='card').map(e=>({s:e.s,name:e.name||null,t:GC_KARTE[e.st]||(/red/.test(e.st||'')?(/yellow/.test(e.st)?'gelbrot':'rot'):'gelb'),m:e.m,x:e.x}));
 }
-
+// Positionsverteilung der Startelf laut FuPa: nur veröffentlichte, vollständige Startelf, ausdrücklich keine Formation
+const GC_POS=['Torwart','Abwehr','Mittelfeld','Angriff','unbekannt'];
+function gcPosText(p){ return GC_POS.filter(k=>k!=='unbekannt'||(p[k]||0)>0).map(k=>`${k} ${p[k]||0}`).join(' · '); }
+function gcFupaVerteilung(D,key){
+  const L=(D&&D.fupa||[]).filter(f=>f.auf&&f.auf[f.seite]&&f.auf[f.seite].availability==='published'&&(f.auf[f.seite].start_n||0)>=11&&f.auf[f.seite].pos);
+  if(!L.length)return null; const f=L[L.length-1]; return {pos:f.auf[f.seite].pos,datum:f.datum,n:L.length};
+}
 /* ---------- Formkurve zum Antippen ---------- */
 // Tabellenplatz je Spiel: die Fieberkurve hat einen Wert je Spieltag. Spieltage = Wochen mit mehreren Ligaspielen,
 // ein Nachholspiel unter der Woche bekommt den Platz des Spieltags davor.
@@ -16461,18 +16469,39 @@ function gcBericht(key,id){
   svModal(`<div class="gc-rep">
     <div class="gc-rh"><div>${scCrest(r.heim,'xl')}<b>${svEsc(r.heim)}</b></div><div class="gc-re"><strong>${svEsc(erg)}</strong><small>${svEsc(spWd(r.datum))}${r.zeit?' · '+svEsc(r.zeit):''}</small></div><div>${scCrest(r.gast,'xl')}<b>${svEsc(r.gast)}</b></div></div>
     ${sp.b?`<h3 class="trh">Spielverlauf</h3><div class="gc-tl">${zeilen.join('')||'<div class="note">Kein Verlauf veröffentlicht.</div>'}</div>`:'<div class="note">Für dieses Spiel gibt es bei FUSSBALL.DE noch keinen Spielbericht. Das Ergebnis stammt aus der Tabelle.</div>'}
-    ${fk.length?`<h3 class="trh">Karten laut FuPa</h3><div class="gc-fk">${fk.map(k=>`<span class="${k.s}">${GC_ART[k.t]?GC_ART[k.t][0]:''} ${svEsc(k.name)} <small>${svEsc(k.s==='h'?r.heim:r.gast)}</small></span>`).join('')}</div>`:''}
     ${sp.b&&r.a?`<h3 class="trh">Aufstellungen</h3><div class="gc-auf"><div><h4>${svEsc(r.heim)}</h4>${auf('h')}</div><div><h4>${svEsc(r.gast)}</h4>${auf('g')}</div></div>`:''}
-    <p class="note">Quelle: öffentlicher Spielbericht auf FUSSBALL.DE. Karten stehen dort ohne Namen im Klartext, darum zeigt die App bei Karten nur Minute und Mannschaft${fk.length?', die Namen oben kommen von FuPa':''}.</p></div>`);
+    ${gcFupaBlock(D,sp,r)}
+    <p class="note">Quelle: öffentlicher Spielbericht auf FUSSBALL.DE. Karten stehen dort ohne Namen im Klartext${fk.length?', die Namen kommen aus dem FuPa-Spielbericht':''}.</p></div>`);
+}
+
+// Ergänzung aus FuPa im Spielbericht: Karten mit veröffentlichten Namen, Aufstellung je Seite (oder „nicht veröffentlicht“),
+// Positionsverteilung der Startelf (keine bestätigte Formation), Hinweis auf nicht vollständig bestätigten Verlauf
+function gcFupaBlock(D,sp,r){
+  const f=gcFupa(D,sp); if(!f)return '';
+  const K=gcFupaKarten(D,sp), nm=s=>s==='h'?r.heim:r.gast;
+  const seite=s=>{ const A=f.auf&&f.auf[s]; if(!A)return '<div class="note">Keine Aufstellung von FuPa.</div>';
+    if(A.availability!=='published')return '<div class="note gc-np">Aufstellung nicht veröffentlicht. Wer gespielt hat, ist damit unbekannt.</div>';
+    const st=(A.spieler||[]).filter(p=>p.start), bk=(A.spieler||[]).filter(p=>!p.start);
+    const li=p=>`<li><span>${svEsc(p.name||'ohne Namen')}</span>${p.c?'<em>C</em>':''}${p.tore?`<i>${'⚽'.repeat(Math.min(p.tore,4))}</i>`:''}${p.gelbrot?' <i class="gc-k yr"></i>':p.rot?' <i class="gc-k r"></i>':p.gelb?' <i class="gc-k y"></i>':''}<small>${p.pos?svEsc(p.pos)+' · ':''}${p.min!=null?p.min+'′':''}</small></li>`;
+    return `${(A.start_n||0)<11?`<div class="note gc-np">Startelf unvollständig veröffentlicht (${A.start_n||0} Spieler).</div>`:''}
+      <div class="gc-pv">Positionsverteilung der Startelf: ${svEsc(gcPosText(A.pos||{}))}<small>laut veröffentlichter Position, keine bestätigte Formation</small></div>
+      ${sp.b&&r.a?'':`<ol>${st.map(li).join('')}</ol>${bk.length?`<div class="gc-bk">Ersatz</div><ul>${bk.map(li).join('')}</ul>`:''}`}`; };
+  const tore=(f.ev||[]).filter(e=>e.t==='goal');
+  return `<h3 class="trh">Aus dem FuPa-Spielbericht</h3>
+    ${K.length?`<div class="gc-fk">${K.map(k=>`<span class="${k.s||''}">${GC_ART[k.t][0]} ${k.m!=null?svEsc(k.m+(k.x?'+'+k.x:'')+'. '):''}${svEsc(k.name||'ohne veröffentlichten Namen')} <small>${svEsc(k.s?nm(k.s):'')} · ${svEsc(GC_ART[k.t][1])}</small></span>`).join('')}</div>`:'<div class="note">Keine Karten im FuPa-Bericht.</div>'}
+    ${!sp.b&&tore.length?`<div class="gc-tl">${tore.map(e=>`<div class="gc-ev ${e.s||'h'} t-tor"><span class="gc-m">${svEsc((e.m??'')+(e.x?'+'+e.x:'')+'.')}</span><span class="gc-ic">⚽</span><span class="gc-tx"><b>${svEsc(e.name||'ohne Namen')}</b></span></div>`).join('')}</div>`:''}
+    <div class="gc-auf"><div><h4>${svEsc(r.heim)}</h4>${seite('h')}</div><div><h4>${svEsc(r.gast)}</h4>${seite('g')}</div></div>
+    ${f.timeline_ok===false?'<p class="note">FuPa zeigt nur veröffentlichte Höhepunkte, der Verlauf ist nicht als vollständig bestätigt.</p>':''}`;
 }
 
 /* ---------- Karten im Gegnercheck ---------- */
 function gcKarteVorSpiel(D,key,wer){
   const A=gcAuswertung(D,key); A.schuetzen.forEach(x=>x.name=gcName(D,x.k));
-  const hin=gcHinweise(A,wer), mix=gcFupaMix(D,key);
+  const hin=gcHinweise(A,wer), vt=gcFupaVerteilung(D,key);
   const pvFu=A.letztes?gcFupaKarten(D,A.letztes).filter(k=>k.s===A.letztes.side&&(k.t==='gelbrot'||k.t==='rot')):[];
   const sperre=A.pv.length?`<div class="gc-warn"><b>🟥 Platzverweis im letzten Spiel</b><span>${A.pv.map(e=>`${GC_ART[e.t][1]} (${gcMin(e)} Minute)`).join(', ')} gegen ${svEsc(A.letztes.opp)} am ${svEsc(spWd(A.letztes.datum)).replace(/\.$/,'')}.
-      ${pvFu.length?` Laut FuPa: <b>${pvFu.map(k=>svEsc(k.name)).join(', ')}</b>.`:' Wer es war, nennt FUSSBALL.DE nicht im Klartext.'} Nach Gelb-Rot oder Rot ist der Spieler in der Regel im nächsten Spiel gesperrt.</span></div>`:'';
+      ${pvFu.filter(k=>k.name).length?` Laut FuPa: <b>${pvFu.filter(k=>k.name).map(k=>svEsc(k.name)).join(', ')}</b>.`:' Wer es war, nennt FUSSBALL.DE nicht im Klartext.'} Nach Gelb-Rot oder Rot folgt oft eine Sperre, eine bestätigte Sperre liefert aber keine Quelle.</span></div>`:'';
+  const pvSaison=(D.fupa||[]).flatMap(f=>(f.ev||[]).filter(e=>e.t==='card'&&e.s===f.seite&&/red/.test(e.st||'')&&e.name).map(e=>({...e,datum:f.datum})));
   const fehlt=A.fehlt.slice(0,6).map(s=>`<li><b>${svEsc(gcName(D,s.k)||'Name folgt')}</b><span>${s.start} von ${A.mitAuf} Spielen in der Startelf${s.tore?', '+s.tore+' Tor'+(s.tore>1?'e':''):''}</span><em>${s.seit===1?'letztes Spiel':'letzte '+s.seit+' Spiele'} nicht im Kader</em></li>`).join('');
   const elf=A.elf.map(s=>`<li><span>${svEsc(gcName(D,s.k)||'Name folgt')}</span>${s.tw?'<em>TW</em>':''}${s.c?'<em>C</em>':''}<small>${s.letzte4}/${Math.min(4,A.mitAuf)}</small></li>`).join('');
   const mx=Math.max(1,...A.bins.f,...A.bins.a);
@@ -16484,9 +16513,11 @@ function gcKarteVorSpiel(D,key,wer){
       <div><h4 class="sph4">Wann fallen die Tore?</h4>${A.mitVerlauf?`<div class="gc-bins">${bins}</div><div class="splegend"><span style="--c:var(--gc-f)">Tore</span><span style="--c:var(--gc-a)">Gegentore</span></div><small class="note">Aus ${A.mitVerlauf} Spielberichten. 1. Halbzeit ${A.hz.f[0]}:${A.hz.a[0]}, 2. Halbzeit ${A.hz.f[1]}:${A.hz.a[1]}.</small>`:'<div class="note">Noch keine Spielberichte mit Toren.</div>'}</div>
       <div><h4 class="sph4">Torschützen mit Minute</h4>${sch?`<ul class="gc-li">${sch}</ul>`:'<div class="note">Noch keine Torschützen aus Spielberichten.</div>'}</div>
       <div><h4 class="sph4">Häufigste Startelf zuletzt</h4>${elf?`<ul class="gc-elf">${elf}</ul><small class="note">Startelf-Einsätze in den letzten ${Math.min(4,A.mitAuf)} Spielen mit Aufstellung.</small>`:'<div class="note">Noch keine Aufstellungen veröffentlicht.</div>'}</div>
-      <div><h4 class="sph4">Stammspieler zuletzt nicht im Kader</h4>${fehlt?`<ul class="gc-li gc-fehlt">${fehlt}</ul><small class="note">Nur aus den veröffentlichten Aufstellungen, ohne Grund. Über Verletzungen oder Privates sagt die App nichts.</small>`:`<div class="note">${A.mitAuf>=3?'Alle Stammspieler standen zuletzt im Kader.':'Dafür braucht es mindestens drei veröffentlichte Aufstellungen.'}</div>`}</div>
+      <div><h4 class="sph4">Stammspieler zuletzt nicht im Kader</h4>${fehlt?`<ul class="gc-li gc-fehlt">${fehlt}</ul><small class="note">Nur aus vollständig veröffentlichten Aufstellungen, ohne Grund. Über Verletzungen oder Sperren sagt die App damit nichts.</small>`:`<div class="note">${A.mitVoll>=4?'Alle Stammspieler standen zuletzt im Kader.':'Dafür braucht es mindestens vier vollständig veröffentlichte Aufstellungen, das letzte Spiel eingeschlossen.'}</div>`}</div>
     </div>
-    <div class="gc-facts"><span>🟨 ${A.karten.gelb} Gelbe</span><span>🟨🟥 ${A.karten.gelbrot} Gelb-Rote</span><span>🟥 ${A.karten.rot} Rote</span><span>🧱 ${A.zuNull}× zu Null</span><span>🚫 ${A.ohneTor}× ohne eigenes Tor</span>${mix.length?`<span title="Positionsgruppen der Startelf laut FuPa-Profil">📋 FuPa-Positionsmix ${svEsc(mix[mix.length-1].mix)}</span>`:''}</div>`;
+    <div class="gc-facts"><span>🟨 ${A.karten.gelb} Gelbe</span><span>🟨🟥 ${A.karten.gelbrot} Gelb-Rote</span><span>🟥 ${A.karten.rot} Rote</span><span>🧱 ${A.zuNull}× zu Null</span><span>🚫 ${A.ohneTor}× ohne eigenes Tor</span></div>
+    ${vt?`<div class="gc-pv">Positionsverteilung der Startelf laut FuPa (${svEsc(spWd(vt.datum))}): ${svEsc(gcPosText(vt.pos))}<small>veröffentlichte Positionen, keine bestätigte Formation</small></div>`:''}
+    ${pvSaison.length?`<div class="gc-pv">Platzverweise laut FuPa: ${pvSaison.map(e=>`${svEsc(e.name)} (${e.st==='card_red'?'Rot':'Gelb-Rot'}, ${svEsc(spWd(e.datum))})`).join(', ')}<small>Karten aus veröffentlichten Spielberichten, keine Sperrenliste</small></div>`:''}`;
 }
 function gcGemeinsam(Do,oKey,Dw,wKey){
   if(!Do||!Dw)return ''; const O=gcSpiele(Do,oKey).filter(g=>g.e), W=gcSpiele(Dw,wKey).filter(g=>g.e); const out=[];
@@ -16517,7 +16548,7 @@ async function gcEnhance(){
       ${D?gcKurve(D,key,wer):'<div class="note">Noch keine Daten.</div>'}</div>
     <div class="card gc-card"><h3 class="trh">${SVI('target')} Vor dem Spiel: ${svEsc(sicht==='wir'?W:oppName)}</h3>${D?gcKarteVorSpiel(D,key,sicht==='wir'?'Unser Team':oppName):''}</div>
     ${gcGemeinsam(Do,oppKey,Dw,own)}
-    <div class="note">Spielberichte: FUSSBALL.DE, öffentlich. ${Do.berichte_liga||0} von ${Do.spiele_liga||0} Ligaspielen mit Bericht${Do.stand?', Stand '+new Date(Do.stand).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}.${(Do.fupa||[]).length?' Positionen und Kartennamen ergänzt aus FuPa (nur intern).':''}</div>`;
+    <div class="note">Spielberichte: FUSSBALL.DE, öffentlich. ${Do.berichte_liga||0} von ${Do.spiele_liga||0} Ligaspielen mit Bericht${Do.stand?', Stand '+new Date(Do.stand).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}.${(Do.fupa||[]).length?` FuPa-Spielberichte des Gegners: ${(Do.fupa||[]).length} (nur intern${Do.fupa_abdeckung&&Do.fupa_abdeckung.detail_targets!=null?', Quelle plant bis zu '+svEsc(Do.fupa_abdeckung.detail_targets)+' Berichte':''}).`:''}</div>`;
   gcBind(box);
 }
 function gcBind(root){
@@ -16537,6 +16568,12 @@ SV_PAGES.gegner=['Gegnercheck','Der nächste Gegner: Formkurve, Spielberichte, T
    Sichtbarkeit je Punkt: r:'team' (ohne Gäste) · r:'scout' · r:'admin' · ohne r = alle
    ===================================================================== */
 const SV_PATCHES=[
+  {id:'0.27',v:'0.27',datum:'2026-09-29',titel:'Gegner-Spielberichte von FuPa',kurz:'Im Gegnercheck stehen jetzt auch die FuPa-Spielberichte des Gegners: Karten mit Namen, die Verteilung der Startelf-Positionen und ob eine Aufstellung überhaupt veröffentlicht wurde.',
+   punkte:[
+    {ic:'🟥',t:'Karten mit Namen',d:'Gelb-Rot und Rot aus den FuPa-Spielberichten mit dem veröffentlichten Namen und der Minute. Eine Sperrenliste ist das nicht.',go:'gegner',r:'scout'},
+    {ic:'📋',t:'Positionsverteilung statt Formation',d:'Wie viele Torhüter, Abwehr-, Mittelfeld- und Angriffsspieler in der Startelf standen, laut veröffentlichter Position. Eine bestätigte Formation gibt es nicht.',go:'gegner',r:'scout'},
+    {ic:'🧭',t:'Eigene und fremde Spiele sauber getrennt',d:'Spiele anderer Mannschaften erscheinen nur im Gegnercheck, nie in deinem Kalender oder bei unseren Ergebnissen.',r:'team'}
+   ]},
   {id:'0.26',v:'0.26',datum:'2026-09-28',titel:'Gegnercheck mit Spielberichten',kurz:'Der Gegnercheck zeigt jetzt den ganzen Saisonverlauf des Gegners: jeder Spieltag mit Wappen und Ergebnis, antippen öffnet den Spielbericht mit Toren, Minuten, Karten, Wechseln und Aufstellungen.',
    punkte:[
     {ic:'📈',t:'Formkurve zum Antippen',d:'Tabellenplatz oder Form je Spieltag, mit dem Wappen des jeweiligen Gegners. Ein Tipp öffnet den Spielbericht.',go:'gegner',r:'team'},
