@@ -2101,7 +2101,7 @@ function openSlotPicker(i,depth){
 }
 
 /* ===== App-Modus: installierbar, offline-fest, aktualisiert sich selbst ===== */
-const APP_BUILD='beta-0.30', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
+const APP_BUILD='beta-0.31', OUTBOX_KEY='svbcOutbox', APP_HIDE_KEY='svbcInstallHide';
 let _appPrompt=null, _appNew=null, _obT=null;
 function appStandalone(){ try{ return !!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
 function appPlatform(){
@@ -17202,6 +17202,481 @@ function sv32Wire(root){ (root||document).querySelectorAll('.sv32').forEach(el=>
     setTimeout(()=>{ try{ sv32Wire(document.getElementById('svqDet')); }catch(e){} },0); return h; }; }
 
 /* =====================================================================
+   Sportzentrale Beta 0.31 · Aufgaben & Checklisten
+   - Jedes Heimspiel (Erste, Zweite, Jugend) und jede Veranstaltung (Kerwe, Weihnachten, Turnier, Saisonfeier, Arbeitseinsatz,
+     Jahreshauptversammlung, Neujahrsempfang) hat eine Checkliste zum Abhaken wie eine Einkaufsliste.
+   - Große Kreise zum Antippen, Häkchen mit Animation, erledigte Punkte rutschen nach unten. Alles erledigt: kleines Feuerwerk.
+   - Neuer Punkt: oben eintippen, fertig. Er kommt beim nächsten Mal automatisch wieder (Vorlage merkt sich das).
+   - Verantwortliche und Durchführende: App-Nutzer oder Helfer ohne Konto (persönlicher Link per WhatsApp).
+   - Kleiner Chat je Checkliste mit Namen, Fotos und Dateien landen sortiert im Vereins-Drive.
+   - Erinnerungen per Push: am Vorabend, eine Woche vor Veranstaltungen und kurz vor jeder Aufgabe (Server, orga_erinnern).
+   - Große Schrift, klare Wörter, wenig Knöpfe: gedacht auch für Leute, die nicht jeden Tag Apps bedienen.
+   ===================================================================== */
+const OG={ue:null,L:null,filter:'alle',merken:true,t:null,laedt:false,offen:null,chatN:0,vorlage:null};
+const OG_ART={heim1:['🏟️','Heimspiel Erste'],heim2:['🏟️','Heimspiel Zweite'],heimjgd:['⚽','Jugend-Heimspiel'],kerwe:['🎪','Kerwe'],weihnacht:['🎄','Weihnachten'],
+  turnier:['🏆','Turnier'],saisonfeier:['🎉','Saisonfeier'],arbeit:['🛠️','Arbeitseinsatz'],jhv:['🏛️','Jahreshauptversammlung'],neujahr:['🥂','Neujahrsempfang'],sonstiges:['📋','Veranstaltung']};
+const OG_GRP=[['vorher','Vorher'],['spieltag','Am Tag'],['danach','Danach']];
+// Vereinsformulare (Stand 09/2026). F-09 Rechnungsvorlage enthält die Bankdaten und liegt deshalb nicht öffentlich in der App.
+const OG_FORM={'F-01':['Aufnahmeantrag','Neues Mitglied, mit SEPA-Mandat','F-01-Aufnahmeantrag.pdf'],'F-02':['Einwilligung Foto & Video','Vor Fotos und Social-Media-Posts','F-02-Einwilligung-Foto-Video.pdf'],
+  'F-03':['Notfall- und Gesundheitsbogen Jugend','Bei Jugendspielen und Turnieren beim Betreuer','F-03-Notfall-Gesundheitsbogen-Jugend.pdf'],'F-04':['Trainer- und Übungsleitervereinbarung','Bei neuen Trainern und Betreuern','F-04-Trainer-Uebungsleitervereinbarung.pdf'],
+  'F-05':['Auslagen- und Fahrtkostenabrechnung','Wer bei Spielen oder Events etwas ausgelegt hat','F-05-Auslagen-Fahrtkostenabrechnung.pdf'],'F-06':['Spieltag-Kassenabrechnung','Nach jedem Heimspiel (geht auch direkt in der App)','F-06-Spieltag-Kassenabrechnung.pdf'],
+  'F-07':['Heimspiel-Checkliste','Papierfassung der Heimspiel-Liste','F-07-Heimspiel-Checkliste.pdf'],'F-08':['Protokoll Abteilungssitzung','Sitzungen und Jahreshauptversammlung','F-08-Protokoll-Abteilungssitzung.pdf'],
+  'F-10':['Helfer-Schichtplan','Spieltage, Kerwe, Turniere (geht auch direkt in der App)','F-10-Helfer-Schichtplan.pdf'],'F-11':['Wochen-Trainingsplan','Für Trainer, jede Woche','F-11-Wochen-Trainingsplan.pdf'],
+  'F-12':['Abmeldung & Spielerfreigabe','Beim Vereinswechsel (1.7. bis 31.8. und im Januar)','F-12-Abmeldung-Spielerfreigabe.pdf']};
+const OG_FORM_ART={heim1:['F-07','F-06','F-10','F-05'],heim2:['F-07','F-06','F-10','F-05'],heimjgd:['F-03','F-06','F-10','F-02'],kerwe:['F-10','F-06','F-05'],weihnacht:['F-10','F-06','F-05'],
+  turnier:['F-10','F-03','F-06','F-05'],saisonfeier:['F-10','F-05','F-02'],arbeit:['F-05'],jhv:['F-08','F-05'],neujahr:['F-10','F-05','F-02'],sonstiges:['F-10','F-05']};
+const ogFormUrl=k=>'formulare/'+(OG_FORM[k]||[])[2];
+SV_TBL.orga=['check','Aufgaben'];
+Object.assign(SV_PAGES,{orga:['Aufgaben','Checklisten für Heimspiele und Veranstaltungen: abhaken, verteilen, absprechen']});
+{ const _ta=svTabAllowed; svTabAllowed=function(t){ if(t==='orga')return typeof SVR==='undefined'||!SVR.loaded||!!SVR.role; return _ta.apply(this,arguments); }; }
+function ogPanel(){ let P=document.getElementById('panel-orga'); if(P)return P;
+  const ref=document.getElementById('panel-home')||document.querySelector('.panel'); if(!ref)return null;
+  P=document.createElement('section'); P.className='panel'; P.id='panel-orga'; ref.parentNode.insertBefore(P,ref.nextSibling); return P; }
+{ const _gt=goTab; goTab=function(tab){ if(tab==='orga')ogPanel(); const was=svCurTab(); const r=_gt.apply(this,arguments);
+    try{ const jetzt=svCurTab(); if(jetzt==='orga'&&was!=='orga'){ OG.L=null; ogRender(); } if(jetzt!=='orga')ogStop(); }catch(e){ console.warn('Aufgaben',e); } return r; }; }
+
+/* ---------- Hilfen ---------- */
+const ogE=s=>svEsc(s==null?'':String(s));
+const ogHeute=()=>{ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+function ogTag(d){ try{ const x=new Date(d+'T12:00:00'), h=ogHeute(), n=Math.round((x-new Date(h+'T12:00:00'))/864e5);
+  const rel=n===0?'Heute':n===1?'Morgen':n===-1?'Gestern':n>1&&n<7?'in '+n+' Tagen':null;
+  return (rel?rel+', ':'')+x.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'}); }catch(e){ return d; } }
+function ogUhr(ts){ try{ const x=new Date(ts); return x.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } }
+function ogWann(ts,datum){ if(!ts)return ''; try{ const x=new Date(ts), d=x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+  if(d===datum)return ogUhr(ts)+' Uhr'; const n=Math.round((new Date(datum+'T12:00:00')-new Date(d+'T12:00:00'))/864e5);
+  return (n>0&&n<=14?n+' '+(n===1?'Tag':'Tage')+' vorher':x.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}))+(n>0&&n<=2?', '+ogUhr(ts):''); }catch(e){ return ''; } }
+function ogRing(f,n,gross){ const p=n?f/n:0, r=gross?34:20, c=2*Math.PI*r, s=gross?84:52;
+  return `<svg class="og-ring${gross?' gross':''}" viewBox="0 0 ${s} ${s}" width="${s}" height="${s}" aria-hidden="true"><circle cx="${s/2}" cy="${s/2}" r="${r}" class="bg"/>
+    <circle cx="${s/2}" cy="${s/2}" r="${r}" class="fg${p>=1?' voll':''}" style="stroke-dasharray:${c.toFixed(1)};stroke-dashoffset:${(c*(1-p)).toFixed(1)}" transform="rotate(-90 ${s/2} ${s/2})"/>
+    <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle">${p>=1&&n?'✓':Math.round(p*100)+'%'}</text></svg>`; }
+async function ogRpc(fn,args){ const {data,error}=await SVB.sb.rpc(fn,args||{}); if(error)throw new Error(/42501|Berechtigung/.test(error.message+error.code)?'Dafür fehlt dir die Berechtigung.':error.message); return data; }
+function ogStop(){ if(OG.t){ clearInterval(OG.t); OG.t=null; } }
+function ogStart(){ ogStop(); OG.t=setInterval(()=>{ if(document.hidden||svCurTab()!=='orga'||!OG.L||document.querySelector('#panel-orga :focus'))return; ogLaden(OG.L.id,true); },10000); }
+function ogFeier(el){ try{ if(typeof sv43Reduced==='function'&&sv43Reduced())return; const r=(el||document.body).getBoundingClientRect(), box=document.createElement('div'); box.className='og-konfetti';
+  box.style.left=(r.left+r.width/2)+'px'; box.style.top=(r.top+Math.min(r.height/2,120))+'px';
+  const F=['#3b7bff','#22c55e','#f59e0b','#ec4899','#a855f7','#14b8a6'];
+  for(let i=0;i<28;i++){ const s=document.createElement('i'); const a=Math.random()*Math.PI*2, d=60+Math.random()*120; s.style.setProperty('--x',Math.cos(a)*d+'px'); s.style.setProperty('--y',(Math.sin(a)*d-60)+'px'); s.style.background=F[i%F.length]; s.style.animationDelay=(Math.random()*.12)+'s'; box.appendChild(s); }
+  document.body.appendChild(box); setTimeout(()=>box.remove(),1400); }catch(e){} }
+
+/* ---------- Übersicht ---------- */
+async function ogRender(){
+  const P=ogPanel(); if(!P)return;
+  if(OG.L){ ogListeZeigen(); return; }
+  if(!OG.ue){ P.innerHTML='<div class="card"><div class="empty">Lade Checklisten …</div></div>'; }
+  try{ OG.ue=await ogRpc('orga_uebersicht',{p_tage:120}); }catch(e){ if(!OG.ue){ P.innerHTML=`<div class="card"><div class="empty">Checklisten konnten nicht geladen werden. ${ogE(e.message)}</div></div>`; return; } }
+  if(OG.L||svCurTab()!=='orga')return;
+  const U=OG.ue, h=ogHeute(), L=U.listen||[], kommend=L.filter(l=>l.datum>=h), vorbei=L.filter(l=>l.datum<h).reverse(), meine=L.reduce((a,l)=>a+(l.meine||0),0);
+  const karte=l=>{ const a=OG_ART[l.art]||OG_ART.sonstiges;
+    return `<button type="button" class="og-karte${l.n&&l.fertig===l.n?' fertig':''}" data-ogl="${ogE(l.id)}"><span class="og-em">${a[0]}</span>
+      <span class="og-kt"><b>${ogE(l.titel)}</b><small>${ogE(ogTag(l.datum))}${l.zeit?' · '+ogE(l.zeit)+' Uhr':''}</small>
+        <small class="og-v">${l.verantwortlich_name?'Verantwortlich: '+ogE(l.verantwortlich_name):'Noch niemand verantwortlich'}</small>
+        ${l.meine?`<em class="og-mein">${l.meine} für dich</em>`:''}</span>
+      ${ogRing(l.fertig,l.n)}</button>`; };
+  P.innerHTML=`<div class="og-kopf"><div><h2>Aufgaben</h2><p>Tippe eine Checkliste an. Abhaken geht mit einem Tipp auf den Kreis.</p></div>
+      ${U.darf?`<button class="btn og-neu" type="button" id="ogNeu">${SVI('plus')} Neue Checkliste</button>`:''}</div>
+    ${meine?`<button type="button" class="og-meine" id="ogMeine"><span>👋</span><b>Du hast ${meine} offene Aufgabe${meine>1?'n':''}</b><i>${SVI('chev')}</i></button>`:''}
+    ${kommend.length?`<div class="og-karten">${kommend.map(karte).join('')}</div>`:`<div class="card og-leer"><div class="og-leer-em">✅</div><b>Gerade steht nichts an</b><p>Heimspiele und Veranstaltungen bekommen ihre Checkliste automatisch ein bis zwei Wochen vorher.${U.darf?' Du kannst auch selbst eine anlegen.':''}</p></div>`}
+    ${vorbei.length?`<details class="og-vorbei"><summary>Vergangene Checklisten (${vorbei.length})</summary><div class="og-karten">${vorbei.map(karte).join('')}</div></details>`:''}
+    <div class="og-fuss"><button type="button" class="btn ghost sm" id="ogForm">📄 Formulare</button>${U.darf?`<button type="button" class="btn ghost sm" id="ogRol">${SVI('users')} Zuständigkeiten</button><button type="button" class="btn ghost sm" id="ogVorl">${SVI('book')} Vorlagen ansehen und ändern</button>${!U.drive&&svRole()==='admin'?`<button type="button" class="btn ghost sm" id="ogDrive">${SVI('upload')} Vereins-Drive verbinden</button>`:''}`:''}</div>`;
+  P.querySelectorAll('[data-ogl]').forEach(b=>b.onclick=()=>ogOeffnen(b.dataset.ogl));
+  const nb=P.querySelector('#ogNeu'); if(nb)nb.onclick=()=>ogNeuForm();
+  const mb=P.querySelector('#ogMeine'); if(mb)mb.onclick=()=>{ const l=kommend.find(x=>x.meine)||L.find(x=>x.meine); if(l){ OG.filter='meine'; ogOeffnen(l.id); } };
+  const vb=P.querySelector('#ogVorl'); if(vb)vb.onclick=()=>ogVorlagen();
+  P.querySelector('#ogForm').onclick=()=>ogFormulare(); const rb=P.querySelector('#ogRol'); if(rb)rb.onclick=()=>ogRollen();
+  const db=P.querySelector('#ogDrive'); if(db)db.onclick=()=>ogDriveSetup();
+}
+async function ogOeffnen(id,filter){ if(filter)OG.filter=filter; if(svCurTab()!=='orga'){ ogPanel(); goTab('orga'); }
+  const P=ogPanel(); OG.L={id,laedt:true}; P.innerHTML='<div class="card"><div class="empty">Lade Checkliste …</div></div>';
+  await ogLaden(id); window.scrollTo(0,0); }
+async function ogLaden(id,still){
+  try{ const L=await ogRpc('orga_liste',{p_id:id}); const alt=OG.L&&OG.L.id===id?OG.L:null; OG.L=L;
+    if(still&&alt&&JSON.stringify(alt.punkte)===JSON.stringify(L.punkte)&&(alt.chat||[]).length===(L.chat||[]).length&&(alt.dateien||[]).length===(L.dateien||[]).length)return;
+    ogListeZeigen(); if(!OG.t)ogStart(); }
+  catch(e){ if(!still){ OG.L=null; kToast('⚠️ '+e.message); ogRender(); } } }
+
+/* ---------- Eine Checkliste ---------- */
+function ogPunktHtml(p,L){ const done=!!p.e, ich=(OG.ue&&OG.ue.ich)||'', meins=p.wu&&p.wu===ich, jetzt=Date.now(), ueber=!done&&p.f&&new Date(p.f).getTime()<jetzt;
+  return `<div class="og-p${done?' done':''}${meins?' meins':''}" data-ogp="${ogE(p.id)}">
+    <button type="button" class="og-haken" data-ogh="${ogE(p.id)}" aria-label="${done?'Wieder offen':'Erledigt'}: ${ogE(p.t)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"/></svg></button>
+    <button type="button" class="og-pt" data-oge="${ogE(p.id)}"><b>${ogE(p.t)}</b>
+      <span class="og-pm">${p.f?`<i class="og-uhr${ueber?' ueber':''}">${SVI('clock')} ${ogE(ogWann(p.f,L.datum))}</i>`:''}
+        ${p.wn?`<i class="og-wer${meins?' ich':''}">${SVI('user')} ${meins?'Du':ogE(p.wn)}</i>`:done?'':`<i class="og-wer leer">+ Wer macht das?</i>`}
+        ${done&&p.ev?`<i class="og-ev">✓ ${ogE(p.ev)}</i>`:''}${p.n?`<i class="og-notiz">„${ogE(p.n.slice(0,60))}“</i>`:''}</span></button>
+    ${p.fo&&OG_FORM[p.fo]?`<button type="button" class="og-fo" data-ogfo="${ogE(p.fo)}">${p.fo==='F-10'?'👥 Schichtplan':p.fo==='F-06'?'💶 Kasse':'📄 '+ogE(p.fo)}</button>`:''}</div>`; }
+function ogListeZeigen(){
+  const P=ogPanel(), L=OG.L; if(!P||!L||!L.punkte)return;
+  const a=OG_ART[L.art]||OG_ART.sonstiges, ich=(OG.ue&&OG.ue.ich)||'', alle=L.punkte, fertig=alle.filter(p=>p.e).length;
+  const sicht=alle.filter(p=>OG.filter==='meine'?p.wu===ich:true), offen=sicht.filter(p=>!p.e), erledigt=sicht.filter(p=>p.e);
+  const scroll=window.scrollY, chatAuf=document.getElementById('ogChatIn')===document.activeElement;
+  const neuChat=(L.chat||[]).length;
+  P.innerHTML=`<button type="button" class="og-zurueck" id="ogZur">${SVI('chev')} Alle Checklisten</button>
+    <div class="card og-hero"><div class="og-ht"><span class="og-em gross">${a[0]}</span><div><small>${ogE(L.art_titel||a[1])}</small><h2>${ogE(L.titel)}</h2>
+      <p>${ogE(ogTag(L.datum))}${L.zeit?' · '+ogE(L.zeit)+' Uhr':''}${L.ort?' · '+ogE(L.ort):''}</p></div>${ogRing(fertig,alle.length,true)}</div>
+      <div class="og-hstat"><b>${fertig} von ${alle.length} erledigt</b>${fertig===alle.length&&alle.length?' 🎉':''}</div>
+      <button type="button" class="og-verant" id="ogVer">${SVI('shield')} ${L.verantwortlich_name?'Verantwortlich: <b>'+ogE(L.verantwortlich_name)+'</b>':'<b>Verantwortlich festlegen</b>'}</button>
+      ${/^heim[12]$/.test(L.art)&&OG.ue&&OG.ue.darf?`<button type="button" class="og-verant og-sotd" id="ogSotd">⭐ ${L.sotd?'Partner des Tages: <b>'+ogE(L.sotd)+'</b>':'Partner des Tages festlegen'}</button>`:''}</div>
+    <form class="og-add" id="ogAdd" autocomplete="off"><input id="ogAddIn" maxlength="160" placeholder="Was muss noch erledigt werden?" aria-label="Neue Aufgabe" enterkeyhint="done">
+      <button class="btn" type="submit" aria-label="Hinzufügen">${SVI('plus')}</button></form>
+    <label class="og-merk"><input type="checkbox" id="ogMerk"${OG.merken?' checked':''}> Beim nächsten Mal automatisch wieder auf die Liste</label>
+    <div class="og-filter" role="tablist"><button type="button" data-ogf="alle" class="${OG.filter!=='meine'?'on':''}">Alle Aufgaben</button><button type="button" data-ogf="meine" class="${OG.filter==='meine'?'on':''}">Nur meine</button></div>
+    ${OG_GRP.map(([g,t])=>{ const X=offen.filter(p=>p.g===g); return X.length?`<div class="og-grp"><h3>${t} <small>${X.length}</small></h3>${X.map(p=>ogPunktHtml(p,L)).join('')}</div>`:''; }).join('')}
+    ${!offen.length?`<div class="card og-alle"><div class="og-leer-em">${sicht.length?'🎉':'🙌'}</div><b>${sicht.length?'Alles erledigt!':OG.filter==='meine'?'Für dich steht hier nichts an.':'Noch keine Aufgaben.'}</b>${sicht.length?'<p>Danke an alle, die mitgeholfen haben.</p>':''}</div>`:''}
+    ${erledigt.length?`<details class="og-grp og-erl"${offen.length?'':' open'}><summary>Erledigt <small>${erledigt.length}</small></summary>${erledigt.map(p=>ogPunktHtml(p,L)).join('')}</details>`:''}
+    ${ogSchichtHtml(L)}${ogKasseKarte(L)}
+    <div class="card og-helfer"><h3>${SVI('users')} Helfer ohne App</h3><p>Schick einem Helfer seinen eigenen Link per WhatsApp. Er sieht die Liste, hakt ab und kann im Chat schreiben, ganz ohne Anmeldung.</p>
+      <div class="og-hl">${(L.helfer||[]).map(h=>`<button type="button" class="og-hchip" data-oghl="${ogE(h.token)}" data-ogn="${ogE(h.name)}">${SVI('share')} ${ogE(h.name)}</button>`).join('')}
+      <button type="button" class="btn ghost sm" id="ogHelferNeu">${SVI('plus')} Helfer einladen</button></div></div>
+    <div class="card og-chat" id="ogChat"><h3>${SVI('chat')} Absprache <small>${neuChat?neuChat+' Nachricht'+(neuChat>1?'en':''):''}</small></h3>
+      <div class="og-msgs" id="ogMsgs">${(L.chat||[]).map(c=>`<div class="og-m${c.u&&c.u===ich?' ich':''}"><b>${ogE(c.von)}</b>${c.datei&&c.text==='📎 '+c.datei.name?'':`<p>${ogE(c.text)}</p>`}${c.datei?`<a href="${ogE(c.datei.link||'#')}" target="_blank" rel="noopener" class="og-datei">${SVI('file')} ${ogE(c.datei.name)}</a>`:''}<small>${ogE(new Date(c.at).toLocaleString('de-DE',{weekday:'short',hour:'2-digit',minute:'2-digit'}))}</small></div>`).join('')||'<p class="note">Noch keine Nachricht. Hier stimmt ihr euch ab, zum Beispiel wer den Grill mitbringt.</p>'}</div>
+      <form class="og-send" id="ogSend" autocomplete="off"><label class="og-att" title="Foto oder Datei">${SVI('camera')}<input type="file" id="ogFile" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" hidden></label>
+        <input id="ogChatIn" maxlength="1000" placeholder="Nachricht schreiben" aria-label="Nachricht" enterkeyhint="send"><button class="btn" type="submit" aria-label="Senden">${SVI('send')}</button></form>
+      <p class="note og-dhin">${OG.ue&&OG.ue.drive===false?'Fotos und Dateien gehen, sobald der Vereins-Drive verbunden ist.':'Fotos und Dateien landen sortiert im Vereins-Drive'}${L.drive_link?` · <a href="${ogE(L.drive_link)}" target="_blank" rel="noopener">Ordner öffnen</a>`:''}</p></div>
+    ${(L.dateien||[]).length?`<div class="card og-dateien"><h3>${SVI('file')} Dateien</h3>${L.dateien.map(d=>`<a href="${ogE(d.link||'#')}" target="_blank" rel="noopener" class="og-dz">${/^image/.test(d.mime||'')?'🖼️':'📄'} <b>${ogE(d.name)}</b><small>${ogE(d.von||'')}</small></a>`).join('')}</div>`:''}
+    ${ogNummernHtml(L)}${ogFormHtml(L.art)}`;
+  window.scrollTo(0,scroll);
+  P.querySelector('#ogZur').onclick=()=>{ OG.L=null; ogStop(); OG.filter='alle'; ogRender(); window.scrollTo(0,0); };
+  P.querySelector('#ogVer').onclick=()=>ogWerWahl('Wer ist verantwortlich?',L.verantwortlich,true,async v=>{ OG.L=await ogRpc('orga_liste_aendern',{p_id:L.id,p:{verantwortlich:v.id||v.name||''}}); OG.L=await ogRpc('orga_liste',{p_id:L.id}); ogListeZeigen(); kToast('✓ Gespeichert'); });
+  const so=P.querySelector('#ogSotd'); if(so)so.onclick=()=>ogSotd();
+  P.querySelectorAll('[data-ogfo]').forEach(b=>b.onclick=()=>{ const k=b.dataset.ogfo; if(k==='F-06')return ogKasse(); if(k==='F-10'){ const c=document.getElementById('ogSchicht'); if(c){ c.scrollIntoView({behavior:'smooth',block:'start'}); c.classList.add('blink'); setTimeout(()=>c.classList.remove('blink'),1200); } return; } window.open(ogFormUrl(k),'_blank','noopener'); });
+  ogSchichtWire(P); const kb=P.querySelector('#ogKasseGo'); if(kb)kb.onclick=()=>ogKasse();
+  P.querySelector('#ogMerk').onchange=e=>{ OG.merken=e.target.checked; };
+  P.querySelector('#ogAdd').onsubmit=async e=>{ e.preventDefault(); const i=P.querySelector('#ogAddIn'), t=i.value.trim(); if(t.length<2){ i.focus(); return; }
+    i.disabled=true; try{ const R=await ogRpc('orga_punkt_neu',{p_liste:L.id,p_titel:t,p_gruppe:null,p_merken:OG.merken}); OG.L=Object.assign(OG.L,R); svSound('pop'); svHaptic('light'); ogListeZeigen();
+      const n=document.getElementById('ogAddIn'); if(n)n.focus(); const neu=[...document.querySelectorAll('.og-p:not(.done) .og-pt b')].find(b=>b.textContent===t); if(neu)neu.closest('.og-p').classList.add('neu'); }
+    catch(x){ kToast('⚠️ '+x.message); i.disabled=false; } };
+  P.querySelectorAll('[data-ogf]').forEach(b=>b.onclick=()=>{ OG.filter=b.dataset.ogf; ogListeZeigen(); });
+  P.querySelectorAll('[data-ogh]').forEach(b=>b.onclick=()=>ogHaken(b.dataset.ogh,b));
+  P.querySelectorAll('[data-oge]').forEach(b=>b.onclick=()=>ogPunktForm(b.dataset.oge));
+  P.querySelector('#ogHelferNeu').onclick=()=>ogHelferNeu();
+  P.querySelectorAll('[data-oghl]').forEach(b=>b.onclick=()=>ogHelferTeilen(b.dataset.ogn,b.dataset.oghl));
+  P.querySelector('#ogSend').onsubmit=async e=>{ e.preventDefault(); const i=P.querySelector('#ogChatIn'), t=i.value.trim(); if(!t)return; i.disabled=true;
+    try{ const R=await ogRpc('orga_chat_senden',{p_liste:L.id,p_text:t}); OG.L=Object.assign(OG.L,R); ogListeZeigen(); const n=document.getElementById('ogChatIn'); if(n)n.focus(); ogChatUnten(); }
+    catch(x){ kToast('⚠️ '+x.message); i.disabled=false; } };
+  P.querySelector('#ogFile').onchange=e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(f)ogHochladen(f); };
+  const M=document.getElementById('ogMsgs'); if(M&&(!OG.chatN||neuChat!==OG.chatN))M.scrollTop=M.scrollHeight; OG.chatN=neuChat;
+  if(chatAuf){ const n=document.getElementById('ogChatIn'); if(n)n.focus(); }
+}
+function ogChatUnten(){ const M=document.getElementById('ogMsgs'); if(M)M.scrollTop=M.scrollHeight; }
+async function ogHaken(id,btn){
+  const L=OG.L, p=L.punkte.find(x=>x.id===id); if(!p)return; const an=!p.e, row=btn.closest('.og-p');
+  row.classList.add(an?'hakt':'loest'); svHaptic(an?'success':'light'); svSound(an?'success':'tick');
+  const vorher=L.punkte.filter(x=>x.e).length;
+  try{ const R=await ogRpc('orga_punkt_haken',{p_id:id,p_erledigt:an}); await new Promise(r=>setTimeout(r,an?520:200)); OG.L=Object.assign(OG.L,R); ogListeZeigen();
+    const n=OG.L.punkte.length, f=OG.L.punkte.filter(x=>x.e).length; if(an&&f===n&&vorher<n){ ogFeier(document.querySelector('.og-hero')); kToast('🎉 Alles erledigt, danke!'); } }
+  catch(x){ row.classList.remove('hakt','loest'); kToast('⚠️ '+x.message); } }
+
+/* ---------- Punkt bearbeiten ---------- */
+function ogPunktForm(id){
+  const L=OG.L, p=L.punkte.find(x=>x.id===id); if(!p)return;
+  const f=p.f?new Date(p.f):null, uhr=f?String(f.getHours()).padStart(2,'0')+':'+String(f.getMinutes()).padStart(2,'0'):'';
+  const tag=f?f.getFullYear()+'-'+String(f.getMonth()+1).padStart(2,'0')+'-'+String(f.getDate()).padStart(2,'0'):L.datum;
+  const M=svModal(`<div class="og-form"><h2>${ogE(p.t)}</h2>
+    <label class="og-fl">Was genau?<input id="ogPt" maxlength="160" value="${ogE(p.t)}"></label>
+    <label class="og-fl">Wer macht das?<button type="button" class="og-werbtn" id="ogPw">${p.wn?SVI('user')+' '+ogE(p.wn):'+ Person auswählen'}</button></label>
+    <div class="og-zwei"><label class="og-fl">Tag<input type="date" id="ogPd" value="${ogE(tag)}"></label><label class="og-fl">Uhrzeit<input type="time" id="ogPu" value="${ogE(uhr)}"></label></div>
+    <label class="og-fl">Wann in der Liste?<div class="og-seg">${OG_GRP.map(([g,t])=>`<button type="button" data-ogg="${g}" class="${p.g===g?'on':''}">${t}</button>`).join('')}</div></label>
+    <label class="og-fl">Notiz<input id="ogPn" maxlength="500" value="${ogE(p.n||'')}" placeholder="z.B. Schlüssel liegt im Vereinsheim"></label>
+    <div class="btnrow sbact"><button class="btn" type="button" id="ogPs">${SVI('check')} Speichern</button><button class="btn ghost" type="button" onclick="closeOverlay()">Abbrechen</button></div>
+    <div class="og-weg"><button type="button" class="btn ghost sm" id="ogPx">${SVI('trash')} Aufgabe entfernen</button><label><input type="checkbox" id="ogPxv"> auch beim nächsten Mal weglassen</label></div></div>`);
+  let g=p.g, wer; M.querySelectorAll('[data-ogg]').forEach(b=>b.onclick=()=>{ g=b.dataset.ogg; M.querySelectorAll('[data-ogg]').forEach(x=>x.classList.toggle('on',x===b)); });
+  M.querySelector('#ogPw').onclick=()=>ogWerWahl('Wer macht das?',p.wu,true,v=>{ wer=v; M.querySelector('#ogPw').innerHTML=v.name?SVI('user')+' '+ogE(v.name):'+ Person auswählen'; },M);
+  M.querySelector('#ogPs').onclick=async()=>{ const b=M.querySelector('#ogPs'); b.disabled=true;
+    const d=M.querySelector('#ogPd').value, u=M.querySelector('#ogPu').value, patch={t:M.querySelector('#ogPt').value,g,n:M.querySelector('#ogPn').value};
+    if(u&&d&&(d!==tag||u!==uhr))patch.am=d+'T'+u; else if(!u&&uhr)patch.uhr='';
+    if(wer)patch.wer=wer.id||wer.name||'';
+    try{ const R=await ogRpc('orga_punkt_aendern',{p_id:id,p:patch}); OG.L=Object.assign(OG.L,R); closeOverlay(); ogListeZeigen(); kToast('✓ Gespeichert'); }catch(x){ b.disabled=false; kToast('⚠️ '+x.message); } };
+  M.querySelector('#ogPx').onclick=async()=>{ const b=M.querySelector('#ogPx');
+    if(!b.dataset.sicher){ b.dataset.sicher='1'; b.innerHTML=SVI('trash')+' Wirklich entfernen?'; b.classList.add('warn'); return; }
+    try{ const R=await ogRpc('orga_punkt_loeschen',{p_id:id,p_aus_vorlage:M.querySelector('#ogPxv').checked}); OG.L=Object.assign(OG.L,R); closeOverlay(); ogListeZeigen(); kToast('✓ Entfernt'); }catch(x){ kToast('⚠️ '+x.message); } };
+}
+// Person auswählen: App-Nutzer (Liste mit Suche) oder freier Name (Helfer ohne App)
+function ogWerWahl(titel,aktuell,freiErlaubt,fertig,zurueck){
+  const leute=(OG.L&&OG.L.leute)||(OG.ue&&OG.ue.leute)||[], ich=(OG.ue&&OG.ue.ich)||'';
+  const box=document.createElement('div'); box.className='og-wahl'; box.innerHTML=`<div class="og-wahl-in"><h3>${ogE(titel)}</h3>
+    <input id="ogWs" placeholder="Name suchen oder eintippen" maxlength="60" autocomplete="off">
+    <div class="og-wl" id="ogWl"></div>
+    <div class="btnrow"><button type="button" class="btn ghost" data-ogwx>Abbrechen</button>${aktuell?'<button type="button" class="btn ghost" data-ogw0>Niemand</button>':''}</div></div>`;
+  document.body.appendChild(box); requestAnimationFrame(()=>box.classList.add('auf'));
+  const zu=()=>{ box.classList.remove('auf'); setTimeout(()=>box.remove(),200); };
+  const zeig=()=>{ const q=box.querySelector('#ogWs').value.trim(), ql=q.toLowerCase();
+    const T=leute.filter(x=>!ql||x.name.toLowerCase().includes(ql)).sort((a,b)=>(b.id===ich)-(a.id===ich)).slice(0,30);
+    box.querySelector('#ogWl').innerHTML=(T.map(x=>`<button type="button" data-ogwi="${ogE(x.id)}" class="${x.id===aktuell?'on':''}">${SVI('user')} ${x.id===ich?'Ich ('+ogE(x.name)+')':ogE(x.name)}</button>`).join(''))
+      +(freiErlaubt&&q.length>=2&&!T.some(x=>x.name.toLowerCase()===ql)?`<button type="button" data-ogwf class="frei">${SVI('plus')} „${ogE(q)}“ eintragen <small>(ohne App)</small></button>`:'')
+      +(!T.length&&!(freiErlaubt&&q.length>=2)?'<p class="note">Niemand gefunden.</p>':'');
+    box.querySelectorAll('[data-ogwi]').forEach(b=>b.onclick=()=>{ const x=leute.find(y=>y.id===b.dataset.ogwi); zu(); fertig({id:x.id,name:x.name}); });
+    const fr=box.querySelector('[data-ogwf]'); if(fr)fr.onclick=()=>{ zu(); fertig({id:null,name:q}); }; };
+  box.querySelector('#ogWs').oninput=zeig; zeig(); setTimeout(()=>{ try{ box.querySelector('#ogWs').focus(); }catch(e){} },80);
+  box.querySelector('[data-ogwx]').onclick=zu; const n0=box.querySelector('[data-ogw0]'); if(n0)n0.onclick=()=>{ zu(); fertig({id:null,name:''}); };
+  box.onclick=e=>{ if(e.target===box)zu(); };
+}
+
+/* ---------- Helfer-Links ---------- */
+function ogHelferUrl(tok){ return location.origin+location.pathname.replace(/[^/]*$/,'')+'team.html#h='+tok; }
+function ogHelferNeu(){ ogWerWahl('Wen möchtest du einladen?',null,true,async v=>{ if(!v.name)return;
+  try{ const tok=await ogRpc('orga_helfer_link',{p_liste:OG.L.id,p_name:v.name}); OG.L=await ogRpc('orga_liste',{p_id:OG.L.id}); ogListeZeigen(); ogHelferTeilen(v.name,tok); }catch(x){ kToast('⚠️ '+x.message); } }); }
+function ogHelferTeilen(name,tok){
+  const L=OG.L, url=ogHelferUrl(tok), mine=L.punkte.filter(p=>!p.e&&p.wn&&p.wn.toLowerCase()===String(name).toLowerCase());
+  const text=`Hallo ${name.split(' ')[0]}, hier ist die Checkliste für ${L.titel} (${ogTag(L.datum)}${L.zeit?', '+L.zeit+' Uhr':''}).${mine.length?' Deine Aufgaben: '+mine.map(p=>p.t).join(', ')+'.':''} Abhaken und Absprache hier: ${url}`;
+  const M=svModal(`<div class="og-form"><h2>${SVI('share')} Link für ${ogE(name)}</h2><p class="note">Der Link gilt nur für diese Checkliste und läuft zwei Wochen nach dem Termin ab. Keine Anmeldung nötig.</p>
+    <textarea class="og-wtext" readonly rows="5">${ogE(text)}</textarea>
+    <div class="btnrow sbact"><a class="btn og-wa" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">${SVI('send')} Per WhatsApp schicken</a><button class="btn ghost" type="button" id="ogCopy">${SVI('copy')} Kopieren</button></div></div>`);
+  M.querySelector('#ogCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(text); kToast('✓ Kopiert'); }catch(e){ const t=M.querySelector('.og-wtext'); t.select(); } };
+}
+
+/* ---------- Dateien ---------- */
+function ogBase64(blob){ return new Promise((ok,nein)=>{ const r=new FileReader(); r.onload=()=>ok(String(r.result).split(',')[1]||''); r.onerror=nein; r.readAsDataURL(blob); }); }
+async function ogVerkleinern(f){ // Handyfotos: auf 2400 Pixel und JPEG, damit das Hochladen schnell geht
+  if(!/^image\/(jpeg|png|webp)$/.test(f.type)||f.size<1500000)return f;
+  try{ const img=await createImageBitmap(f), s=Math.min(1,2400/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height); const b=await new Promise(r=>c.toBlob(r,'image/jpeg',0.85)); return b&&b.size<f.size?new File([b],f.name.replace(/\.\w+$/,'')+'.jpg',{type:'image/jpeg'}):f; }catch(e){ return f; } }
+async function ogHochladen(f0){
+  const L=OG.L; if(!L)return; if(OG.ue&&OG.ue.drive===false){ kToast('⚠️ Der Vereins-Drive ist noch nicht verbunden. Das macht der Admin einmal.'); return; }
+  const hin=document.querySelector('.og-dhin'); const alt=hin?hin.innerHTML:''; if(hin)hin.innerHTML='⏳ Lädt in den Vereins-Drive …';
+  try{ const f=await ogVerkleinern(f0); if(f.size>15*1024*1024)throw new Error('Die Datei ist zu groß (höchstens 15 MB).');
+    const text=(document.getElementById('ogChatIn')||{}).value||'';
+    const {data,error}=await SVB.sb.functions.invoke('orga-datei',{body:{liste:L.id,name:f.name||'Foto.jpg',mime:f.type||'application/octet-stream',data:await ogBase64(f),text}});
+    if(error)throw new Error(error.message); if(!data||!data.ok)throw new Error(data&&data.error==='drive-fehlt'?'Der Vereins-Drive ist noch nicht verbunden.':(data&&data.error)||'Hochladen hat nicht geklappt');
+    kToast('✓ Im Drive abgelegt: '+String(data.ordner||'').split(' / ').slice(-2).join(' / ')); const i=document.getElementById('ogChatIn'); if(i)i.value='';
+    await ogLaden(L.id); ogChatUnten(); }
+  catch(e){ if(hin)hin.innerHTML=alt; kToast('⚠️ '+e.message); } }
+
+/* ---------- Neue Checkliste ---------- */
+function ogNeuForm(){
+  const arten=Object.keys(OG_ART).filter(k=>k!=='heim1'&&k!=='heim2');
+  const M=svModal(`<div class="og-form"><h2>Neue Checkliste</h2><p class="note">Heimspiele der Ersten und Zweiten und Termine aus dem Kalender bekommen ihre Checkliste von selbst. Hier legst du alles andere an.</p>
+    <div class="og-arten">${arten.map(k=>`<button type="button" data-oga="${k}" class="${k==='sonstiges'?'on':''}"><span>${OG_ART[k][0]}</span>${ogE(OG_ART[k][1])}</button>`).join('')}</div>
+    <label class="og-fl">Titel<input id="ogNt" maxlength="120" placeholder="z.B. Kerwe 2026"></label>
+    <div class="og-zwei"><label class="og-fl">Datum<input type="date" id="ogNd" value="${ogHeute()}"></label><label class="og-fl">Uhrzeit<input type="time" id="ogNz"></label></div>
+    <label class="og-fl">Ort<input id="ogNo" maxlength="120" placeholder="optional"></label>
+    <div class="btnrow sbact"><button class="btn" type="button" id="ogNs">${SVI('check')} Anlegen</button><button class="btn ghost" type="button" onclick="closeOverlay()">Abbrechen</button></div></div>`);
+  let art='sonstiges'; M.querySelectorAll('[data-oga]').forEach(b=>b.onclick=()=>{ art=b.dataset.oga; M.querySelectorAll('[data-oga]').forEach(x=>x.classList.toggle('on',x===b)); const t=M.querySelector('#ogNt'); if(!t.value)t.placeholder=OG_ART[art][1]+' '+new Date().getFullYear(); });
+  M.querySelector('#ogNs').onclick=async()=>{ const t=M.querySelector('#ogNt').value.trim()||(art!=='sonstiges'?OG_ART[art][1]+' '+M.querySelector('#ogNd').value.slice(0,4):'');
+    if(t.length<2){ kToast('⚠️ Bitte einen Titel eintragen'); return; }
+    try{ const id=await ogRpc('orga_liste_fuer',{p_bezug:null,p_art:art,p_titel:t,p_datum:M.querySelector('#ogNd').value,p_zeit:M.querySelector('#ogNz').value||null,p_team:null,p_ort:M.querySelector('#ogNo').value||null});
+      closeOverlay(); OG.ue=null; ogOeffnen(id); }catch(x){ kToast('⚠️ '+x.message); } };
+}
+
+/* ---------- Vorlagen ---------- */
+async function ogVorlagen(){
+  const V=(OG.ue&&OG.ue.vorlagen)||[];
+  const M=svModal(`<div class="og-form"><h2>${SVI('book')} Vorlagen</h2><p class="note">Aus der Vorlage entsteht jede neue Checkliste. Punkte, die ihr in einer Liste ergänzt, kommen automatisch hier dazu.</p>
+    <div class="og-vl">${V.map(v=>`<button type="button" data-ogv="${ogE(v.art)}"><span>${(OG_ART[v.art]||OG_ART.sonstiges)[0]}</span><b>${ogE(v.titel)}</b><small>${v.n} Punkte</small></button>`).join('')}</div></div>`);
+  M.querySelectorAll('[data-ogv]').forEach(b=>b.onclick=()=>ogVorlageEdit(b.dataset.ogv));
+}
+async function ogVorlageEdit(art){
+  let V; try{ V=await ogRpc('orga_vorlage',{p_art:art}); }catch(e){ kToast('⚠️ '+e.message); return; }
+  const P=V.punkte.slice(), mt=m=>{ if(m==null||m==='')return ''; m=+m; const a=Math.abs(m); const t=a>=1440?Math.round(a/1440)+' Tag'+(Math.round(a/1440)>1?'e':''):a>=60?(a/60).toString().replace('.',',')+' Std.':a+' Min.'; return m<0?t+' vorher':m>0?t+' nachher':'zu Beginn'; };
+  const zeig=()=>{ const M=svModal(`<div class="og-form"><h2>${(OG_ART[art]||OG_ART.sonstiges)[0]} ${ogE(V.titel)}</h2><p class="note">Reihenfolge mit den Pfeilen, Text antippen zum Ändern. Zeiten gelten relativ zum Beginn.</p>
+      ${OG_GRP.map(([g,t])=>`<h3 class="og-vh">${t}</h3>${P.map((p,i)=>p.g===g?`<div class="og-vp"><input data-ogvt="${i}" value="${ogE(p.t)}" maxlength="160"><small>${ogE(mt(p.m))}</small>
+        <button type="button" data-ogvu="${i}" aria-label="nach oben">▲</button><button type="button" data-ogvx="${i}" aria-label="entfernen">✕</button></div>`:'').join('')}`).join('')}
+      <form class="og-add" id="ogVa"><input id="ogVai" maxlength="160" placeholder="Neuer Punkt"><button class="btn" type="submit">${SVI('plus')}</button></form>
+      <div class="btnrow sbact"><button class="btn" type="button" id="ogVs">${SVI('check')} Vorlage speichern</button><button class="btn ghost" type="button" id="ogVz">Zurück</button></div></div>`);
+    const lesen=()=>M.querySelectorAll('[data-ogvt]').forEach(i=>{ P[+i.dataset.ogvt].t=i.value; });
+    M.querySelectorAll('[data-ogvu]').forEach(b=>b.onclick=()=>{ lesen(); const i=+b.dataset.ogvu; let j=i-1; while(j>=0&&P[j].g!==P[i].g)j--; if(j>=0){ const x=P[i]; P[i]=P[j]; P[j]=x; } zeig(); });
+    M.querySelectorAll('[data-ogvx]').forEach(b=>b.onclick=()=>{ lesen(); P.splice(+b.dataset.ogvx,1); zeig(); });
+    M.querySelector('#ogVa').onsubmit=e=>{ e.preventDefault(); lesen(); const t=M.querySelector('#ogVai').value.trim(); if(t.length<2)return; P.push({t,g:'spieltag',m:-60}); zeig(); };
+    M.querySelector('#ogVs').onclick=async()=>{ lesen(); try{ V=await ogRpc('orga_vorlage_speichern',{p_art:art,p_punkte:P}); kToast('✓ Vorlage gespeichert'); OG.ue=null; ogVorlagen(); }catch(x){ kToast('⚠️ '+x.message); } };
+    M.querySelector('#ogVz').onclick=()=>ogVorlagen(); };
+  zeig();
+}
+
+/* ---------- Vereins-Drive verbinden (Admin, einmalig) ---------- */
+function ogScript(key,root){ return `// SV/BSC Sportzentrale · Ablage im Vereins-Drive
+// Einmal im Vereinskonto unter script.google.com einfügen und als Web-App bereitstellen.
+const SCHLUESSEL = '${key}';
+function doPost(e) {
+  try {
+    const b = JSON.parse(e.postData.contents);
+    if (b.key !== SCHLUESSEL) return antwort({ ok: false, error: 'key' });
+    let ordner = DriveApp.getFolderById(b.root || '${root}');
+    (b.pfad || []).forEach(function (n) { const it = ordner.getFoldersByName(n); ordner = it.hasNext() ? it.next() : ordner.createFolder(n); });
+    if (b.nurOrdner) return antwort({ ok: true, ordner: ordner.getId(), ordner_link: ordner.getUrl() });
+    const datei = ordner.createFile(Utilities.newBlob(Utilities.base64Decode(b.data), b.mime, b.name));
+    return antwort({ ok: true, id: datei.getId(), link: datei.getUrl(), ordner: ordner.getId(), ordner_link: ordner.getUrl() });
+  } catch (err) { return antwort({ ok: false, error: String(err && err.message || err) }); }
+}
+function antwort(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+`; }
+async function ogDriveSetup(){
+  let S; try{ S=await ogRpc('orga_drive_setup',{p_url:null}); }catch(e){ kToast('⚠️ '+e.message); return; }
+  const code=ogScript(S.key,S.root_id);
+  const M=svModal(`<div class="og-form"><h2>${SVI('upload')} Vereins-Drive verbinden</h2>
+    <p class="note">Einmalig, dauert fünf Minuten. Danach landen Fotos und Dateien aus den Checklisten sortiert im Ordner „SV BSC Mörlenbach Fußball“. Die App bekommt dabei keinen Zugang zum Google-Konto.</p>
+    <ol class="og-steps"><li>Mit dem Vereinskonto (vorstand.svmoerlenbach@gmail.com) <b>script.google.com</b> öffnen, „Neues Projekt“.</li>
+      <li>Alles löschen und diesen Code einfügen: <button type="button" class="btn ghost sm" id="ogSc">${SVI('copy')} Code kopieren</button></li>
+      <li>Oben „Bereitstellen“, „Neue Bereitstellung“, Typ „Web-App“. Ausführen als: <b>Ich</b>. Zugriff: <b>Jeder</b>. Dem Zugriff auf Drive zustimmen.</li>
+      <li>Die Web-App-Adresse (endet auf /exec) hier einfügen:</li></ol>
+    <input id="ogDu" placeholder="https://script.google.com/macros/s/…/exec" value="">
+    <p class="note">${S.verbunden?`✓ Verbunden${S.geprueft_at?', zuletzt geprüft '+ogE(new Date(S.geprueft_at).toLocaleString('de-DE')):''}`:'Noch nicht verbunden.'}</p>
+    <textarea class="og-code" readonly rows="6">${ogE(code)}</textarea>
+    <div class="btnrow sbact"><button class="btn" type="button" id="ogDs">${SVI('check')} Speichern und testen</button>${S.verbunden?`<button class="btn ghost" type="button" id="ogDt">Nur testen</button>`:''}<button class="btn ghost" type="button" onclick="closeOverlay()">Schließen</button></div>
+    <p class="note" id="ogDm"></p></div>`);
+  M.querySelector('#ogSc').onclick=async()=>{ try{ await navigator.clipboard.writeText(code); kToast('✓ Code kopiert'); }catch(e){ const t=M.querySelector('.og-code'); t.select(); } };
+  const testen=async()=>{ const m=M.querySelector('#ogDm'); m.textContent='Teste die Verbindung …';
+    const {data,error}=await SVB.sb.functions.invoke('orga-datei',{body:{test:true}}); if(error||!data||!data.ok){ m.textContent='⚠️ '+((data&&data.error)||(error&&error.message)||'Test fehlgeschlagen'); return; }
+    m.innerHTML='✓ Verbindung klappt.'+(data.ordner_link?` <a href="${ogE(data.ordner_link)}" target="_blank" rel="noopener">Ordner ansehen</a>`:''); if(OG.ue)OG.ue.drive=true; };
+  M.querySelector('#ogDs').onclick=async()=>{ const u=M.querySelector('#ogDu').value.trim(); if(!u){ kToast('⚠️ Bitte die Adresse einfügen'); return; }
+    try{ await ogRpc('orga_drive_setup',{p_url:u}); await testen(); }catch(x){ M.querySelector('#ogDm').textContent='⚠️ '+x.message; } };
+  const t=M.querySelector('#ogDt'); if(t)t.onclick=testen;
+}
+
+/* ---------- Helfer-Schichtplan (F-10) ---------- */
+function ogZeitraum(a,b){ return (a?ogUhr(a):'?')+(b?' bis '+ogUhr(b):'')+' Uhr'; }
+function ogSchichtHtml(L){ const S=L.schichten||[]; if(!S.length&&!(OG.ue&&OG.ue.darf))return '';
+  const frei=S.reduce((a,x)=>a+Math.max(0,x.p-(x.h||[]).length),0), plaetze=S.reduce((a,x)=>a+x.p,0), ich=(OG.ue&&OG.ue.ich)||'';
+  return `<div class="card og-schicht" id="ogSchicht"><h3>👥 Helfer-Schichtplan <small>${plaetze?`${plaetze-frei} von ${plaetze} Plätzen besetzt`:''}</small></h3>
+    <p class="og-regel">Bitte 15 Minuten vor Schichtbeginn an der Station sein und die Übergabe persönlich machen. Wer ausfällt, organisiert selbst Ersatz und sagt dem Verantwortlichen Bescheid.</p>
+    ${S.map(x=>{ const H=x.h||[], leer=Math.max(0,x.p-H.length), drin=H.some(h=>h.u===ich);
+      return `<div class="og-sr${leer?'':' voll'}"><div class="og-sk"><b>${ogE(x.st)}</b><small>${ogE(ogZeitraum(x.von,x.bis))}</small>${OG.ue&&OG.ue.darf?`<button type="button" class="og-sx" data-ogsed="${ogE(x.id)}" aria-label="Schicht ändern">✎</button>`:''}</div>
+        <div class="og-sh">${H.map((h,i)=>`<span class="og-shn${h.u&&h.u===ich?' ich':''}">${h.u&&h.u===ich?'Du':ogE(h.n||'?')}<button type="button" data-ogsraus="${ogE(x.id)}" data-i="${i}" aria-label="austragen">×</button></span>`).join('')}
+          ${leer?`<button type="button" class="og-shfrei" data-ogsein="${ogE(x.id)}">${drin?'+ Weitere Person':'+ Eintragen'}</button>`:''}${leer>1?`<small class="og-shr">${leer} frei</small>`:''}</div></div>`; }).join('')}
+    ${OG.ue&&OG.ue.darf?`<button type="button" class="btn ghost sm" id="ogSneu">${SVI('plus')} Schicht hinzufügen</button>`:''}
+    <a class="og-papier" href="${ogE(ogFormUrl('F-10'))}" target="_blank" rel="noopener">📄 Papierfassung F-10 zum Aushängen</a></div>`; }
+function ogSchichtWire(P){
+  P.querySelectorAll('[data-ogsein]').forEach(b=>b.onclick=()=>{ const id=b.dataset.ogsein, x=OG.L.schichten.find(s=>s.id===id), ich=(OG.ue&&OG.ue.ich)||'';
+    const set=async wer=>{ try{ const R=await ogRpc('orga_schicht_setzen',{p_schicht:id,p_wer:wer,p_raus:null}); OG.L=Object.assign(OG.L,R); svHaptic('success'); svSound('pop'); ogListeZeigen(); kToast('✓ Eingetragen'); }catch(e){ kToast('⚠️ '+e.message); } };
+    if(!(x.h||[]).some(h=>h.u===ich)&&!(OG.ue&&OG.ue.darf))return set(null);
+    ogWerWahl(x.st+', '+ogZeitraum(x.von,x.bis),null,true,v=>{ if(v.id||v.name)set(v.id||v.name); }); });
+  P.querySelectorAll('[data-ogsraus]').forEach(b=>b.onclick=async()=>{ if(!b.dataset.sicher){ b.dataset.sicher='1'; b.textContent='austragen?'; b.classList.add('warn'); setTimeout(()=>{ if(b.isConnected){ delete b.dataset.sicher; b.textContent='×'; b.classList.remove('warn'); } },3000); return; }
+    try{ const R=await ogRpc('orga_schicht_setzen',{p_schicht:b.dataset.ogsraus,p_wer:null,p_raus:+b.dataset.i}); OG.L=Object.assign(OG.L,R); ogListeZeigen(); }catch(e){ kToast('⚠️ '+e.message); } });
+  const n=P.querySelector('#ogSneu'); if(n)n.onclick=()=>ogSchichtForm(null);
+  P.querySelectorAll('[data-ogsed]').forEach(b=>b.onclick=()=>ogSchichtForm(b.dataset.ogsed));
+}
+function ogSchichtForm(id){ const x=id?OG.L.schichten.find(s=>s.id===id):{st:'',von:null,bis:null,p:2}; const t=v=>v?String(new Date(v).getHours()).padStart(2,'0')+':'+String(new Date(v).getMinutes()).padStart(2,'0'):'';
+  const M=svModal(`<div class="og-form"><h2>${id?'Schicht ändern':'Neue Schicht'}</h2>
+    <label class="og-fl">Station<input id="ogSs" maxlength="60" value="${ogE(x.st)}" placeholder="z.B. Grill" list="ogSsl"><datalist id="ogSsl">${['Aufbau','Kasse / Eintritt','Ausschank','Grill','Kaffee & Kuchen','Parkplatz / Ordner','Spülen / Theke','Abbau'].map(v=>`<option value="${v}">`).join('')}</datalist></label>
+    <div class="og-zwei"><label class="og-fl">Von<input type="time" id="ogSv" value="${t(x.von)}"></label><label class="og-fl">Bis<input type="time" id="ogSb" value="${t(x.bis)}"></label></div>
+    <label class="og-fl">Plätze<div class="og-seg">${[1,2,3,4].map(n=>`<button type="button" data-ogsp="${n}" class="${x.p===n?'on':''}">${n}</button>`).join('')}</div></label>
+    <div class="btnrow sbact"><button class="btn" type="button" id="ogSsave">${SVI('check')} Speichern</button><button class="btn ghost" type="button" onclick="closeOverlay()">Abbrechen</button></div>
+    ${id?`<div class="og-weg"><button type="button" class="btn ghost sm" id="ogSdel">${SVI('trash')} Schicht entfernen</button></div>`:''}</div>`);
+  let pl=x.p; M.querySelectorAll('[data-ogsp]').forEach(b=>b.onclick=()=>{ pl=+b.dataset.ogsp; M.querySelectorAll('[data-ogsp]').forEach(y=>y.classList.toggle('on',y===b)); });
+  M.querySelector('#ogSsave').onclick=async()=>{ try{ const R=await ogRpc('orga_schicht_aendern',{p_liste:OG.L.id,p_schicht:id,p:{st:M.querySelector('#ogSs').value,von:M.querySelector('#ogSv').value,bis:M.querySelector('#ogSb').value,p:String(pl)}});
+    OG.L=Object.assign(OG.L,R); closeOverlay(); ogListeZeigen(); kToast('✓ Gespeichert'); }catch(e){ kToast('⚠️ '+e.message); } };
+  const d=M.querySelector('#ogSdel'); if(d)d.onclick=async()=>{ if(!d.dataset.sicher){ d.dataset.sicher='1'; d.innerHTML=SVI('trash')+' Wirklich entfernen?'; d.classList.add('warn'); return; }
+    try{ const R=await ogRpc('orga_schicht_aendern',{p_liste:OG.L.id,p_schicht:id,p:{weg:true}}); OG.L=Object.assign(OG.L,R); closeOverlay(); ogListeZeigen(); }catch(e){ kToast('⚠️ '+e.message); } };
+}
+
+/* ---------- Spieltag-Kassenabrechnung (F-06) ---------- */
+function ogKasseKarte(L){ if(!(L.punkte||[]).some(p=>p.fo==='F-06'))return ''; const k=L.kasse;
+  return `<div class="card og-kasse"><h3>💶 Kassenabrechnung</h3>${k?`<p class="og-ksum"><b>${ogEur(k.summe)}</b> an die Kasse abgeführt · Eintritt ${ogEur(k.a)}, Bewirtung ${ogEur(k.b)}, Ausgaben ${ogEur(k.c)}${k.zuschauer?` · ${k.zuschauer} Zuschauer`:''}</p>`:'<p class="note">Nach dem Spiel hier ausfüllen: Eintritt, Bewirtung, Ausgaben. Die App rechnet alles zusammen.</p>'}
+    <button type="button" class="btn${k?' ghost':''}" id="ogKasseGo">${k?'Abrechnung ansehen':'Abrechnung ausfüllen'}</button></div>`; }
+const ogEur=v=>(Math.round((+v||0)*100)/100).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
+const ogZahl=v=>{ const n=parseFloat(String(v==null?'':v).replace(',','.')); return isFinite(n)?n:0; };
+async function ogKasse(){
+  const L=OG.L; let K={}; try{ K=await ogRpc('orga_kasse',{p_liste:L.id}); }catch(e){ kToast('⚠️ '+e.message); return; }
+  const D=K.daten||{}, A=D.a||[{k:'Erwachsene',anzahl:'',preis:''},{k:'Ermäßigt (Schüler, Studenten, Rentner)',anzahl:'',preis:''},{k:'Dauerkarten / Freikarten',anzahl:'',preis:0,nur:1}],
+    B=D.b||['Getränke','Grill / Speisen','Kaffee & Kuchen','Sonstiges'].map(k=>({k,beginn:'',ende:''})), C=D.c||['Schiedsrichter (Spesen, Fahrtkosten)','Einkauf Bewirtung','Sonstiges'].map(k=>({k,beleg:'',betrag:''}));
+  const M=svModal(`<div class="og-form og-kf"><h2>💶 Spieltag-Kassenabrechnung</h2><p class="note">${ogE(L.titel)} · ${ogE(ogTag(L.datum))}${L.zeit?' · '+ogE(L.zeit)+' Uhr':''}</p>
+    <h3>A · Eintritt</h3>${A.map((x,i)=>`<div class="og-kr"><span>${ogE(x.k)}</span><input inputmode="numeric" data-oka="${i}" data-f="anzahl" value="${ogE(x.anzahl)}" placeholder="Anzahl">${x.nur?'<i></i>':`<input inputmode="decimal" data-oka="${i}" data-f="preis" value="${ogE(x.preis)}" placeholder="Preis €">`}<b data-okas="${i}"></b></div>`).join('')}
+    <h3>B · Bewirtung</h3><div class="og-kh"><span></span><small>Kasse Beginn €</small><small>Kasse Ende €</small><small>Einnahme</small></div>${B.map((x,i)=>`<div class="og-kr"><span>${ogE(x.k)}</span><input inputmode="decimal" data-okb="${i}" data-f="beginn" value="${ogE(x.beginn)}" placeholder="Beginn €"><input inputmode="decimal" data-okb="${i}" data-f="ende" value="${ogE(x.ende)}" placeholder="Ende €"><b data-okbs="${i}"></b></div>`).join('')}
+    <h3>C · Ausgaben aus der Kasse</h3>${C.map((x,i)=>`<div class="og-kr"><span>${ogE(x.k)}</span><input data-okc="${i}" data-f="beleg" value="${ogE(x.beleg)}" placeholder="Beleg / Empfänger"><input inputmode="decimal" data-okc="${i}" data-f="betrag" value="${ogE(x.betrag)}" placeholder="Betrag €"><i></i></div>`).join('')}
+    <label class="og-fl">Bemerkungen (Besonderheiten, Differenzen)<input id="okBem" maxlength="500" value="${ogE(D.bem||'')}"></label>
+    <div class="og-zwei"><label class="og-fl">Kassendienst<input id="okKd" maxlength="80" value="${ogE(D.kassendienst||'')}"></label><label class="og-fl">Übernommen (Kassier/in)<input id="okUe" maxlength="80" value="${ogE(D.uebernommen||'')}"></label></div>
+    <div class="og-kend" id="okEnd"></div>
+    <div class="btnrow sbact"><button class="btn" type="button" id="okSave">${SVI('check')} Speichern</button><button class="btn ghost" type="button" id="okPdf">${SVI('download')} Als PDF</button><button class="btn ghost" type="button" onclick="closeOverlay()">Schließen</button></div>
+    ${K.at?`<p class="note small">Zuletzt gespeichert ${ogE(new Date(K.at).toLocaleString('de-DE'))}${K.von?' von '+ogE(K.von):''}</p>`:''}</div>`);
+  const lesen=()=>{ M.querySelectorAll('[data-oka]').forEach(i=>A[+i.dataset.oka][i.dataset.f]=i.value); M.querySelectorAll('[data-okb]').forEach(i=>B[+i.dataset.okb][i.dataset.f]=i.value); M.querySelectorAll('[data-okc]').forEach(i=>C[+i.dataset.okc][i.dataset.f]=i.value); };
+  const rechnen=()=>{ lesen(); let a=0,b=0,c=0,z=0; A.forEach((x,i)=>{ const s=ogZahl(x.anzahl)*ogZahl(x.preis); a+=s; z+=ogZahl(x.anzahl); const e=M.querySelector(`[data-okas="${i}"]`); if(e)e.textContent=x.nur?'':ogEur(s); });
+    B.forEach((x,i)=>{ const s=ogZahl(x.ende)-ogZahl(x.beginn); b+=s; const e=M.querySelector(`[data-okbs="${i}"]`); if(e)e.textContent=ogEur(s); }); C.forEach(x=>c+=ogZahl(x.betrag));
+    M.querySelector('#okEnd').innerHTML=`<div><span>A Eintritt${z?` (${z} Zuschauer)`:''}</span><b>${ogEur(a)}</b></div><div><span>B Bewirtung</span><b>${ogEur(b)}</b></div><div><span>− C Ausgaben</span><b>${ogEur(c)}</b></div><div class="sum"><span>Abgeführt an Kasse</span><b>${ogEur(a+b-c)}</b></div>`; return {a,b,c,z}; };
+  M.querySelectorAll('input').forEach(i=>i.addEventListener('input',rechnen)); rechnen();
+  const daten=()=>{ lesen(); return {a:A,b:B,c:C,bem:M.querySelector('#okBem').value,kassendienst:M.querySelector('#okKd').value,uebernommen:M.querySelector('#okUe').value}; };
+  M.querySelector('#okSave').onclick=async()=>{ const b=M.querySelector('#okSave'); b.disabled=true;
+    try{ await ogRpc('orga_kasse_speichern',{p_liste:L.id,p_daten:daten()}); kToast('✓ Abrechnung gespeichert'); closeOverlay(); await ogLaden(L.id); }catch(e){ b.disabled=false; kToast('⚠️ '+e.message); } };
+  M.querySelector('#okPdf').onclick=()=>ogKassePdf(L,daten(),rechnen());
+}
+// PDF im Stil der Vereinsformulare (CI: SVM Marine #1D2760, BSC Orange #E8741F)
+async function ogKassePdf(L,D,S){
+  try{ await sxScript('vendor/jspdf.umd.min.js',()=>window.jspdf&&window.jspdf.jsPDF); }catch(e){ kToast('⚠️ PDF geht gerade nicht'); return; }
+  const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'}), W=doc.internal.pageSize.getWidth(), X=48; let y=58;
+  const marine=[29,39,96], orange=[232,116,31], grau=[91,91,102];
+  doc.setFont('helvetica','bold'); doc.setTextColor(...marine); doc.setFontSize(22); doc.text('SPIELTAG-KASSENABRECHNUNG',W-X,y,{align:'right'});
+  doc.setFontSize(8); doc.setTextColor(...grau); doc.text('HEIMSPIEL · EINTRITT & BEWIRTUNG',W-X,y+14,{align:'right'});
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(...marine); doc.text('SV/BSC',X,y); doc.setFontSize(7); doc.setTextColor(...grau); doc.text('MÖRLENBACH · FUSSBALL',X,y+11);
+  y+=26; doc.setDrawColor(...orange); doc.setLineWidth(2); doc.line(X,y,X+60,y); doc.setDrawColor(...marine); doc.setLineWidth(.6); doc.line(X+60,y,W-X,y);
+  y+=24; doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(28,28,34);
+  doc.text('Datum: '+new Date(L.datum+'T12:00:00').toLocaleDateString('de-DE'),X,y); doc.text('Begegnung: '+L.titel,X+130,y); if(L.zeit)doc.text('Anstoß: '+L.zeit+' Uhr',W-X,y,{align:'right'});
+  const kopf=t=>{ y+=28; doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...marine); doc.text(t,X,y); y+=6; doc.setDrawColor(...marine); doc.setLineWidth(.6); doc.line(X,y,W-X,y); doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(28,28,34); };
+  const zeile=(a,b,c,d)=>{ y+=18; doc.text(String(a),X,y); if(b!=null)doc.text(String(b),X+270,y,{align:'right'}); if(c!=null)doc.text(String(c),X+360,y,{align:'right'}); if(d!=null)doc.text(String(d),W-X,y,{align:'right'}); doc.setDrawColor(220,215,205); doc.setLineWidth(.4); doc.line(X,y+6,W-X,y+6); };
+  kopf('A · EINTRITT'); D.a.forEach(x=>zeile(x.k,x.anzahl||'',x.nur?'':(x.preis!==''?ogEur(ogZahl(x.preis)):''),x.nur?'':ogEur(ogZahl(x.anzahl)*ogZahl(x.preis)))); doc.setFont('helvetica','bold'); zeile('Zuschauer gesamt / Summe Eintritt',S.z,null,ogEur(S.a)); doc.setFont('helvetica','normal');
+  kopf('B · BEWIRTUNG'); D.b.forEach(x=>zeile(x.k,x.beginn!==''?ogEur(ogZahl(x.beginn)):'',x.ende!==''?ogEur(ogZahl(x.ende)):'',ogEur(ogZahl(x.ende)-ogZahl(x.beginn)))); doc.setFont('helvetica','bold'); zeile('Summe Bewirtung',null,null,ogEur(S.b)); doc.setFont('helvetica','normal');
+  kopf('C · AUSGABEN AUS DER KASSE'); D.c.forEach(x=>zeile(x.k,null,x.beleg||'',x.betrag!==''?ogEur(ogZahl(x.betrag)):'')); doc.setFont('helvetica','bold'); zeile('Summe Ausgaben',null,null,ogEur(S.c)); doc.setFont('helvetica','normal');
+  y+=34; doc.setDrawColor(...marine); doc.setLineWidth(1); doc.rect(W-X-220,y,220,92); const r=(t,v,b)=>{ y+=18; doc.setFont('helvetica',b?'bold':'normal'); doc.text(t,W-X-208,y); doc.text(v,W-X-12,y,{align:'right'}); };
+  const y0=y; r('A Eintritt',ogEur(S.a)); r('B Bewirtung',ogEur(S.b)); r('− C Ausgaben',ogEur(S.c)); doc.setDrawColor(...orange); doc.line(W-X-208,y+6,W-X-12,y+6); y+=6; r('Abgeführt an Kasse',ogEur(S.a+S.b-S.c),true);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...grau); doc.text('BEMERKUNGEN',X,y0+14); doc.setTextColor(28,28,34); doc.text(doc.splitTextToSize(D.bem||'',W-2*X-240),X,y0+30);
+  y=y0+140; doc.setDrawColor(28,28,34); doc.setLineWidth(.5); doc.line(X,y,X+220,y); doc.line(W-X-220,y,W-X,y); doc.setFontSize(8); doc.setTextColor(...grau);
+  doc.text('KASSENDIENST: '+(D.kassendienst||''),X,y+12); doc.text('ÜBERNOMMEN KASSIER/IN: '+(D.uebernommen||''),W-X-220,y+12);
+  doc.text('SV MÖRLENBACH 1896 E.V. · ABTEILUNG FUSSBALL · SCHULSTRASSE 2 · 69509 MÖRLENBACH',X,812); doc.text('F-06 · digital aus der Sportzentrale',W-X,812,{align:'right'});
+  const name='Kassenabrechnung-'+L.datum+'.pdf', blob=doc.output('blob');
+  const M=svModal(`<div class="og-form"><h2>📄 ${ogE(name)}</h2><p class="note">Fertig. Du kannst die Abrechnung speichern, teilen oder direkt in den Vereins-Drive legen.</p>
+    <div class="btnrow sbact"><a class="btn" id="okDl" href="#">${SVI('download')} Herunterladen</a>${OG.ue&&OG.ue.drive?`<button class="btn ghost" type="button" id="okDr">${SVI('upload')} In den Vereins-Drive</button>`:''}<button class="btn ghost" type="button" onclick="closeOverlay()">Schließen</button></div></div>`);
+  const url=URL.createObjectURL(blob), dl=M.querySelector('#okDl'); dl.href=url; dl.download=name;
+  const dr=M.querySelector('#okDr'); if(dr)dr.onclick=async()=>{ dr.disabled=true; try{ await ogHochladen(new File([blob],name,{type:'application/pdf'})); closeOverlay(); }catch(e){ dr.disabled=false; } };
+}
+
+/* ---------- Partner des Tages (Sponsor of the Day) ---------- */
+async function ogSotd(){ let P=[]; try{ P=await ogRpc('orga_partner'); }catch(e){}
+  const M=svModal(`<div class="og-form"><h2>⭐ Partner des Tages</h2><p class="note">Laut Sponsorensheet gehören dazu: Matchday-Grafik mit Logo, Social-Media-Story, 4 Gästekarten, sichtbare Präsenz, Durchsage des Stadionsprechers und Nennung im Spielbericht. Die Aufgaben kommen automatisch auf die Liste.</p>
+    <input id="ogSp" maxlength="120" placeholder="Name des Partners" list="ogSpl" value="${ogE(OG.L.sotd||'')}"><datalist id="ogSpl">${P.map(n=>`<option value="${ogE(n)}">`).join('')}</datalist>
+    <div class="btnrow sbact"><button class="btn" type="button" id="ogSps">${SVI('check')} Übernehmen</button>${OG.L.sotd?'<button class="btn ghost" type="button" id="ogSpx">Entfernen</button>':''}<button class="btn ghost" type="button" onclick="closeOverlay()">Abbrechen</button></div></div>`);
+  const go=async v=>{ try{ await ogRpc('orga_liste_aendern',{p_id:OG.L.id,p:{sotd:v}}); closeOverlay(); await ogLaden(OG.L.id); kToast(v?'✓ Partner des Tages eingetragen':'✓ Entfernt'); }catch(e){ kToast('⚠️ '+e.message); } };
+  M.querySelector('#ogSps').onclick=()=>{ const v=M.querySelector('#ogSp').value.trim(); if(v.length<2){ kToast('⚠️ Bitte einen Namen eintragen'); return; } go(v); };
+  const x=M.querySelector('#ogSpx'); if(x)x.onclick=()=>go(''); }
+
+/* ---------- Wichtige Nummern, Formulare, Zuständigkeiten ---------- */
+function ogNummernHtml(L){ const N=(L.nummern||[]);
+  return `<div class="card og-num"><h3>📞 Wichtige Nummern</h3><div class="og-nl"><a href="tel:112"><span>Notruf</span><b>112</b></a><a href="tel:110"><span>Polizei</span><b>110</b></a>
+    ${N.map(n=>n.tel?`<a href="tel:${ogE(n.tel.replace(/[^0-9+]/g,''))}"><span>${ogE(n.t)}${n.n?' · '+ogE(n.n):''}</span><b>${ogE(n.tel)}</b></a>`:`<div><span>${ogE(n.t)}${n.n?' · '+ogE(n.n):''}</span><i>Nummer fehlt</i></div>`).join('')}</div></div>`; }
+function ogFormHtml(art){ const F=OG_FORM_ART[art]||[]; if(!F.length)return '';
+  return `<div class="card og-forms"><h3>📄 Passende Formulare</h3>${F.map(k=>`<a href="${ogE(ogFormUrl(k))}" target="_blank" rel="noopener" class="og-fz"><b>${ogE(k)}</b><span>${ogE(OG_FORM[k][0])}</span><small>${ogE(OG_FORM[k][1])}</small></a>`).join('')}</div>`; }
+function ogFormulare(){
+  svModal(`<div class="og-form"><h2>📄 Formulare des Vereins</h2><p class="note">Stand 09/2026. Zum Ansehen, Ausdrucken oder Weiterleiten. Schichtplan und Kassenabrechnung gehen auch direkt in der App.</p>
+    <div class="og-fl2">${Object.keys(OG_FORM).map(k=>`<a href="${ogE(ogFormUrl(k))}" target="_blank" rel="noopener" class="og-fz"><b>${ogE(k)}</b><span>${ogE(OG_FORM[k][0])}</span><small>${ogE(OG_FORM[k][1])}</small></a>`).join('')}</div>
+    <p class="note small">Die Rechnungsvorlage F-09 und die ausfüllbare Formularmappe enthalten die Bankdaten des Vereins und liegen deshalb nicht öffentlich in der App, sondern im Vereins-Drive.</p></div>`); }
+async function ogRollen(){ let R; try{ R=await ogRpc('orga_rollen'); }catch(e){ kToast('⚠️ '+e.message); return; }
+  const M=svModal(`<div class="og-form"><h2>${SVI('users')} Zuständigkeiten</h2><p class="note">Aus dem Abteilungskonzept: jede Aufgabe hat einen Namen. Neue Checklisten tragen die Zuständigen automatisch ein. Mehrere Namen mit Komma trennen. Nummern mit Haken erscheinen unter „Wichtige Nummern“.</p>
+    ${R.map((r,i)=>`<div class="og-rolle"><b>${ogE(r.titel)}</b><input data-ogrn="${i}" maxlength="160" value="${ogE(r.namen||'')}" placeholder="Name"><input data-ogrt="${i}" maxlength="40" inputmode="tel" value="${ogE(r.tel||'')}" placeholder="${r.nummer?'Telefon (wichtige Nummer)':'Telefon (optional)'}"></div>`).join('')}
+    <div class="btnrow sbact"><button class="btn" type="button" id="ogRs">${SVI('check')} Speichern</button><button class="btn ghost" type="button" onclick="closeOverlay()">Abbrechen</button></div></div>`);
+  M.querySelector('#ogRs').onclick=async()=>{ const P=R.map((r,i)=>({key:r.key,namen:M.querySelector(`[data-ogrn="${i}"]`).value,tel:M.querySelector(`[data-ogrt="${i}"]`).value}));
+    try{ await ogRpc('orga_rollen_speichern',{p:P}); kToast('✓ Zuständigkeiten gespeichert'); closeOverlay(); }catch(e){ kToast('⚠️ '+e.message); } }; }
+
+/* ---------- Start: Übersicht-Karte, Termine, Meldungen ---------- */
+async function ogHome(){
+  const home=document.getElementById('panel-home'); if(!home||!svTabAllowed('orga'))return;
+  let U; try{ U=await ogRpc('orga_uebersicht',{p_tage:10}); }catch(e){ return; } OG.ue=OG.ue||U;
+  const h=ogHeute(), L=(U.listen||[]).filter(l=>l.datum>=h).slice(0,3), meine=(U.listen||[]).reduce((a,l)=>a+(l.meine||0),0);
+  let box=document.getElementById('ogHome');
+  if(!L.length){ if(box)box.remove(); return; }
+  if(!box){ box=document.createElement('div'); box.id='ogHome'; box.className='card og-home'; const k=document.getElementById('kalHome')||document.getElementById('svrMeine')||document.getElementById('svCockpit'); if(k)k.after(box); else home.prepend(box); }
+  box.innerHTML=`<div class="kal-hh"><h3 class="trh">${SVI('check')} Aufgaben${meine?` <em class="og-mein">${meine} für dich</em>`:''}</h3><button type="button" class="btn ghost sm" id="ogAlle">Alle ${SVI('chev')}</button></div>
+    ${L.map(l=>`<button type="button" class="og-hz" data-ogl="${ogE(l.id)}"><span class="og-em">${(OG_ART[l.art]||OG_ART.sonstiges)[0]}</span><span><b>${ogE(l.titel)}</b><small>${ogE(ogTag(l.datum))} · ${l.fertig} von ${l.n} erledigt</small></span>${ogRing(l.fertig,l.n)}</button>`).join('')}`;
+  box.querySelector('#ogAlle').onclick=()=>goTab('orga');
+  box.querySelectorAll('[data-ogl]').forEach(b=>b.onclick=()=>ogOeffnen(b.dataset.ogl));
+}
+{ const _rh=renderHome; renderHome=function(){ const r=_rh.apply(this,arguments); try{ setTimeout(ogHome,300); }catch(e){} return r; }; }
+
+// Termine: Heimspiel oder Veranstaltung antippen → „Checkliste“
+function ogBezug(i){ if(!i)return null;
+  if(i.k==='spiel'&&i.heim===true&&(i.m==='h1'||i.m==='h2'))return 'spiel:'+i.m+':'+i.d;
+  if(i.k==='spiel'&&i.heim===true&&/^tt:[0-9a-f-]{36}$/.test(String(i.id)))return String(i.id);
+  if(i.k==='event'&&/^[0-9a-f-]{36}$/.test(String(i.id)))return 'event:'+i.id; return null; }
+{ const _kd=kalDetail; kalDetail=function(id){ const r=_kd.apply(this,arguments);
+    try{ const i=kalItem(id), bz=ogBezug(i); const row=document.querySelector('#modal .kal-akt');
+      if(bz&&row&&(svDarf('orga')!==false||(i.m&&svDarf('team:'+i.m)))){ const b=document.createElement('button'); b.type='button'; b.className='btn og-kalbtn'; b.innerHTML=SVI('check')+' Checkliste';
+        b.onclick=async()=>{ b.disabled=true; try{ const lid=await ogRpc('orga_liste_fuer',{p_bezug:bz,p_art:null,p_titel:i.k==='spiel'?'Heimspiel '+(i.m==='h1'?'Erste':i.m==='h2'?'Zweite':'')+' gegen '+(i.gegner||'?'):null,p_datum:null,p_zeit:i.z||null,p_team:null,p_ort:null});
+          closeOverlay(); ogOeffnen(lid); }catch(x){ b.disabled=false; kToast('⚠️ '+x.message); } };
+        row.prepend(b); } }catch(e){} return r; }; }
+
+// Push-Nachricht „Morgen: …“ oder „Um 13:30 Uhr: …“ öffnet direkt die Checkliste
+SVZ_ART.orga=['✅','Aufgaben'];
+{ const _zi=svzInhalt; svzInhalt=async function(m){ const x=await _zi.apply(this,arguments);
+    if(m&&m.art==='orga'&&(m.data||{}).liste)x.knopf=`<button class="btn sv32-go" type="button" data-svzorga="${ogE(m.data.liste)}">${SVI('check')} <span>Checkliste öffnen</span></button>`;
+    return x; }; }
+{ const _mz=svMeldungZeigen; svMeldungZeigen=async function(){ const r=await _mz.apply(this,arguments);
+    try{ document.querySelectorAll('#modal [data-svzorga]').forEach(b=>b.onclick=()=>{ closeOverlay(); setTimeout(()=>ogOeffnen(b.dataset.svzorga),60); }); }catch(e){} return r; }; }
+
+(function(){ try{ const s=document.createElement('style'); s.id='svm33css'; s.textContent="/* 0.31 · Aufgaben & Checklisten: groß, klar, zum Abhaken wie eine Einkaufsliste */\n#panel-orga{max-width:760px;}\n.og-kopf{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 14px;}\n.og-kopf h2{margin:0;font-family:var(--disp);font-size:30px;letter-spacing:.01em;}\n.og-kopf p{margin:4px 0 0;color:var(--ink2);font-size:15.5px;max-width:48ch;}\n.og-neu{min-height:48px;font-size:16px;}\n.og-meine{display:flex;align-items:center;gap:12px;width:100%;padding:16px 18px;margin:0 0 14px;border-radius:var(--r-lg);border:1px solid rgba(34,197,94,.35);background:rgba(34,197,94,.1);color:var(--ink);font-size:17px;text-align:left;cursor:pointer;}\n.og-meine span{font-size:24px;} .og-meine b{flex:1;} .og-meine i svg{width:18px;height:18px;}\n.og-karten{display:flex;flex-direction:column;gap:10px;}\n.og-karte{display:flex;align-items:center;gap:14px;width:100%;padding:16px;border-radius:var(--r-lg);border:1px solid var(--line);background:var(--surface);color:var(--ink);text-align:left;cursor:pointer;transition:transform .15s var(--ease),border-color .15s;}\n.og-karte:hover{border-color:rgba(91,155,255,.4);} .og-karte:active{transform:scale(.985);}\n.og-karte.fertig{opacity:.75;}\n.og-em{flex:none;width:48px;height:48px;border-radius:14px;display:grid;place-items:center;font-size:26px;background:var(--surface2);}\n.og-em.gross{width:60px;height:60px;font-size:34px;border-radius:18px;}\n.og-kt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}\n.og-kt b{font-size:17.5px;line-height:1.25;}\n.og-kt small{font-size:14.5px;color:var(--ink2);}\n.og-kt .og-v{color:var(--ink3);font-size:13.5px;}\n.og-mein{display:inline-block;align-self:flex-start;margin-top:4px;padding:3px 10px;border-radius:999px;background:rgba(34,197,94,.16);color:#4ade80;font-style:normal;font-weight:700;font-size:13px;}\n.og-ring{flex:none;} .og-ring .bg{fill:none;stroke:var(--surface3);stroke-width:6;} .og-ring .fg{fill:none;stroke:var(--brand2);stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset .7s var(--ease),stroke .3s;}\n.og-ring .fg.voll{stroke:var(--green);} .og-ring text{fill:var(--ink);font-size:12.5px;font-weight:800;font-family:var(--font);}\n.og-ring.gross .og-ring,.og-ring.gross .bg,.og-ring.gross .fg{stroke-width:8;} .og-ring.gross text{font-size:17px;}\n.og-leer{text-align:center;padding:28px 18px;} .og-leer b{font-size:18px;} .og-leer p{color:var(--ink2);font-size:15px;max-width:44ch;margin:8px auto 0;}\n.og-leer-em{font-size:40px;margin-bottom:6px;}\n.og-vorbei{margin-top:18px;} .og-vorbei summary{cursor:pointer;color:var(--ink2);font-size:15px;padding:10px 0;}\n.og-fuss{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;}\n\n/* Eine Checkliste */\n.og-zurueck{display:inline-flex;align-items:center;gap:6px;background:none;border:0;color:var(--brand2);font-size:16px;font-weight:700;padding:8px 0;cursor:pointer;margin-bottom:6px;}\n.og-zurueck svg{transform:rotate(180deg);width:18px;height:18px;}\n.og-hero{padding:18px;}\n.og-ht{display:flex;align-items:center;gap:14px;} .og-ht>div{flex:1;min-width:0;}\n.og-ht small{color:var(--ink3);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;}\n.og-ht h2{margin:2px 0 4px;font-size:22px;line-height:1.2;}\n.og-ht p{margin:0;color:var(--ink2);font-size:15px;}\n.og-hstat{margin-top:12px;font-size:16px;color:var(--ink2);}\n.og-verant{display:flex;align-items:center;gap:8px;width:100%;margin-top:12px;padding:12px 14px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--surface2);color:var(--ink2);font-size:15.5px;text-align:left;cursor:pointer;}\n.og-verant b{color:var(--ink);} .og-verant svg{width:18px;height:18px;}\n.og-add{display:flex;gap:8px;margin:16px 0 6px;}\n.og-add input{flex:1;min-width:0;min-height:54px;padding:0 16px;font-size:17px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);}\n.og-add input:focus{border-color:var(--brand2);outline:none;box-shadow:0 0 0 4px var(--brandSoft);}\n.og-add .btn{min-width:54px;min-height:54px;justify-content:center;border-radius:14px;} .og-add .btn svg{width:22px;height:22px;}\n.og-merk{display:flex;align-items:center;gap:10px;font-size:14.5px;color:var(--ink2);margin:6px 2px 14px;cursor:pointer;}\n.og-merk input{width:22px;height:22px;accent-color:var(--brand);}\n.og-filter{display:flex;gap:6px;margin:0 0 10px;padding:4px;border-radius:14px;background:var(--surface);border:1px solid var(--line2);}\n.og-filter button{flex:1;min-height:44px;border:0;border-radius:11px;background:none;color:var(--ink2);font-size:15.5px;font-weight:700;cursor:pointer;}\n.og-filter button.on{background:var(--brand);color:#fff;}\n.og-grp{margin:14px 0 4px;}\n.og-grp h3,.og-grp>summary{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:0 0 8px 4px;font-weight:800;}\n.og-grp h3 small,.og-grp>summary small{margin-left:6px;color:var(--ink3);font-weight:700;}\n.og-erl>summary{cursor:pointer;list-style:none;padding:8px 4px;} .og-erl>summary::-webkit-details-marker{display:none;} .og-erl>summary::before{content:'▸ ';}\n.og-erl[open]>summary::before{content:'▾ ';}\n.og-p{display:flex;align-items:center;gap:12px;padding:10px 12px 10px 10px;margin-bottom:8px;border-radius:16px;background:var(--surface);border:1px solid var(--line2);transition:opacity .35s,transform .45s var(--ease),background .3s;}\n.og-p.meins{border-color:rgba(34,197,94,.35);background:linear-gradient(90deg,rgba(34,197,94,.08),var(--surface) 60%);}\n.og-p.neu{animation:ogNeu .6s var(--ease);}\n.og-haken{flex:none;width:44px;height:44px;border-radius:50%;border:2.5px solid rgba(162,172,191,.55);background:transparent;display:grid;place-items:center;cursor:pointer;padding:0;transition:border-color .2s,background .25s,transform .15s;}\n.og-haken:active{transform:scale(.9);}\n.og-haken svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:24;stroke-dashoffset:24;transition:stroke-dashoffset .35s var(--ease) .05s;}\n.og-p.done .og-haken,.og-p.hakt .og-haken{background:var(--green);border-color:var(--green);}\n.og-p.done .og-haken svg,.og-p.hakt .og-haken svg{stroke-dashoffset:0;}\n.og-p.hakt{animation:ogHakt .5s var(--ease) forwards;}\n.og-p.hakt .og-haken{animation:ogPop .35s var(--ease);}\n.og-p.loest{opacity:.5;}\n.og-p.done{opacity:.62;background:var(--bg2);}\n.og-p.done .og-pt b{text-decoration:line-through;text-decoration-color:rgba(162,172,191,.6);color:var(--ink2);}\n.og-pt{flex:1;min-width:0;text-align:left;background:none;border:0;color:var(--ink);padding:4px 0;cursor:pointer;display:flex;flex-direction:column;gap:5px;}\n.og-pt b{font-size:17px;line-height:1.3;font-weight:650;}\n.og-pm{display:flex;flex-wrap:wrap;gap:6px 12px;}\n.og-pm i{font-style:normal;font-size:14px;color:var(--ink2);display:inline-flex;align-items:center;gap:4px;}\n.og-pm i svg{width:14px;height:14px;}\n.og-uhr.ueber{color:#fbbf24;font-weight:700;}\n.og-wer.ich{color:#4ade80;font-weight:700;} .og-wer.leer{color:var(--brand2);}\n.og-ev{color:#4ade80!important;} .og-notiz{color:var(--ink3)!important;}\n.og-alle{text-align:center;padding:22px;} .og-alle b{font-size:19px;} .og-alle p{color:var(--ink2);margin:6px 0 0;}\n.og-helfer h3,.og-chat h3,.og-dateien h3{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:17px;}\n.og-helfer h3 svg,.og-chat h3 svg,.og-dateien h3 svg{width:18px;height:18px;}\n.og-helfer p{margin:0 0 10px;color:var(--ink2);font-size:14.5px;}\n.og-hl{display:flex;flex-wrap:wrap;gap:8px;}\n.og-hchip{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface2);color:var(--ink);font-size:15px;cursor:pointer;}\n.og-hchip svg{width:15px;height:15px;}\n.og-chat h3 small{color:var(--ink3);font-weight:600;font-size:13px;}\n.og-msgs{max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 2px 8px;}\n.og-m{align-self:flex-start;max-width:85%;padding:10px 13px;border-radius:16px 16px 16px 4px;background:var(--surface2);}\n.og-m.ich{align-self:flex-end;border-radius:16px 16px 4px 16px;background:rgba(47,107,255,.22);}\n.og-m b{font-size:13px;color:var(--brand2);} .og-m.ich b{color:#9cc3ff;}\n.og-m p{margin:2px 0 0;font-size:16px;line-height:1.4;white-space:pre-wrap;word-break:break-word;}\n.og-m small{display:block;margin-top:4px;font-size:12px;color:var(--ink3);}\n.og-datei{display:inline-flex;align-items:center;gap:6px;margin-top:6px;color:var(--brand2);font-size:15px;}\n.og-datei svg{width:16px;height:16px;}\n.og-send{display:flex;gap:8px;align-items:center;margin-top:8px;}\n.og-send input{flex:1;min-width:0;min-height:50px;padding:0 14px;font-size:16.5px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);}\n.og-send .btn{min-width:50px;min-height:50px;justify-content:center;border-radius:14px;}\n.og-att{flex:none;width:50px;height:50px;border-radius:14px;display:grid;place-items:center;border:1px solid var(--line);background:var(--surface2);cursor:pointer;color:var(--ink2);}\n.og-att svg{width:22px;height:22px;}\n.og-dhin{margin:8px 0 0;font-size:13.5px;}\n.og-dz{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line2);color:var(--ink);text-decoration:none;font-size:15px;}\n.og-dz b{flex:1;font-weight:600;} .og-dz small{color:var(--ink3);}\n\n/* Formulare und Auswahl */\n.og-form h2{margin:0 0 10px;font-size:21px;line-height:1.25;}\n.og-fl{display:flex;flex-direction:column;gap:6px;margin:12px 0;font-size:14.5px;color:var(--ink2);font-weight:700;}\n.og-fl input,.og-werbtn{min-height:50px;padding:0 14px;font-size:16.5px;border-radius:13px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-weight:500;}\n.og-werbtn{text-align:left;display:flex;align-items:center;gap:8px;cursor:pointer;} .og-werbtn svg{width:16px;height:16px;}\n.og-zwei{display:grid;grid-template-columns:1fr 1fr;gap:10px;}\n.og-seg{display:flex;gap:6px;} .og-seg button{flex:1;min-height:46px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:15px;font-weight:700;cursor:pointer;}\n.og-seg button.on{background:var(--brand);border-color:var(--brand);color:#fff;}\n.og-weg{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:12px;border-top:1px solid var(--line2);font-size:14px;color:var(--ink2);}\n.og-weg label{display:flex;align-items:center;gap:6px;} .og-weg .warn{color:var(--red);border-color:rgba(240,82,82,.4);}\n.og-wahl{position:fixed;inset:0;z-index:2000;background:rgba(2,4,8,.6);display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .2s;}\n.og-wahl.auf{opacity:1;}\n.og-wahl-in{width:min(520px,100%);max-height:80vh;overflow:auto;background:var(--surface2);border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));transform:translateY(30px);transition:transform .25s var(--ease);}\n.og-wahl.auf .og-wahl-in{transform:none;}\n@media (min-width:700px){ .og-wahl{align-items:center;} .og-wahl-in{border-radius:22px;} }\n.og-wahl h3{margin:0 0 10px;font-size:19px;}\n.og-wahl input{width:100%;min-height:52px;padding:0 14px;font-size:17px;border-radius:13px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);box-sizing:border-box;}\n.og-wl{display:flex;flex-direction:column;gap:6px;margin:10px 0;}\n.og-wl button{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 14px;border-radius:13px;border:1px solid var(--line2);background:var(--surface);color:var(--ink);font-size:16.5px;text-align:left;cursor:pointer;}\n.og-wl button.on{border-color:var(--brand2);background:var(--brandSoft);} .og-wl button.frei{color:var(--brand2);font-weight:700;} .og-wl button small{color:var(--ink3);font-weight:500;}\n.og-wl svg{width:17px;height:17px;}\n.og-wtext,.og-code{width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:15px;line-height:1.45;resize:vertical;}\n.og-code{font-family:ui-monospace,Menlo,monospace;font-size:12px;}\n.og-wa{background:#25d366!important;border-color:#25d366!important;color:#06240f!important;text-decoration:none;}\n.og-arten{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin:12px 0;}\n.og-arten button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink2);font-size:14px;font-weight:700;cursor:pointer;}\n.og-arten button span{font-size:26px;} .og-arten button.on{border-color:var(--brand2);background:var(--brandSoft);color:var(--ink);}\n.og-vl{display:flex;flex-direction:column;gap:8px;}\n.og-vl button{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 14px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:16px;text-align:left;cursor:pointer;}\n.og-vl button span{font-size:24px;} .og-vl button b{flex:1;} .og-vl button small{color:var(--ink3);}\n.og-vh{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:16px 0 6px;}\n.og-vp{display:flex;align-items:center;gap:6px;margin-bottom:6px;}\n.og-vp input{flex:1;min-width:0;min-height:44px;padding:0 10px;font-size:15px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);}\n.og-vp small{flex:none;width:92px;color:var(--ink3);font-size:12px;}\n.og-vp button{flex:none;width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);color:var(--ink2);cursor:pointer;}\n.og-steps{padding-left:20px;font-size:15px;line-height:1.55;color:var(--ink2);} .og-steps li{margin-bottom:8px;} .og-steps b{color:var(--ink);}\n.og-form>input#ogDu{width:100%;box-sizing:border-box;min-height:50px;padding:0 12px;font-size:15px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);}\n\n/* Start und Termine */\n.og-home .og-hz{display:flex;align-items:center;gap:12px;width:100%;padding:10px 0;border:0;border-top:1px solid var(--line2);background:none;color:var(--ink);text-align:left;cursor:pointer;}\n.og-home .og-hz>span:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;} .og-home .og-hz b{font-size:15.5px;} .og-home .og-hz small{color:var(--ink2);font-size:13.5px;}\n.og-home .og-em{width:40px;height:40px;font-size:22px;border-radius:12px;}\n.og-kalbtn{background:var(--green)!important;border-color:var(--green)!important;color:#052e14!important;}\n\n/* Bewegung */\n@keyframes ogHakt{0%{transform:none;}40%{transform:scale(1.02);}100%{transform:translateX(12px);opacity:.3;}}\n@keyframes ogPop{0%{transform:scale(.8);}60%{transform:scale(1.18);}100%{transform:scale(1);}}\n@keyframes ogNeu{0%{transform:translateY(-10px);opacity:0;background:var(--brandSoft);}100%{transform:none;opacity:1;}}\n.og-konfetti{position:fixed;z-index:3000;pointer-events:none;width:0;height:0;}\n.og-konfetti i{position:absolute;width:9px;height:14px;border-radius:2px;animation:ogKonf 1.2s cubic-bezier(.15,.7,.3,1) forwards;}\n@keyframes ogKonf{0%{transform:translate(0,0) rotate(0);opacity:1;}100%{transform:translate(var(--x),calc(var(--y) + 160px)) rotate(540deg);opacity:0;}}\n@media (prefers-reduced-motion:reduce){ .og-p,.og-haken,.og-haken svg,.og-ring .fg{transition:none!important;} .og-p.hakt,.og-p.neu,.og-p.hakt .og-haken{animation:none!important;} }\n@media (max-width:520px){ .og-kopf h2{font-size:26px;} .og-karte{padding:14px 12px;gap:12px;} .og-em{width:44px;height:44px;font-size:24px;} .og-ring:not(.gross){width:46px;height:46px;} }\n/* Formulare, Schichtplan, Kasse, Nummern */\n.og-p{flex-wrap:wrap;}\n.og-fo{margin-left:56px;padding:6px 12px;border-radius:999px;border:1px solid rgba(91,155,255,.35);background:var(--brandSoft);color:var(--ink);font-size:14px;font-weight:700;cursor:pointer;}\n.og-p.done .og-fo{display:none;}\n.og-sotd{border-color:rgba(251,191,36,.35);}\n.og-schicht h3,.og-kasse h3,.og-num h3,.og-forms h3{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:17px;}\n.og-schicht h3 small{color:var(--ink3);font-weight:600;font-size:13px;margin-left:auto;}\n.og-schicht.blink{animation:ogBlink 1.2s var(--ease);}\n@keyframes ogBlink{0%,100%{box-shadow:none;}30%{box-shadow:0 0 0 4px var(--brandSoft);}}\n.og-regel{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);color:var(--ink2);font-size:14px;line-height:1.45;}\n.og-sr{padding:12px 0;border-top:1px solid var(--line2);}\n.og-sk{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;} .og-sk b{font-size:16.5px;} .og-sk small{color:var(--ink2);font-size:14px;}\n.og-sx{margin-left:auto;width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);color:var(--ink2);cursor:pointer;}\n.og-sh{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center;}\n.og-shn{display:inline-flex;align-items:center;gap:6px;padding:7px 6px 7px 12px;border-radius:999px;background:var(--surface2);border:1px solid var(--line);font-size:15px;}\n.og-shn.ich{border-color:rgba(34,197,94,.5);color:#4ade80;font-weight:700;}\n.og-shn button{border:0;background:none;color:var(--ink3);font-size:16px;cursor:pointer;padding:0 6px;} .og-shn button.warn{color:var(--red);font-size:13px;font-weight:700;}\n.og-shfrei{min-height:40px;padding:0 16px;border-radius:999px;border:1.5px dashed rgba(91,155,255,.55);background:none;color:var(--brand2);font-size:15px;font-weight:700;cursor:pointer;}\n.og-shr{color:var(--ink3);font-size:13px;}\n.og-sr.voll .og-sk b::after{content:' ✓';color:var(--green);}\n.og-papier{display:inline-block;margin-top:12px;color:var(--ink2);font-size:14px;}\n.og-schicht>.btn{margin-top:10px;}\n.og-ksum{margin:0 0 10px;font-size:15px;color:var(--ink2);} .og-ksum b{color:var(--ink);font-size:18px;}\n.og-kf h3{font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--brand2);margin:16px 0 6px;}\n.og-kr,.og-kh{display:grid;grid-template-columns:1fr 84px 96px 88px;gap:6px;align-items:center;margin-bottom:6px;}\n.og-kh small{color:var(--ink3);font-size:11.5px;text-align:center;}\n.og-kr span{font-size:14.5px;} .og-kr input{min-width:0;min-height:44px;padding:0 8px;font-size:16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-align:right;}\n.og-kr b{text-align:right;font-size:14.5px;font-variant-numeric:tabular-nums;}\n.og-kr input[data-f=\"beleg\"]{text-align:left;}\n.og-kend{margin:14px 0 4px;padding:12px 14px;border-radius:14px;background:var(--surface2);border:1px solid var(--line);}\n.og-kend div{display:flex;justify-content:space-between;padding:4px 0;font-size:15px;font-variant-numeric:tabular-nums;} .og-kend .sum{border-top:2px solid #E8741F;margin-top:6px;padding-top:8px;font-size:17px;}\n@media (max-width:520px){ .og-kr,.og-kh{grid-template-columns:1fr 70px 80px;} .og-kr b,.og-kr i,.og-kh small:last-child{display:none;} }\n.og-nl{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;}\n.og-nl a,.og-nl div{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:12px;background:var(--surface2);border:1px solid var(--line2);color:var(--ink);text-decoration:none;}\n.og-nl span{font-size:13px;color:var(--ink2);} .og-nl b{font-size:18px;font-variant-numeric:tabular-nums;} .og-nl i{font-size:13px;color:var(--ink3);font-style:normal;}\n.og-fz{display:grid;grid-template-columns:52px 1fr;gap:0 10px;padding:10px 0;border-top:1px solid var(--line2);color:var(--ink);text-decoration:none;}\n.og-fz b{grid-row:span 2;align-self:center;font-family:var(--disp);font-size:18px;color:#E8741F;} .og-fz span{font-weight:700;font-size:15px;} .og-fz small{color:var(--ink3);font-size:13px;}\n.og-rolle{display:grid;grid-template-columns:1fr;gap:6px;padding:10px 0;border-top:1px solid var(--line2);}\n.og-rolle b{font-size:14.5px;} .og-rolle input{min-height:44px;padding:0 10px;font-size:15.5px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);}\n@media (min-width:640px){ .og-rolle{grid-template-columns:200px 1fr 170px;align-items:center;} }\n@media (max-width:520px){\n  .og-ht{align-items:flex-start;} .og-ht .og-em.gross{display:none;} .og-ht h2{font-size:20px;} .og-ring.gross{width:64px;height:64px;}\n  .og-kr{grid-template-columns:1fr 1fr;} .og-kr span{grid-column:1/-1;font-weight:600;margin-top:4px;} .og-kh{display:none;}\n  .og-kr input[data-f=\"beginn\"]::placeholder,.og-kr input[data-f=\"ende\"]::placeholder{color:var(--ink3);}\n}\n.og-p .og-pt{flex:1 1 calc(100% - 60px);} .og-p .og-fo{flex:0 0 auto;}\n"; document.head.appendChild(s); }catch(e){} })();
+/* =====================================================================
    SV/BSC Scout · Runde 20: „Was ist neu“: Update-Fenster & Patch-Historie
    - Nach jedem Update ein Pop-up: das Wichtigste in Kürze → „OK“ oder „Mehr erfahren“ (ganze Historie)
    - Jederzeit erreichbar: Seitenleiste / „Mehr“ / Mein Konto → „Was ist neu“
@@ -17210,6 +17685,20 @@ function sv32Wire(root){ (root||document).querySelectorAll('.sv32').forEach(el=>
    Sichtbarkeit je Punkt: r:'team' (ohne Gäste) · r:'scout' · r:'admin' · ohne r = alle
    ===================================================================== */
 const SV_PATCHES=[
+  {id:'0.31',v:'0.31',datum:'2026-09-29',titel:'Aufgaben: Checklisten zum Abhaken',kurz:'Jedes Heimspiel und jede Veranstaltung hat jetzt eine Checkliste. Abhaken wie auf einem Einkaufszettel, Aufgaben verteilen, im kleinen Chat absprechen und Fotos direkt in den Vereins-Drive legen.',
+   punkte:[
+    {ic:'✅',t:'Abhaken mit einem Tipp',d:'Großer Kreis links antippen, fertig. Erledigtes rutscht nach unten, der Fortschritt steht oben. Ist alles erledigt, gibt es ein kleines Feuerwerk.',go:'orga'},
+    {ic:'➕',t:'Neue Aufgabe in Sekunden',d:'Oben eintippen und bestätigen. Die Aufgabe kommt beim nächsten Mal automatisch wieder auf die Liste, die Vorlagen merken sich alles für die kommenden Jahre.',go:'orga'},
+    {ic:'👥',t:'Verantwortliche und Helfer',d:'Jede Aufgabe bekommt eine Person, auch Helfer ohne App. Die bekommen ihren eigenen Link per WhatsApp und haken dort ab.',go:'orga'},
+    {ic:'💬',t:'Absprache und Fotos',d:'Unter jeder Checkliste ein kleiner Chat mit Namen. Fotos und Dateien landen sortiert im Vereins-Drive, der passende Ordner wird automatisch angelegt.',go:'orga'},
+    {ic:'🔔',t:'Erinnerungen',d:'Am Vorabend eine Nachricht mit allem, was noch offen ist, und kurz vor jeder Aufgabe eine Erinnerung an die zuständige Person.',go:'orga'},
+    {ic:'📋',t:'Genau unsere Heimspiel-Checkliste',d:'Die Heimspiel-Liste ist das Vereinsformular F-07, Punkt für Punkt, mit den Zuständigen aus dem Abteilungskonzept schon eingetragen.',go:'orga'},
+    {ic:'🕒',t:'Helfer-Schichtplan',d:'Wie Formular F-10: Kasse, Ausschank, Grill, Kaffee & Kuchen und mehr. Eintragen mit einem Tipp, eine Stunde vorher kommt die Erinnerung.',go:'orga'},
+    {ic:'💶',t:'Kassenabrechnung in der App',d:'Formular F-06 zum Ausfüllen: Eintritt, Bewirtung, Ausgaben. Die App rechnet, hakt den Punkt ab und macht ein PDF im Vereinsdesign.',go:'orga'},
+    {ic:'⭐',t:'Partner des Tages',d:'Beim Heimspiel einen Partner des Tages festlegen, die sechs Leistungen aus dem Sponsorensheet kommen als Aufgaben auf die Liste.',go:'orga',r:'team'},
+    {ic:'📄',t:'Alle Vereinsformulare',d:'Aufnahmeantrag, Foto-Einwilligung, Notfallbogen, Auslagen und mehr, jeweils dort, wo man sie braucht.',go:'orga'},
+    {ic:'📅',t:'Automatisch für Heimspiele und Termine',d:'Heimspiele der Ersten, Zweiten und Jugend, Kerwe, Weihnachten, Turniere, Jahreshauptversammlung und Neujahrsempfang bekommen ihre Liste von selbst. Im Kalender führt „Checkliste“ direkt hin.',go:'kalender'}
+   ]},
   {id:'0.30',v:'0.30',datum:'2026-09-29',titel:'Meldung antippen, aktualisieren, fertig',kurz:'Meldet der Server-Checker „Daten nicht aktuell“, steht jetzt direkt in der Nachricht ein großer Knopf „Jetzt aktualisieren“. Ein Tipp holt die fehlenden Daten, prüft nach und zeigt in Worten, ob alles wieder stimmt.',
    punkte:[
     {ic:'🔄',t:'Jetzt aktualisieren',d:'In der Nachricht selbst: der Abgleich startet sofort, die App lädt die neuen Daten ohne Neustart und sagt „Erledigt“ oder was noch offen ist.',r:'admin'},
